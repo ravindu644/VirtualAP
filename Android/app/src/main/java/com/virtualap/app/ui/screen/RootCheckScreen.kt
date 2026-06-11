@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.virtualap.app.util.RootStatus
+import kotlinx.coroutines.delay
 
 @Composable
 fun RootCheckScreen(
@@ -234,25 +235,7 @@ fun RootCheckScreen(
                 }
             }
 
-            // Description card
-            Surface(
-                modifier = Modifier.fillMaxWidth().alpha(cardAlpha),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "VirtualAP needs root access to create virtual network interfaces and manage the AP.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+
         }
     }
 }

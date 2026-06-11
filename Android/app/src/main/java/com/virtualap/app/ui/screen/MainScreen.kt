@@ -30,7 +30,8 @@ import com.virtualap.app.ui.viewmodel.APViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    vm: APViewModel = viewModel()
+    vm: APViewModel = viewModel(),
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val status = vm.status
     var passwordVisible by remember { mutableStateOf(false) }
@@ -54,6 +55,12 @@ fun MainScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
                     // Status pill chip
                     SuggestionChip(
                         onClick = { vm.refreshStatus() },

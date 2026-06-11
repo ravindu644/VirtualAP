@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -19,11 +18,10 @@ import com.virtualap.app.ui.navigation.Screens
 import com.virtualap.app.ui.screen.MainScreen
 import com.virtualap.app.ui.screen.RootCheckScreen
 import com.virtualap.app.ui.screen.SetupScreen
-import com.virtualap.app.ui.theme.ThemePalette
+import com.virtualap.app.ui.screen.SettingsScreen
 import com.virtualap.app.ui.theme.VirtualAPTheme
 import com.virtualap.app.ui.viewmodel.AppViewModel
 import com.virtualap.app.ui.viewmodel.InstallStatus
-import com.virtualap.app.util.PreferencesManager
 import com.virtualap.app.util.RootStatus
 
 class MainActivity : ComponentActivity() {
@@ -31,21 +29,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val prefs = remember { PreferencesManager.getInstance(applicationContext) }
+            // ViewModel lives outside the theme so its state can drive recomposition of VirtualAPTheme
+            val appVm: AppViewModel = viewModel()
             val systemDark = isSystemInDarkTheme()
-            val darkTheme = if (prefs.followSystemTheme) systemDark else prefs.darkTheme
+            val darkTheme = if (appVm.followSystemTheme) systemDark else appVm.darkThemeEnabled
 
             VirtualAPTheme(
                 darkTheme = darkTheme,
-                dynamicColor = prefs.useDynamicColor,
-                amoledMode = prefs.amoledMode,
-                themePalette = ThemePalette.fromName(prefs.themePalette)
+                dynamicColor = appVm.dynamicColor,
+                amoledMode = appVm.amoledMode,
+                themePalette = appVm.themePalette
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val appVm: AppViewModel = viewModel()
                     val navController = rememberNavController()
 
                     NavHost(navController = navController, startDestination = Screens.ROOT_CHECK) {
@@ -76,7 +74,15 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable(Screens.MAIN) {
-                            MainScreen()
+                            MainScreen(
+                                onNavigateToSettings = { navController.navigate(Screens.SETTINGS) }
+                            )
+                        }
+                        composable(Screens.SETTINGS) {
+                            SettingsScreen(
+                                appVm = appVm,
+                                onBack = { navController.popBackStack() }
+                            )
                         }
                     }
 
