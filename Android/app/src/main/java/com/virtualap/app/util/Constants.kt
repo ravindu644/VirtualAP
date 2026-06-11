@@ -6,7 +6,6 @@ object Constants {
     const val VAP_SH = "sh $VAP_DIR/vap.sh"
     const val CONF_FILE = "$VAP_DIR/ap.conf"
     const val LOG_FILE = "$VAP_DIR/logs/ap.log"
-    const val BOOT_FLAG = "$VAP_DIR/boot-ap"
     const val BUSYBOX = "$VAP_DIR/bin/busybox"
     const val PREFS_NAME = "virtualap_prefs"
     const val KEY_ROOT_AVAILABLE = "root_available"

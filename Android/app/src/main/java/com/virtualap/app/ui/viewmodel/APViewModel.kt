@@ -11,7 +11,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.snapshotFlow
 import com.virtualap.app.util.APManager
 import com.virtualap.app.util.APStatus
-import com.virtualap.app.util.DHCPLease
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
 import kotlinx.coroutines.Job
@@ -41,8 +40,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             upstream = prefs.apUpstream
         )
     )
-    var leases by mutableStateOf<List<DHCPLease>>(emptyList())
-        private set
     var interfaces by mutableStateOf<List<NetworkIface>>(emptyList())
         private set
     var isStarting by mutableStateOf(false)
@@ -54,7 +51,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     val actionLogs = mutableStateListOf<Pair<Int, String>>()
     var showActionLogs by mutableStateOf(false)
         private set
-    var bootEnabled by mutableStateOf(false)
 
     private var pollJob: Job? = null
 
@@ -69,7 +65,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         startPolling()
-        loadBootFlag()
         loadInterfaces()
     }
 
@@ -78,7 +73,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         pollJob = viewModelScope.launch {
             while (isActive) {
                 refreshStatus()
-                if (status.running) refreshLeases()
                 refreshLog()
                 delay(3000)
             }
@@ -89,12 +83,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val s = APManager.getStatus()
             status = s
-        }
-    }
-
-    private fun refreshLeases() {
-        viewModelScope.launch {
-            leases = APManager.getLeases()
         }
     }
 
@@ -142,19 +130,10 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             APManager.clearLog()
             logText = ""
+            actionLogs.clear()
         }
     }
 
+    fun openLogSheet() { showActionLogs = true }
     fun dismissActionLogs() { showActionLogs = false }
-
-    private fun loadBootFlag() {
-        viewModelScope.launch {
-            bootEnabled = APManager.getBootFlag()
-        }
-    }
-
-    fun setBootFlag(enabled: Boolean) {
-        bootEnabled = enabled
-        viewModelScope.launch { APManager.setBootFlag(enabled) }
-    }
 }

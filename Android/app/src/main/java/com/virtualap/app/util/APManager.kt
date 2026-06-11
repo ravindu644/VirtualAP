@@ -20,8 +20,8 @@ data class APStatus(
     val started: String? = null
 )
 
-data class DHCPLease(val mac: String, val ip: String, val hostname: String)
 data class NetworkIface(val name: String, val ip: String?)
+
 
 object APManager {
     suspend fun getStatus(): APStatus = withContext(Dispatchers.IO) {
@@ -83,15 +83,6 @@ object APManager {
         Shell.cmd("${Constants.START_AP} stop").to(outputList).exec().isSuccess
     }
 
-    suspend fun getLeases(): List<DHCPLease> = withContext(Dispatchers.IO) {
-        val result = Shell.cmd("${Constants.START_AP} leases 2>/dev/null").exec()
-        if (!result.isSuccess) return@withContext emptyList()
-        result.out.mapNotNull { line ->
-            val parts = line.trim().split(Regex("\\s+"))
-            if (parts.size < 4) null
-            else DHCPLease(mac = parts[1], ip = parts[2], hostname = if (parts[3] != "*") parts[3] else "unknown")
-        }
-    }
 
     suspend fun getInterfaces(): List<NetworkIface> = withContext(Dispatchers.IO) {
         val result = Shell.cmd("${Constants.START_AP} interfaces 2>/dev/null").exec()
@@ -112,13 +103,7 @@ object APManager {
         Shell.cmd(": > ${Constants.LOG_FILE}").exec()
     }
 
-    suspend fun getBootFlag(): Boolean = withContext(Dispatchers.IO) {
-        Shell.cmd("cat ${Constants.BOOT_FLAG} 2>/dev/null || echo 0").exec().out.firstOrNull()?.trim() == "1"
-    }
 
-    suspend fun setBootFlag(enabled: Boolean) = withContext(Dispatchers.IO) {
-        Shell.cmd("echo ${if (enabled) 1 else 0} > ${Constants.BOOT_FLAG}").exec()
-    }
 
     suspend fun isInstalled(): Boolean = withContext(Dispatchers.IO) {
         Shell.cmd("test -x ${Constants.VAP_DIR}/start-ap && echo ok").exec().out.any { it.contains("ok") }

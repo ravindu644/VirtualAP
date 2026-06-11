@@ -1,11 +1,14 @@
 package com.virtualap.app.ui.screen
 
-import android.util.Log
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,13 +19,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.virtualap.app.ui.component.SwitchItem
 import com.virtualap.app.ui.component.TerminalConsole
 import com.virtualap.app.ui.viewmodel.APConfig
 import com.virtualap.app.ui.viewmodel.APViewModel
@@ -35,7 +38,6 @@ fun MainScreen(
 ) {
     val status = vm.status
     var passwordVisible by remember { mutableStateOf(false) }
-    var leasesExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -97,144 +99,23 @@ fun MainScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            // --- 1. STATUS CARD (only when running) ---
-            if (status.running) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
+            // --- 1. ACTIVE NETWORK DASHBOARD (only when running) ---
+            item {
+                AnimatedVisibility(
+                    visible = status.running,
+                    enter = expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
                         )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Active Network",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(Modifier.height(12.dp))
-
-                            // Stat chips grid
-                            @Composable
-                            fun StatChip(label: String, value: String) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                    modifier = Modifier.padding(2.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                        Text(
-                                            label,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            value,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
-
-                            val band = when (status.band) {
-                                "2", "2.4" -> "2.4 GHz"
-                                "5" -> "5 GHz"
-                                else -> status.band ?: "—"
-                            }
-                            val channel = status.channel?.let { " ch$it" } ?: ""
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    StatChip("Gateway", status.gateway)
-                                    StatChip("Band", "$band$channel")
-                                    StatChip("Clients", "${status.clients}")
-                                }
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    StatChip("SSID", status.ssid ?: "—")
-                                    StatChip("Upstream", status.upstream ?: "auto")
-                                    if (status.started != null) {
-                                        StatChip("Since", status.started)
-                                    }
-                                }
-                            }
-
-                            // DHCP leases
-                            if (status.clients > 0) {
-                                Spacer(Modifier.height(8.dp))
-                                TextButton(
-                                    onClick = { leasesExpanded = !leasesExpanded },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        if (leasesExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        if (leasesExpanded) "Hide devices" else "Show ${status.clients} device(s)",
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                }
-                                AnimatedVisibility(
-                                    visible = leasesExpanded,
-                                    enter = expandVertically() + fadeIn(),
-                                    exit = shrinkVertically() + fadeOut()
-                                ) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        vm.leases.forEach { lease ->
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Column {
-                                                        Text(
-                                                            lease.hostname,
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            fontWeight = FontWeight.Medium
-                                                        )
-                                                        Text(
-                                                            lease.mac,
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
-                                                    Text(
-                                                        lease.ip,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    ) + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    ActiveNetworkCard(vm = vm)
                 }
             }
 
-            // --- 2. ACCESS POINT CARD ---
+            // --- 2. ACCESS POINT CONFIGURATION CARD ---
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -422,28 +303,60 @@ fun MainScreen(
                                     MaterialTheme.colorScheme.primary
                             )
                         ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    if (vm.isStarting) "Starting…" else "Stopping…",
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            } else {
+                            AnimatedContent(
+                                targetState = isLoading to status.running,
+                                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                                label = "startStopContent"
+                            ) { (loading, running) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (loading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            if (vm.isStarting) "Starting…" else "Stopping…",
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    } else {
+                                        Icon(
+                                            if (running) Icons.Default.WifiOff else Icons.Default.Wifi,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            if (running) "Stop Access Point" else "Start Access Point",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // View Logs button — always visible once there are logs
+                        if (vm.logText.isNotBlank() || vm.actionLogs.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { vm.openLogSheet() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Icon(
-                                    if (status.running) Icons.Default.WifiOff else Icons.Default.Wifi,
+                                    Icons.Default.Terminal,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    if (status.running) "Stop Access Point" else "Start Access Point",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold
+                                    "View Logs",
+                                    style = MaterialTheme.typography.labelLarge
                                 )
                             }
                         }
@@ -461,95 +374,174 @@ fun MainScreen(
                 }
             }
 
-            // --- 3. SETTINGS CARD ---
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            "Settings",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        SwitchItem(
-                            label = "Run at boot",
-                            subtitle = "Automatically start the AP when the device boots",
-                            checked = vm.bootEnabled,
-                            onCheckedChange = { vm.setBootFlag(it) }
-                        )
-                    }
-                }
-            }
-
-            // --- 4. LOGS CARD ---
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Logs",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Row {
-                                IconButton(onClick = { vm.clearLog() }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Clear logs",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                IconButton(onClick = { vm.refreshStatus() }) {
-                                    Icon(
-                                        Icons.Default.Refresh,
-                                        contentDescription = "Refresh",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        TerminalConsole(
-                            logs = if (vm.logText.isBlank()) listOf(Log.INFO to "No log output yet.")
-                                   else vm.logText.split("\n").map { Log.INFO to it },
-                            isProcessing = false,
-                            modifier = Modifier.fillMaxWidth(),
-                            maxHeight = 300.dp
-                        )
-                    }
-                }
-            }
-
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
 
-    // Action progress bottom sheet
+    // Unified log bottom sheet — auto-opens on start/stop, re-openable via "View Logs"
     if (vm.showActionLogs) {
         ActionLogsSheet(
-            logs = vm.actionLogs,
+            logs = if (vm.actionLogs.isNotEmpty()) vm.actionLogs
+                   else vm.logText.split("\n").map { android.util.Log.INFO to it },
             isProcessing = vm.isStarting || vm.isStopping,
-            onDismiss = { if (!vm.isStarting && !vm.isStopping) vm.dismissActionLogs() }
+            onDismiss = { if (!vm.isStarting && !vm.isStopping) vm.dismissActionLogs() },
+            onClear = { vm.clearLog() }
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// Active Network Dashboard Card
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun ActiveNetworkCard(vm: APViewModel) {
+    val status = vm.status
+
+    val band = when (status.band) {
+        "2", "2.4" -> "2.4 GHz"
+        "5" -> "5 GHz"
+        else -> status.band ?: "—"
+    }
+    val channel = status.channel?.let { " · ch$it" } ?: ""
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Wifi,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Active Network",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                if (status.started != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "Since ${status.started}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // SSID prominently
+            status.ssid?.let { ssid ->
+                Text(
+                    text = ssid,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+            Spacer(Modifier.height(12.dp))
+
+            // Stat grid: 2 columns
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardStatRow(
+                        icon = Icons.Default.Router,
+                        label = "Gateway",
+                        value = status.gateway
+                    )
+                    DashboardStatRow(
+                        icon = Icons.Default.SignalCellularAlt,
+                        label = "Band",
+                        value = "$band$channel"
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardStatRow(
+                        icon = Icons.Default.SwapVert,
+                        label = "Upstream",
+                        value = status.upstream ?: "auto"
+                    )
+                    DashboardStatRow(
+                        icon = Icons.Default.SettingsEthernet,
+                        label = "Interface",
+                        value = status.upstreamIface ?: "—"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardStatRow(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+            modifier = Modifier.size(14.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Unified Log Bottom Sheet
+// ---------------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionLogsSheet(
     logs: List<Pair<Int, String>>,
     isProcessing: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onClear: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -568,23 +560,42 @@ private fun ActionLogsSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    if (isProcessing) "Running…" else "Done",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (!isProcessing) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Dismiss")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                        if (isProcessing) "Running…" else "Logs",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Row {
+                    IconButton(onClick = onClear) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Clear logs",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    if (!isProcessing) {
+                        TextButton(onClick = onDismiss) {
+                            Text("Dismiss")
+                        }
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
             TerminalConsole(
-                logs = logs,
+                logs = if (logs.isEmpty()) listOf(android.util.Log.INFO to "No log output yet.")
+                       else logs,
                 isProcessing = isProcessing,
                 modifier = Modifier.fillMaxWidth(),
-                maxHeight = 400.dp
+                maxHeight = 480.dp
             )
         }
     }
