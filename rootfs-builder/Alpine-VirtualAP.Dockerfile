@@ -19,10 +19,6 @@ RUN apk update && apk upgrade && \
     busybox-static && \
     rm -rf /var/cache/apk/*
 
-# Runtime skeleton (vap.sh mounts tmpfs over /tmp and /run at start)
-RUN mkdir -p /run /tmp /var/lib/misc && \
-    echo "nameserver 1.1.1.1" > /etc/resolv.conf
-
 # Stage 2: flatten to a clean export
 FROM scratch AS export
 COPY --from=customizer / /
