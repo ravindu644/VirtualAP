@@ -559,7 +559,17 @@ private fun ActionLogsSheet(
     onDismiss: () -> Unit,
     onClear: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // The sheet must be truly undismissable while a command runs: rejecting
+    // Hidden here blocks swipe-down, scrim taps and back presses at the
+    // state-machine level. Guarding only onDismissRequest is not enough -
+    // gesture dismissal animates the sheet away BEFORE that callback fires,
+    // so the sheet ended up hidden while showActionLogs stayed true, leaving
+    // an invisible scrim that ate every touch once the command finished.
+    val processing by rememberUpdatedState(isProcessing)
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || !processing }
+    )
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     val buttonShape = RoundedCornerShape(14.dp)
@@ -574,7 +584,8 @@ private fun ActionLogsSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,   // back-gesture / scrim tap still works normally
+        // Only reachable when confirmValueChange allowed Hidden (not processing)
+        onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
         Column(
