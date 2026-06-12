@@ -55,6 +55,7 @@ PASSWORD=""
 BAND="2"
 CHANNEL=""
 DNS_SERVERS=""
+HIDDEN="0"
 
 SCRIPT_NAME="$(basename "$0")"
 # vap.sh lives next to this script (both run from the app's files dir,
@@ -133,6 +134,7 @@ BAND='$(sq "$BAND")'
 CHANNEL='$(sq "$CHANNEL")'
 IP_GW='$(sq "$IP_GW")'
 DNS_SERVERS='$(sq "$DNS_SERVERS")'
+HIDDEN='$(sq "$HIDDEN")'
 EOF
 }
 
@@ -428,6 +430,7 @@ wpa=2
 wpa_passphrase=$PASSWORD
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
+ignore_broadcast_ssid=$HIDDEN
 EOF
 
     local dns_config=""
@@ -624,6 +627,7 @@ print_usage() {
     echo "  -g <gateway>   Custom gateway IP (default: 192.168.42.1)"
     echo "  -d <dns>       Comma-separated list of upstream DNS servers"
     echo "  -w <iface>     Physical WiFi interface (default: wlan0)"
+    echo "  -H <0|1>       Hide SSID (0 = visible [default], 1 = hidden)"
     echo ""
     echo "Saved settings in $CONF_FILE are reused when flags are omitted."
 }
@@ -634,7 +638,7 @@ COMMAND="$1"
 # Saved config provides defaults; CLI flags override
 load_conf
 
-while getopts "s:p:o:b:c:w:g:d:h" opt 2>/dev/null; do
+while getopts "s:p:o:b:c:w:g:d:H:h" opt 2>/dev/null; do
     case $opt in
         s) SSID="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
@@ -644,6 +648,7 @@ while getopts "s:p:o:b:c:w:g:d:h" opt 2>/dev/null; do
         w) PHY_IFACE="$OPTARG" ;;
         g) IP_GW="$OPTARG" ;;
         d) DNS_SERVERS="$OPTARG" ;;
+        H) HIDDEN="$OPTARG" ;;
         h) print_usage; exit 0 ;;
         *) print_usage; exit 1 ;;
     esac

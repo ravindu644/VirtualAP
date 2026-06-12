@@ -117,7 +117,6 @@ fun SettingsScreen(
                         exit = fadeOut() + shrinkVertically()
                     ) {
                         Column {
-                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                             SwitchItem(
                                 label = stringResource(R.string.dark_mode_label),
                                 subtitle = stringResource(R.string.dark_mode_desc),
@@ -131,7 +130,6 @@ fun SettingsScreen(
                                 exit = fadeOut() + shrinkVertically()
                             ) {
                                 Column {
-                                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                                     SwitchItem(
                                         label = stringResource(R.string.amoled_mode_label),
                                         subtitle = stringResource(R.string.amoled_mode_desc),
@@ -142,7 +140,6 @@ fun SettingsScreen(
                                 }
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                                 SwitchItem(
                                     label = stringResource(R.string.dynamic_color_label),
                                     subtitle = stringResource(R.string.dynamic_color_desc),
@@ -174,6 +171,7 @@ fun SettingsScreen(
                 }
             }
 
+
             item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
 
             // Hotspot Settings Section
@@ -181,6 +179,7 @@ fun SettingsScreen(
             item {
                 HotspotSettingsCard(apVm = apVm)
             }
+
 
             item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
 
@@ -298,6 +297,13 @@ private fun HotspotSettingsCard(apVm: APViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        SwitchItem(
+            label = stringResource(R.string.hidden_ssid_label),
+            subtitle = stringResource(R.string.hidden_ssid_desc),
+            icon = Icons.Default.VisibilityOff,
+            checked = apVm.config.hidden,
+            onCheckedChange = { apVm.config = apVm.config.copy(hidden = it) }
+        )
     }
 }
 
@@ -431,7 +437,6 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    HorizontalDivider()
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.maintainer_header),
@@ -476,7 +481,6 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    HorizontalDivider()
                     Spacer(modifier = Modifier.height(4.dp))
                     // Source Code row
                     Row(

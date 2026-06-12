@@ -57,12 +57,14 @@ object APManager {
     suspend fun start(
         ssid: String, password: String, upstream: String,
         band: String, channel: String?, gateway: String, dnsServers: String?,
+        hidden: Boolean = false,
         onLine: (Int, String) -> Unit
     ): Boolean = withContext(Dispatchers.IO) {
         val sq = { s: String -> "'" + s.replace("'", "'\\''") + "'" }
         val channelVal = channel ?: ""
         val dnsVal = dnsServers ?: ""
-        val cmd = "${Backend.startAp} start -s ${sq(ssid)} -p ${sq(password)} -o ${sq(upstream)} -b ${sq(band)} -c ${sq(channelVal)} -g ${sq(gateway)} -d ${sq(dnsVal)}"
+        val hiddenVal = if (hidden) "1" else "0"
+        val cmd = "${Backend.startAp} start -s ${sq(ssid)} -p ${sq(password)} -o ${sq(upstream)} -b ${sq(band)} -c ${sq(channelVal)} -g ${sq(gateway)} -d ${sq(dnsVal)} -H $hiddenVal"
 
         val outputList = object : com.topjohnwu.superuser.CallbackList<String>() {
             override fun onAddElement(e: String?) {

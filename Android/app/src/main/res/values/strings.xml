@@ -88,6 +88,8 @@
 
     <!-- Hotspot Settings -->
     <string name="hotspot_settings_header">Hotspot Settings</string>
+    <string name="hidden_ssid_label">Hide SSID</string>
+    <string name="hidden_ssid_desc">Don\'t broadcast the network name — clients connect manually</string>
     <string name="gateway_ip_label">Gateway IP</string>
     <string name="gateway_ip_desc">Custom gateway IP address for the AP subnet</string>
     <string name="gateway_ip_placeholder">e.g. 192.168.42.1</string>

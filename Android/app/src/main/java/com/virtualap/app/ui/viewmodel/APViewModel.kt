@@ -25,7 +25,8 @@ data class APConfig(
     val channel: String = "",
     val upstream: String = "auto",
     val gateway: String = "192.168.42.1",
-    val dnsServers: String = ""
+    val dnsServers: String = "",
+    val hidden: Boolean = false
 )
 
 class APViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,7 +42,8 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             channel = validChannelForBand(prefs.apBand, prefs.apChannel),
             upstream = prefs.apUpstream,
             gateway = prefs.apGateway,
-            dnsServers = prefs.apDnsServers
+            dnsServers = prefs.apDnsServers,
+            hidden = prefs.apHidden
         )
     )
     var interfaces by mutableStateOf<List<NetworkIface>>(emptyList())
@@ -68,6 +70,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
                 prefs.apUpstream = cfg.upstream
                 prefs.apGateway = cfg.gateway
                 prefs.apDnsServers = cfg.dnsServers
+                prefs.apHidden = cfg.hidden
             }
         }
         startPolling()
@@ -122,7 +125,8 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             APManager.start(
                 cfg.ssid, cfg.password, cfg.upstream, cfg.band,
                 cfg.channel.takeIf { it.isNotBlank() },
-                cfg.gateway, cfg.dnsServers.takeIf { it.isNotBlank() }
+                cfg.gateway, cfg.dnsServers.takeIf { it.isNotBlank() },
+                cfg.hidden
             ) { level, msg ->
                 actionLogs.add(level to msg)
             }
