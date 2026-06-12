@@ -212,25 +212,19 @@ start_env() {
 kill_chroot_processes() {
     log "Killing chroot processes..."
 
-    # Primary: every process whose root is inside the chroot (hostapd,
-    # dnsmasq). Host-side readlink of /proc/<pid>/root - no lsof output
-    # format dependency.
-    local pid root
-    for pid in /proc/[0-9]*; do
-        pid="${pid#/proc/}"
-        root=$(readlink "/proc/$pid/root" 2>/dev/null)
-        case "$root" in
-            "$CHROOT_PATH"|"$CHROOT_PATH"/*) kill -9 "$pid" 2>/dev/null ;;
-        esac
-    done
-
-    # Secondary: processes holding files open inside the chroot without
-    # being chrooted themselves.
+    # Every process whose root is inside the chroot (hostapd, dnsmasq),
+    # found in a single ls pass over /proc/*/root. Deliberately NOT lsof:
+    # a full lsof scan walks every fd of every process and takes 10-30s on
+    # Android - it stalled the app's start/stop for half a minute. A
+    # per-PID readlink loop is no good either (~700 forks).
     local pids
-    pids=$(lsof 2>/dev/null | grep "$CHROOT_PATH" | awk '{print $2}' | sort -u)
-    [ -n "$pids" ] && kill -9 $pids 2>/dev/null
-
-    log "Killed chroot processes."
+    pids=$(ls -l /proc/[0-9]*/root 2>/dev/null \
+        | grep -F " -> $CHROOT_PATH" \
+        | sed -n 's|.*/proc/\([0-9]*\)/root.*|\1|p')
+    if [ -n "$pids" ]; then
+        kill -9 $pids 2>/dev/null
+        log "Killed chroot processes."
+    fi
 }
 
 umount_env() {
