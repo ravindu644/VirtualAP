@@ -18,4 +18,59 @@
     <string name="back">Back</string>
     <string name="start_ap">Start Access Point</string>
     <string name="stop_ap">Stop Access Point</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="appearance_header">Appearance</string>
+    <string name="follow_system_theme_label">Follow system theme</string>
+    <string name="follow_system_theme_desc">Automatically match the system light/dark mode</string>
+    <string name="dark_mode_label">Dark mode</string>
+    <string name="dark_mode_desc">Force dark theme regardless of system setting</string>
+    <string name="amoled_mode_label">AMOLED mode</string>
+    <string name="amoled_mode_desc">Pure black backgrounds to save battery on OLED screens</string>
+    <string name="dynamic_color_label">Dynamic color</string>
+    <string name="dynamic_color_desc">Derive colors from your wallpaper (Material You)</string>
+    <string name="color_palette_header">Color palette</string>
+
+    <!-- Main Screen -->
+    <string name="app_subtitle">Your phone, an actual router</string>
+    <string name="status_running">Running</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="access_point_title">Access Point</string>
+    <string name="ssid_label">Network Name (SSID)</string>
+    <string name="password_label">Password (min 8 chars)</string>
+    <string name="hide_password_desc">Hide password</string>
+    <string name="show_password_desc">Show password</string>
+    <string name="band_label">Band</string>
+    <string name="channel_label">Channel</string>
+    <string name="upstream_interface_label">Upstream Interface</string>
+    <string name="upstream_auto">Auto (recommended)</string>
+    <string name="refresh_interfaces_desc">Refresh interfaces</string>
+    <string name="starting">Starting…</string>
+    <string name="stopping">Stopping…</string>
+    <string name="view_logs">View Logs</string>
+    <string name="enter_ssid_prompt">Enter a network name to get started</string>
+    <string name="active_network_title">Active Network</string>
+    <string name="since_time">Since %s</string>
+    <string name="gateway_label">Gateway</string>
+    <string name="upstream_label">Upstream</string>
+    <string name="interface_label">Interface</string>
+    <string name="running_log_title">Running…</string>
+    <string name="logs_title">Logs</string>
+    <string name="no_logs_msg">No log output yet.</string>
+
+    <!-- Setup Screen -->
+    <string name="installation_complete">Installation Complete</string>
+    <string name="installation_failed">Installation Failed</string>
+    <string name="install_logs_label">VirtualAP install logs</string>
+
+    <!-- Root Check Screen -->
+    <string name="continue_btn">Continue</string>
+    <string name="checking_root">Checking root access…</string>
+    <string name="root_granted_desc">VirtualAP can now manage network interfaces.</string>
+
+    <!-- MainActivity / Root Revoked Dialog -->
+    <string name="root_revoked_title">Root access revoked</string>
+    <string name="root_revoked_desc">VirtualAP can no longer access root. Open your root manager and re-grant access, then retry.</string>
+    <string name="auto_label">Auto</string>
 </resources>

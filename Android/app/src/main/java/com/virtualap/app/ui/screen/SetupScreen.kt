@@ -15,8 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.virtualap.app.R
 import com.virtualap.app.ui.component.TerminalConsole
 import com.virtualap.app.util.VirtualAPInstaller
 
@@ -54,15 +56,18 @@ fun SetupScreen(
         setupState = if (result.isSuccess) SetupState.SUCCESS else SetupState.ERROR
     }
 
+    val installLogsLabel = stringResource(R.string.install_logs_label)
+    val logsCopiedMsg = stringResource(R.string.logs_copied)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = when (setupState) {
-                            SetupState.INSTALLING -> "Setting Up VirtualAP"
-                            SetupState.SUCCESS -> "Installation Complete"
-                            SetupState.ERROR -> "Installation Failed"
+                            SetupState.INSTALLING -> stringResource(R.string.setup_title)
+                            SetupState.SUCCESS -> stringResource(R.string.installation_complete)
+                            SetupState.ERROR -> stringResource(R.string.installation_failed)
                         },
                         fontWeight = FontWeight.SemiBold
                     )
@@ -70,7 +75,7 @@ fun SetupScreen(
                 navigationIcon = {
                     if (setupState == SetupState.SUCCESS) {
                         IconButton(onClick = onInstalled) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     }
                 }
@@ -113,7 +118,7 @@ fun SetupScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Done", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.done), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                     SetupState.ERROR -> {
@@ -130,21 +135,21 @@ fun SetupScreen(
                                 },
                                 modifier = Modifier.weight(1f).height(56.dp)
                             ) {
-                                Text("Retry", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.retry), style = MaterialTheme.typography.labelLarge)
                             }
                             Button(
                                 onClick = {
                                     val logText = logs.joinToString("\n") { it.second }
                                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    val clip = android.content.ClipData.newPlainText("VirtualAP install logs", logText)
+                                    val clip = android.content.ClipData.newPlainText(installLogsLabel, logText)
                                     clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Logs copied to clipboard", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, logsCopiedMsg, Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f).height(56.dp)
                             ) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Copy Logs", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.copy_logs), style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -156,3 +161,4 @@ fun SetupScreen(
         }
     }
 }
+

@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -131,13 +132,13 @@ class MainActivity : ComponentActivity() {
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             },
-                            title = { Text("Root access revoked") },
+                            title = { Text(stringResource(R.string.root_revoked_title)) },
                             text = {
-                                Text("VirtualAP can no longer access root. Open your root manager and re-grant access, then retry.")
+                                Text(stringResource(R.string.root_revoked_desc))
                             },
                             confirmButton = {
                                 Button(onClick = { appVm.retryRootAfterRevoke() }) {
-                                    Text("Retry")
+                                    Text(stringResource(R.string.retry))
                                 }
                             },
                             dismissButton = {}

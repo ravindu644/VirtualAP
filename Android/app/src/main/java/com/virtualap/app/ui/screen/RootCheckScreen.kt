@@ -19,10 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.virtualap.app.R
 import com.virtualap.app.util.RootStatus
 import kotlinx.coroutines.delay
 
@@ -112,9 +114,9 @@ fun RootCheckScreen(
                                     }
                                     Text(
                                         text = when (rootStatus) {
-                                            RootStatus.Granted -> "Continue"
-                                            RootStatus.Checking -> "Checking…"
-                                            RootStatus.Denied -> "Grant Root Access"
+                                            RootStatus.Granted -> stringResource(R.string.continue_btn)
+                                            RootStatus.Checking -> stringResource(R.string.checking)
+                                            RootStatus.Denied -> stringResource(R.string.grant_root)
                                         },
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.SemiBold,
@@ -140,7 +142,7 @@ fun RootCheckScreen(
         ) {
             // Title
             Text(
-                text = "Root Access Required",
+                text = stringResource(R.string.root_check_title),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -172,7 +174,7 @@ fun RootCheckScreen(
                                 strokeWidth = 4.dp
                             )
                             Text(
-                                text = "Checking root access…",
+                                text = stringResource(R.string.checking_root),
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center
                             )
@@ -191,14 +193,14 @@ fun RootCheckScreen(
                                 )
                             }
                             Text(
-                                text = "Root access granted",
+                                text = stringResource(R.string.root_granted),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "VirtualAP can now manage network interfaces.",
+                                text = stringResource(R.string.root_granted_desc),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -218,14 +220,14 @@ fun RootCheckScreen(
                                 )
                             }
                             Text(
-                                text = "Root access denied",
+                                text = stringResource(R.string.root_denied),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "VirtualAP requires root access to create virtual network interfaces and manage the AP.",
+                                text = stringResource(R.string.root_check_body),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -239,3 +241,4 @@ fun RootCheckScreen(
         }
     }
 }
+

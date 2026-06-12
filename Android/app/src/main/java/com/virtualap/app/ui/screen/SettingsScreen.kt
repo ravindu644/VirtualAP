@@ -20,8 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.virtualap.app.R
 import com.virtualap.app.ui.component.SwitchItem
 import com.virtualap.app.ui.theme.ThemePalette
 import com.virtualap.app.ui.viewmodel.AppViewModel
@@ -35,10 +37,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             )
@@ -52,13 +54,13 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            item { SettingsSectionHeader("Appearance") }
+            item { SettingsSectionHeader(stringResource(R.string.appearance_header)) }
 
             item {
                 SettingsCard {
                     SwitchItem(
-                        label = "Follow system theme",
-                        subtitle = "Automatically match the system light/dark mode",
+                        label = stringResource(R.string.follow_system_theme_label),
+                        subtitle = stringResource(R.string.follow_system_theme_desc),
                         icon = Icons.Default.Brightness4,
                         checked = appVm.followSystemTheme,
                         onCheckedChange = { appVm.setFollowSystemTheme(it) }
@@ -71,25 +73,33 @@ fun SettingsScreen(
                         Column {
                             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                             SwitchItem(
-                                label = "Dark mode",
-                                subtitle = "Force dark theme regardless of system setting",
+                                label = stringResource(R.string.dark_mode_label),
+                                subtitle = stringResource(R.string.dark_mode_desc),
                                 icon = Icons.Default.DarkMode,
                                 checked = appVm.darkThemeEnabled,
                                 onCheckedChange = { appVm.setDarkTheme(it) }
                             )
-                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                            SwitchItem(
-                                label = "AMOLED mode",
-                                subtitle = "Pure black backgrounds to save battery on OLED screens",
-                                icon = Icons.Default.PhoneAndroid,
-                                checked = appVm.amoledMode,
-                                onCheckedChange = { appVm.setAmoledMode(it) }
-                            )
+                            AnimatedVisibility(
+                                visible = appVm.darkThemeEnabled,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Column {
+                                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                                    SwitchItem(
+                                        label = stringResource(R.string.amoled_mode_label),
+                                        subtitle = stringResource(R.string.amoled_mode_desc),
+                                        icon = Icons.Default.PhoneAndroid,
+                                        checked = appVm.amoledMode,
+                                        onCheckedChange = { appVm.setAmoledMode(it) }
+                                    )
+                                }
+                            }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                                 SwitchItem(
-                                    label = "Dynamic color",
-                                    subtitle = "Derive colors from your wallpaper (Material You)",
+                                    label = stringResource(R.string.dynamic_color_label),
+                                    subtitle = stringResource(R.string.dynamic_color_desc),
                                     icon = Icons.Default.Palette,
                                     checked = appVm.dynamicColor,
                                     onCheckedChange = { appVm.setDynamicColor(it) }
@@ -109,7 +119,7 @@ fun SettingsScreen(
                     exit = fadeOut() + shrinkVertically()
                 ) {
                     Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
-                        SettingsSectionHeader("Color palette")
+                        SettingsSectionHeader(stringResource(R.string.color_palette_header))
                         PalettePicker(
                             selected = appVm.themePalette,
                             onSelect = { appVm.setThemePalette(it) }
@@ -120,6 +130,7 @@ fun SettingsScreen(
         }
     }
 }
+
 
 @Composable
 private fun SettingsSectionHeader(text: String) {

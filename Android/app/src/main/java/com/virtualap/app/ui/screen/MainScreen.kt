@@ -33,6 +33,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.res.stringResource
 import com.virtualap.app.R
 import com.virtualap.app.ui.component.TerminalConsole
 import com.virtualap.app.ui.viewmodel.APConfig
@@ -63,12 +64,12 @@ fun MainScreen(
                 title = {
                     Column {
                         Text(
-                            text = "VirtualAP",
+                            text = stringResource(R.string.app_name),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Your phone, an actual router",
+                            text = stringResource(R.string.app_subtitle),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -78,7 +79,7 @@ fun MainScreen(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
+                            contentDescription = stringResource(R.string.settings_title)
                         )
                     }
                     // Status pill chip
@@ -86,7 +87,7 @@ fun MainScreen(
                         onClick = { vm.refreshStatus() },
                         label = {
                             Text(
-                                text = if (status.running) "Running" else "Stopped",
+                                text = if (status.running) stringResource(R.string.status_running) else stringResource(R.string.status_stopped),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         },
@@ -141,7 +142,7 @@ fun MainScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Access Point",
+                            stringResource(R.string.access_point_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -151,7 +152,7 @@ fun MainScreen(
                         OutlinedTextField(
                             value = vm.config.ssid,
                             onValueChange = { vm.config = vm.config.copy(ssid = it) },
-                            label = { Text("Network Name (SSID)") },
+                            label = { Text(stringResource(R.string.ssid_label)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             enabled = !status.running
@@ -162,7 +163,7 @@ fun MainScreen(
                         OutlinedTextField(
                             value = vm.config.password,
                             onValueChange = { vm.config = vm.config.copy(password = it) },
-                            label = { Text("Password (min 8 chars)") },
+                            label = { Text(stringResource(R.string.password_label)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -171,7 +172,7 @@ fun MainScreen(
                                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                     Icon(
                                         if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                        contentDescription = if (passwordVisible) stringResource(R.string.hide_password_desc) else stringResource(R.string.show_password_desc)
                                     )
                                 }
                             },
@@ -192,7 +193,7 @@ fun MainScreen(
                                 value = selectedBandLabel,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Band") },
+                                label = { Text(stringResource(R.string.band_label)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bandExpanded) },
                                 modifier = Modifier.fillMaxWidth().menuAnchor(),
                                 enabled = !status.running
@@ -216,14 +217,15 @@ fun MainScreen(
 
                         // Channel dropdown
                         var channelExpanded by remember { mutableStateOf(false) }
+                        val autoLabel = stringResource(R.string.auto_label)
                         val channelOptions = if (vm.config.band == "5") {
-                            listOf("Auto" to "", "36" to "36", "40" to "40", "44" to "44",
+                            listOf(autoLabel to "", "36" to "36", "40" to "40", "44" to "44",
                                 "48" to "48", "149" to "149", "153" to "153",
                                 "157" to "157", "161" to "161", "165" to "165")
                         } else {
-                            listOf("Auto" to "") + (1..11).map { "$it" to "$it" }
+                            listOf(autoLabel to "") + (1..11).map { "$it" to "$it" }
                         }
-                        val selectedChannelLabel = channelOptions.find { it.second == vm.config.channel }?.first ?: "Auto"
+                        val selectedChannelLabel = channelOptions.find { it.second == vm.config.channel }?.first ?: autoLabel
 
                         ExposedDropdownMenuBox(
                             expanded = channelExpanded,
@@ -233,7 +235,7 @@ fun MainScreen(
                                 value = selectedChannelLabel,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Channel") },
+                                label = { Text(stringResource(R.string.channel_label)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = channelExpanded) },
                                 modifier = Modifier.fillMaxWidth().menuAnchor(),
                                 enabled = !status.running
@@ -257,13 +259,14 @@ fun MainScreen(
 
                         // Upstream dropdown with refresh button
                         var upstreamExpanded by remember { mutableStateOf(false) }
-                        val upstreamOptions = listOf("Auto (recommended)" to "auto") +
+                        val upstreamAutoLabel = stringResource(R.string.upstream_auto)
+                        val upstreamOptions = listOf(upstreamAutoLabel to "auto") +
                             vm.interfaces.filter { it.name != "ap0" }.map {
                                 val label = if (it.ip != null) "${it.name} (${it.ip})" else it.name
                                 label to it.name
                             }
                         val selectedUpstreamLabel = upstreamOptions.find { it.second == vm.config.upstream }?.first
-                            ?: "Auto (recommended)"
+                            ?: upstreamAutoLabel
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -278,7 +281,7 @@ fun MainScreen(
                                     value = selectedUpstreamLabel,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Upstream Interface") },
+                                    label = { Text(stringResource(R.string.upstream_interface_label)) },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = upstreamExpanded) },
                                     modifier = Modifier.fillMaxWidth().menuAnchor(),
                                     enabled = !status.running
@@ -302,7 +305,7 @@ fun MainScreen(
                                 onClick = { vm.loadInterfaces() },
                                 enabled = !status.running
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Refresh interfaces")
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_interfaces_desc))
                             }
                         }
 
@@ -339,7 +342,7 @@ fun MainScreen(
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            if (vm.isStarting) "Starting…" else "Stopping…",
+                                            if (vm.isStarting) stringResource(R.string.starting) else stringResource(R.string.stopping),
                                             style = MaterialTheme.typography.labelLarge
                                         )
                                     } else {
@@ -350,7 +353,7 @@ fun MainScreen(
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            if (running) "Stop Access Point" else "Start Access Point",
+                                            if (running) stringResource(R.string.stop_ap) else stringResource(R.string.start_ap),
                                             style = MaterialTheme.typography.labelLarge,
                                             fontWeight = FontWeight.SemiBold
                                         )
@@ -372,7 +375,7 @@ fun MainScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "View Logs",
+                                stringResource(R.string.view_logs),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
@@ -380,7 +383,7 @@ fun MainScreen(
                         if (vm.config.ssid.isBlank() && !status.running) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "Enter a network name to get started",
+                                stringResource(R.string.enter_ssid_prompt),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.fillMaxWidth()
@@ -444,7 +447,7 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Active Network",
+                        text = stringResource(R.string.active_network_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -456,7 +459,7 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = "Since ${status.started}",
+                            text = stringResource(R.string.since_time, status.started),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -492,12 +495,12 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                 ) {
                     DashboardStatRow(
                         icon = Icons.Default.Router,
-                        label = "Gateway",
+                        label = stringResource(R.string.gateway_label),
                         value = status.gateway
                     )
                     DashboardStatRow(
                         icon = Icons.Default.SignalCellularAlt,
-                        label = "Band",
+                        label = stringResource(R.string.band_label),
                         value = "$band$channel"
                     )
                 }
@@ -507,12 +510,12 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                 ) {
                     DashboardStatRow(
                         icon = Icons.Default.SwapVert,
-                        label = "Upstream",
-                        value = status.upstream ?: "auto"
+                        label = stringResource(R.string.upstream_label),
+                        value = status.upstream ?: stringResource(R.string.auto_label)
                     )
                     DashboardStatRow(
                         icon = Icons.Default.SettingsEthernet,
-                        label = "Interface",
+                        label = stringResource(R.string.interface_label),
                         value = status.upstreamIface ?: "—"
                     )
                 }
@@ -611,7 +614,7 @@ private fun ActionLogsSheet(
                         Spacer(Modifier.width(8.dp))
                     }
                     Text(
-                        text = if (isProcessing) "Running…" else "Logs",
+                        text = if (isProcessing) stringResource(R.string.running_log_title) else stringResource(R.string.logs_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -631,7 +634,7 @@ private fun ActionLogsSheet(
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.close),
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (canClose) 1f else 0.38f)
                         )
@@ -670,13 +673,13 @@ private fun ActionLogsSheet(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Clear logs",
+                            contentDescription = stringResource(R.string.clear_logs),
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (canClear) 0.8f else 0.38f)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Clear logs",
+                            text = stringResource(R.string.clear_logs),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (canClear) 0.8f else 0.38f)
@@ -686,6 +689,7 @@ private fun ActionLogsSheet(
 
                 // Copy Logs button
                 val canCopy = logs.isNotEmpty() && !isProcessing
+                val terminalLogsLabel = stringResource(R.string.terminal_logs)
                 Surface(
                     modifier = Modifier
                         .height(38.dp)
@@ -696,7 +700,7 @@ private fun ActionLogsSheet(
                             onClick = {
                                 val text = logs.joinToString("\n") { AnsiColorParser.stripAnsi(it.second) }
                                 val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
-                                val clip = android.content.ClipData.newPlainText("Terminal Logs", text)
+                                val clip = android.content.ClipData.newPlainText(terminalLogsLabel, text)
                                 clipboard.setPrimaryClip(clip)
                                 android.widget.Toast.makeText(context, R.string.logs_copied, android.widget.Toast.LENGTH_SHORT).show()
                             }
@@ -718,14 +722,14 @@ private fun ActionLogsSheet(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy logs",
+                            contentDescription = stringResource(R.string.copy_logs),
                             modifier = Modifier.size(16.dp),
                             tint = if (canCopy) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Copy Logs",
+                            text = stringResource(R.string.copy_logs),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = if (canCopy) MaterialTheme.colorScheme.primary
@@ -737,7 +741,7 @@ private fun ActionLogsSheet(
 
             // Terminal console — fills remaining space
             TerminalConsole(
-                logs = if (logs.isEmpty()) listOf(android.util.Log.INFO to "No log output yet.")
+                logs = if (logs.isEmpty()) listOf(android.util.Log.INFO to stringResource(R.string.no_logs_msg))
                        else logs,
                 isProcessing = isProcessing,
                 modifier = Modifier.fillMaxWidth(),
