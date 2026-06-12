@@ -25,6 +25,8 @@ VirtualAP is a software utility designed to configure a virtual access point on 
 
 * **Configurable Gateway IP**: Unlike the default Android hotspot, the gateway address remains static. This ensures that port forwards, bookmarks, and SSH configurations remain valid.
 * **Selectable Upstream Interface**: Direct traffic through Mobile Data, Wi-Fi, Ethernet, or virtual interfaces like WireGuard tun0 to tunnel all connected clients automatically.
+* **Wi-Fi Repeater Mode**: Connect your phone to any Wi-Fi network and share it as a hotspot simultaneously. The phone acts as a wireless repeater, allowing other devices to access the network without additional hardware.
+* **VPN Hotspot**: Set a VPN tunnel interface (such as WireGuard tun0) as the upstream. All devices connected to the hotspot are automatically routed through the VPN, turning your phone into a portable VPN access point.
 * **Automatic Upstream Detection**: Reads the default network routing rules from the Android netd system to identify the active internet connection.
 * **DHCP and DNS Services**: Powered by dnsmasq inside the chroot environment to serve local clients.
 * **Same-Channel Concurrency**: The access point dynamically follows the Wi-Fi station channel. This addresses stability issues with 5GHz connectivity.
@@ -90,4 +92,4 @@ Without mirroring the route to table 97, Android's policy routing for the contai
 
 ## License
 
-This project is licensed under the MIT License. Copyright (c) 2026 ravindu644.
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
