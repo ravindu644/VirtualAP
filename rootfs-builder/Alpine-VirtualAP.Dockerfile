@@ -16,7 +16,13 @@ RUN apk update && apk upgrade && \
     hostapd \
     dnsmasq \
     iw \
-    busybox-static && \
+    busybox-static \
+    shadow && \
+    grep -q '^aid_inet:' /etc/group    || echo 'aid_inet:x:3003:'    >> /etc/group && \
+    grep -q '^aid_net_raw:' /etc/group || echo 'aid_net_raw:x:3004:' >> /etc/group && \
+    grep -q '^aid_net_admin:' /etc/group || echo 'aid_net_admin:x:3005:' >> /etc/group && \
+    usermod -a -G aid_inet,aid_net_raw root || true && \
+    apk del shadow && \
     rm -rf /var/cache/apk/*
 
 # Stage 2: flatten to a clean export
