@@ -97,7 +97,7 @@ object APManager {
 
     /**
      * Running Droidspaces containers (names). Empty when Droidspaces isn't
-     * installed or nothing is running — the UI uses this to decide whether to
+     * installed or nothing is running - the UI uses this to decide whether to
      * show the container-integration option at all.
      */
     suspend fun getContainers(): List<String> = withContext(Dispatchers.IO) {
@@ -117,7 +117,7 @@ object APManager {
     }
 
     suspend fun readLog(lines: Int = 150): String = withContext(Dispatchers.IO) {
-        val result = Shell.cmd("tail -n $lines ${Constants.LOG_FILE} 2>/dev/null").exec()
+        val result = Shell.cmd("${Constants.BUSYBOX} tail -n $lines ${Constants.LOG_FILE} 2>/dev/null").exec()
         result.out.joinToString("\n")
     }
 

@@ -3,20 +3,10 @@
 # VirtualAP engine
 # Copyright (c) 2026 ravindu644
 #
-# Creates a virtual AP (ap0) on the phone's WiFi chip with a static gateway
-# IP, DHCP+DNS via dnsmasq, and a selectable upstream. Successor of
-# Ubuntu-Chroot's start-hotspot, modernized:
-#   - upstream "auto": reads netd's default-network rule instead of asking
-#   - pinned rule priorities (old unpinned rules could land below netd's
-#     "32000: from all unreachable" and never match)
-#   - interface-less MASQUERADE (survives upstream changes)
-#   - dnsmasq instead of EOL ISC dhcpd; DNS served to clients too
-#   - 5GHz channel-following (phone chips usually require same-channel
-#     concurrency with the STA connection; DFS channels can't beacon)
-#
-# Binary split (hard rule): wireless ops (iw/hostapd/dnsmasq) run inside the
-# Alpine chroot - many phones ship no iw binary. Routing and firewall use the
-# Android side: /system/bin/ip and /system/bin/iptables.
+# Creates a virtual AP (ap0): static gateway, DHCP+DNS via dnsmasq, selectable
+# upstream ("auto" follows netd's default-network rule). Wireless (iw/hostapd/
+# dnsmasq) runs in the Alpine chroot; routing/firewall use Android's
+# /system/bin ip + iptables.
 
 BASE_DIR="/data/local/virtualap"
 CHROOT_PATH="${BASE_DIR}/rootfs"
@@ -35,16 +25,13 @@ IP_NET=""
 IP_BEGIN=""
 IP_END=""
 
-# Pinned rule priorities. Above netd's whole range (10000+) so they always
-# win, in their own block clear of Droidspaces' 6090-6100.
+# Pinned rule priorities - above netd's range (10000+), clear of Droidspaces' 6090-6100.
 PRIO_TO_SUBNET=7000   # to 192.168.42.0/24 lookup main   (return path)
 PRIO_FROM_AP=7010     # from all iif ap0 lookup <table>  (upstream steering)
 
-# Android's fixed local_network routing table (RouteController::ROUTE_TABLE_LOCAL_NETWORK,
-# constant since Android 5). We mirror the AP subnet into this table so that reply packets
-# from containers (src 172.28.0.0/16) reach VirtualAP clients: Droidspaces installs rule
-# 6095 "from 172.28.0.0/16 lookup local_network", which runs before 6100 (the WAN uplink
-# rule). Without a route here, 6095 misses, 6100 grabs the reply, and it leaks out WAN.
+# Android's local_network table (constant since Android 5). We mirror the AP
+# subnet here so container reply packets (src 172.28.0.0/16) hit Droidspaces'
+# rule 6095 instead of leaking out WAN via 6100.
 ANDROID_LOCAL_NETWORK_TABLE=97
 
 # Defaults (overridden by ap.conf, then by CLI flags)
@@ -58,11 +45,9 @@ DNS_SERVERS=""
 HIDDEN="0"
 
 # --- Droidspaces container integration (managed mode) ---
-# When CONTAINER is non-empty, VirtualAP runs in "managed" mode: ap0 becomes a
-# dumb bridged port on VAP_BRIDGE (host netns), one veth peer is handed to the
-# chosen Droidspaces container as VAP_PORT, and the CONTAINER owns all L3
-# (DHCP/DNS/NAT/firewall). VirtualAP does no IP/forwarding/rules/dnsmasq here.
-# Names are deterministic and distinct from Droidspaces' own ds-br0 / ds-lan.
+# When CONTAINER is set: ap0 becomes a bridged port on VAP_BRIDGE, a veth peer
+# is handed to the container as VAP_PORT, and the container owns all L3
+# (DHCP/DNS/NAT). Names are distinct from Droidspaces' own ds-br0/ds-lan.
 CONTAINER=""
 VAP_BRIDGE="vap-br0"      # host-side bridge
 VAP_VETH_HOST="vap-v0"    # host-side veth (bridge port)
@@ -78,10 +63,10 @@ else
     DROIDSPACES="droidspaces"
 fi
 
-SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="${0##*/}"
 # vap.sh lives next to this script (both run from the app's files dir,
 # re-extracted from APK assets every launch - see Backend.kt), not in BASE_DIR.
-VAP_SH="$(dirname "$0")/vap.sh"
+VAP_SH="${0%/*}/vap.sh"
 
 # --- Busybox resolution ---
 if [ -x "$BASE_DIR/bin/busybox" ]; then
@@ -93,20 +78,40 @@ else
     exit 1
 fi
 
-mkdir -p "$BASE_DIR/logs"
+# Route external commands through the bundled busybox (Android's toybox is
+# unreliable across phones). Each $VAR word-splits to "busybox <applet>" - never
+# quote it. ip/iptables stay Android's; nsenter/unshare/chroot use "$BUSYBOX".
+BB="$BUSYBOX"
+CAT="$BB cat"
+CUT="$BB cut"
+DATE="$BB date"
+ECHO="$BB echo"
+GREP="$BB grep"
+HEAD="$BB head"
+ID="$BB id"
+KILL="$BB kill"
+MKDIR="$BB mkdir"
+PRINTF="$BB printf"
+RM="$BB rm"
+SED="$BB sed"
+SLEEP="$BB sleep"
+TR="$BB tr"
+WC="$BB wc"
 
-log()   { echo "$1";          echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
-warn()  { echo "[WARN] $1";   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $1" >> "$LOG_FILE"; }
-error() { echo "[ERROR] $1";  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $1" >> "$LOG_FILE"; }
+$MKDIR -p "$BASE_DIR/logs"
+
+log()   { $ECHO "$1";          $ECHO "[$($DATE '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"; }
+warn()  { $ECHO "[WARN] $1";   $ECHO "[$($DATE '+%Y-%m-%d %H:%M:%S')] [WARN] $1" >> "$LOG_FILE"; }
+error() { $ECHO "[ERROR] $1";  $ECHO "[$($DATE '+%Y-%m-%d %H:%M:%S')] [ERROR] $1" >> "$LOG_FILE"; }
 
 # --- Namespace plumbing (same pattern as vap.sh) ---
 
 _get_ns_flags() {
     local flags_file="$HOLDER_PID_FILE.flags"
-    [ ! -f "$flags_file" ] && { echo "-m"; return; }
+    [ ! -f "$flags_file" ] && { $ECHO "-m"; return; }
     local long_flags short_flags
-    long_flags=$(cat "$flags_file")
-    [ -z "$long_flags" ] && { echo "-m"; return; }
+    long_flags=$($CAT "$flags_file")
+    [ -z "$long_flags" ] && { $ECHO "-m"; return; }
     for flag in $long_flags; do
         case "$flag" in
             --mount) short_flags="$short_flags -m" ;;
@@ -115,24 +120,22 @@ _get_ns_flags() {
             --pid)   short_flags="$short_flags -p" ;;
         esac
     done
-    [ -z "$short_flags" ] && { echo "-m"; return; }
-    echo "$short_flags"
+    [ -z "$short_flags" ] && { $ECHO "-m"; return; }
+    $ECHO "$short_flags"
 }
 
 _execute_in_ns() {
     local holder_pid
-    if [ -f "$HOLDER_PID_FILE" ] && kill -0 "$(cat "$HOLDER_PID_FILE")" 2>/dev/null; then
-        holder_pid=$(cat "$HOLDER_PID_FILE")
+    if [ -f "$HOLDER_PID_FILE" ] && $KILL -0 "$($CAT "$HOLDER_PID_FILE")" 2>/dev/null; then
+        holder_pid=$($CAT "$HOLDER_PID_FILE")
         "${BUSYBOX}" nsenter --target "$holder_pid" $(_get_ns_flags) -- "$@"
     else
         "$@"
     fi
 }
 
-run_in_ns() { _execute_in_ns "$@"; }
-
 run_in_chroot() {
-    _execute_in_ns chroot "$CHROOT_PATH" /bin/sh -c "PATH=/usr/sbin:/usr/bin:/sbin:/bin; export TMPDIR=/tmp; $*"
+    _execute_in_ns "$BUSYBOX" chroot "$CHROOT_PATH" /bin/sh -c "PATH=/usr/sbin:/usr/bin:/sbin:/bin; export TMPDIR=/tmp; $*"
 }
 
 # --- Config persistence ---
@@ -141,12 +144,11 @@ load_conf() {
     [ -f "$CONF_FILE" ] && . "$CONF_FILE"
 }
 
-# Single-quote values for sourcing: a password containing " or $ must not
-# break (or worse, execute inside) the conf file.
-sq() { printf "%s" "$1" | sed "s/'/'\\\\''/g"; }
+# Escape single quotes so a password with " or $ can't break out of the conf file.
+sq() { $PRINTF "%s" "$1" | $SED "s/'/'\\\\''/g"; }
 
 save_conf() {
-    cat > "$CONF_FILE" <<EOF
+    $CAT > "$CONF_FILE" <<EOF
 PHY_IFACE='$(sq "$PHY_IFACE")'
 UPSTREAM='$(sq "$UPSTREAM")'
 SSID='$(sq "$SSID")'
@@ -162,60 +164,54 @@ EOF
 
 # --- Droidspaces helpers (managed mode) ---
 
-# Run a command inside the target container. droidspaces passes argv straight to
-# execvp (see run_in_rootfs), so quote exactly as for a local command.
+# Run a command in the target container (droidspaces execvp's argv directly).
 ds_run() { "$DROIDSPACES" -n "$CONTAINER" run "$@"; }
 
 # PID of a running container by name, empty if not running.
 ds_container_pid() {
     "$DROIDSPACES" show --format 2>/dev/null \
-        | sed -n "s/^CONT_$1=//p" | head -n1
+        | $SED -n "s/^CONT_$1=//p" | $HEAD -n1
 }
 
 # True if the container's /etc/os-release identifies it as OpenWrt.
 # OpenWrt writes ID="openwrt" (quoted), so tolerate optional ' or " quoting.
 ds_is_openwrt() {
-    ds_run cat /etc/os-release 2>/dev/null | grep -qiE "^ID=['\"]?openwrt"
+    ds_run cat /etc/os-release 2>/dev/null | $GREP -qiE "^ID=['\"]?openwrt"
 }
 
 # --- Upstream resolution ---
 
 detect_auto_table() {
-    # netd's default-network rule is the kernel's ground truth for "which
-    # network has internet right now":  from all fwmark 0x0/0xffff iif lo
-    # lookup <table>.  Rules print sorted by priority, so the first match
-    # wins; uidrange variants are per-app VPN rules - skip them.
+    # netd's default-network rule = which network has internet now. First match
+    # wins (rules are priority-sorted); uidrange variants are per-app VPN, skip.
     "$IP" rule show 2>/dev/null \
-        | grep "fwmark 0x0/0xffff iif lo" \
-        | grep -v uidrange \
-        | head -n1 \
-        | sed -n 's/.*lookup \([^ ]*\).*$/\1/p'
+        | $GREP "fwmark 0x0/0xffff iif lo" \
+        | $GREP -v uidrange \
+        | $HEAD -n1 \
+        | $SED -n 's/.*lookup \([^ ]*\).*$/\1/p'
 }
 
 table_oif() {
     # default route's outgoing interface in a given table
     "$IP" route show table "$1" 2>/dev/null \
-        | grep '^default' | head -n1 \
-        | sed -n 's/.*dev \([^ ]*\).*/\1/p'
+        | $GREP '^default' | $HEAD -n1 \
+        | $SED -n 's/.*dev \([^ ]*\).*/\1/p'
 }
 
 resolve_iface_table() {
-    # Per-interface table: netd names tables after interfaces
-    # (/data/misc/net/rt_tables), so a name lookup usually just works -
-    # including for wg0 from the official WireGuard app (kernel backend).
+    # netd names routing tables after interfaces, so a name lookup usually
+    # works (incl. wg0). Fall back to scanning all tables, then to main.
     local iface="$1"
-    if "$IP" route show table "$iface" 2>/dev/null | grep -q .; then
-        echo "$iface"; return 0
+    if "$IP" route show table "$iface" 2>/dev/null | $GREP -q .; then
+        $ECHO "$iface"; return 0
     fi
-    # Fallback: scan all tables for routes through this interface
     local tbl
     tbl=$("$IP" route show table all 2>/dev/null \
-        | grep " dev $iface " | sed -n 's/.*table \([0-9]*\).*/\1/p' | head -n1)
+        | $GREP " dev $iface " | $SED -n 's/.*table \([0-9]*\).*/\1/p' | $HEAD -n1)
     if [ -n "$tbl" ]; then
-        echo "$tbl"; return 0
+        $ECHO "$tbl"; return 0
     fi
-    # Last resort: the interface routes via main (sideloaded ethernet etc.)
-    echo "main"
+    $ECHO "main"
 }
 
 resolve_upstream() {
@@ -246,12 +242,12 @@ resolve_upstream() {
 sta_channel() {
     # Current channel of the STA connection, empty if not connected
     run_in_chroot "iw dev $PHY_IFACE info" 2>/dev/null \
-        | sed -n 's/.*channel \([0-9]*\).*/\1/p' | head -n1
+        | $SED -n 's/.*channel \([0-9]*\).*/\1/p' | $HEAD -n1
 }
 
 reg_country() {
     run_in_chroot "iw reg get" 2>/dev/null \
-        | sed -n 's/^country \([A-Z][A-Z]\):.*/\1/p' | head -n1
+        | $SED -n 's/^country \([A-Z][A-Z]\):.*/\1/p' | $HEAD -n1
 }
 
 is_dfs_channel() {
@@ -260,9 +256,8 @@ is_dfs_channel() {
 }
 
 pick_channel() {
-    # Same-channel concurrency: most phone WiFi chips can only beacon on the
-    # channel the STA is already using. Follow it whenever it fits the
-    # requested band; fall back gracefully otherwise.
+    # Most phone chips can only beacon on the STA's current channel (same-channel
+    # concurrency). Follow it when it fits the band, else fall back.
     local sta_ch
     sta_ch=$(sta_channel)
 
@@ -303,19 +298,19 @@ pick_channel() {
 calculate_subnet() {
     local ip="$1"
     # Match standard IPv4 format: A.B.C.D where octets are 0-255
-    if ! echo "$ip" | grep -Eq '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'; then
+    if ! $ECHO "$ip" | $GREP -Eq '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'; then
         return 1
     fi
 
     # Validate that last octet is not 0 or 255
     local last_octet
-    last_octet=$(echo "$ip" | cut -d. -f4)
+    last_octet=$($ECHO "$ip" | $CUT -d. -f4)
     if [ "$last_octet" -eq 0 ] || [ "$last_octet" -eq 255 ]; then
         return 1
     fi
 
     local base
-    base=$(echo "$ip" | cut -d. -f1-3)
+    base=$($ECHO "$ip" | $CUT -d. -f1-3)
     IP_GW="$ip"
     IP_NET="$base.0/24"
     IP_BEGIN="$base.10"
@@ -359,15 +354,15 @@ teardown() {
     # Restore ip_forward only if we were the ones who enabled it
     if [ -f "$STATE_FILE" ]; then
         local prev_fwd
-        prev_fwd=$(sed -n 's/^prev_ip_forward=//p' "$STATE_FILE")
-        [ "$prev_fwd" = "0" ] && echo 0 > /proc/sys/net/ipv4/ip_forward 2>/dev/null
+        prev_fwd=$($SED -n 's/^prev_ip_forward=//p' "$STATE_FILE")
+        [ "$prev_fwd" = "0" ] && $ECHO 0 > /proc/sys/net/ipv4/ip_forward 2>/dev/null
     fi
 
     # Delete the virtual interface (chroot iw, host ip as fallback)
     run_in_chroot "iw dev $AP_IFACE del" 2>/dev/null \
         || "$IP" link del "$AP_IFACE" 2>/dev/null || true
 
-    rm -f "$STATE_FILE"
+    $RM -f "$STATE_FILE"
     log "AP stopped, cleanup completed."
 }
 
@@ -398,8 +393,8 @@ config_network() {
     "$IP" link set "$AP_IFACE" up || { error "Failed to bring up $AP_IFACE"; return 1; }
 
     local prev_fwd
-    prev_fwd=$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)
-    echo 1 > /proc/sys/net/ipv4/ip_forward || { error "Failed to enable IP forwarding"; return 1; }
+    prev_fwd=$($CAT /proc/sys/net/ipv4/ip_forward 2>/dev/null)
+    $ECHO 1 > /proc/sys/net/ipv4/ip_forward || { error "Failed to enable IP forwarding"; return 1; }
 
     log "Installing routes and policy rules..."
 
@@ -431,7 +426,7 @@ config_network() {
         || { error "MASQUERADE insert failed"; return 1; }
 
     # Record state for exact teardown + status
-    cat > "$STATE_FILE" <<EOF
+    $CAT > "$STATE_FILE" <<EOF
 upstream=$UPSTREAM
 upstream_table=$UPSTREAM_TABLE
 upstream_iface=$UPSTREAM_IFACE_RESOLVED
@@ -441,7 +436,7 @@ ssid=$SSID
 gateway=$IP_GW
 dns_servers=$DNS_SERVERS
 prev_ip_forward=$prev_fwd
-started=$(date '+%Y-%m-%d %H:%M:%S')
+started=$($DATE '+%Y-%m-%d %H:%M:%S')
 EOF
 
     log "Network configuration completed."
@@ -487,7 +482,7 @@ start_hostapd() {
         error "hostapd failed to start (check band/channel - try band 2)."
         return 1
     fi
-    sleep 2
+    $SLEEP 2
     run_in_chroot "[ -f /run/hostapd.pid ] && kill -0 \$(cat /run/hostapd.pid)" 2>/dev/null || {
         error "hostapd is not running after start"; return 1; }
     log "hostapd running (PID $(run_in_chroot 'cat /run/hostapd.pid' 2>/dev/null))"
@@ -506,7 +501,7 @@ start_services() {
         IFS=","
         for dns in $DNS_SERVERS; do
             local clean_dns
-            clean_dns=$(echo "$dns" | tr -d '[:space:]')
+            clean_dns=$($ECHO "$dns" | $TR -d '[:space:]')
             if [ -n "$clean_dns" ]; then
                 dns_config="$dns_config
 server=$clean_dns"
@@ -539,7 +534,7 @@ EOF
         error "dnsmasq failed to start"
         return 1
     fi
-    sleep 1
+    $SLEEP 1
     run_in_chroot "[ -f /run/dnsmasq.pid ] && kill -0 \$(cat /run/dnsmasq.pid)" 2>/dev/null || {
         error "dnsmasq is not running after start"; return 1; }
     log "dnsmasq running (PID $(run_in_chroot 'cat /run/dnsmasq.pid' 2>/dev/null))"
@@ -548,19 +543,13 @@ EOF
 }
 
 # --- Managed mode (Droidspaces container integration) ---
-#
-# ap0 becomes a dumb bridged port on VAP_BRIDGE; one veth peer is handed to the
-# chosen container as VAP_PORT. The container owns DHCP/DNS/NAT/firewall. We do
-# the proven thing from the PoC: NO bridge= in hostapd.conf, instead enslave ap0
-# to the bridge manually after hostapd is up (and retry through Android's
-# intermittent netlink EPERM).
 
 # Bring a freshly-created link up, retrying past the transient EPERM.
 ip_up_retry() {
     local i=0
     while [ $i -lt 6 ]; do
         "$IP" link set "$1" up 2>/dev/null && return 0
-        i=$((i + 1)); sleep 0.3
+        i=$((i + 1)); $SLEEP 0.3
     done
     "$IP" link set "$1" up   # final try, surface the error
 }
@@ -586,9 +575,8 @@ provision_openwrt() {
     ds_run /etc/init.d/network reload >/dev/null 2>&1
     ds_run /etc/init.d/dnsmasq restart >/dev/null 2>&1
 
-    # Forwarding + NAT. Many Android kernels lack nf_tables (OpenWrt's fw4 can't
-    # load), but do have x_tables - so prefer iptables-legacy. Detect + warn,
-    # never auto-install.
+    # Most Android kernels lack nf_tables (fw4 fails) but have x_tables, so
+    # prefer iptables-legacy. Detect and warn, never auto-install.
     ds_run sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1
 
     if ds_run iptables-legacy --version >/dev/null 2>&1; then
@@ -618,8 +606,7 @@ config_network_bridged() {
 
     create_ap_iface || return 1
 
-    # Clean any stale host-side bridge/veth from a previous run (busybox: the
-    # Android /system/bin/ip throws EPERM on bridge deletes).
+    # Clean stale bridge/veth from a previous run (busybox ip - Android's ip EPERMs here).
     "$BUSYBOX" ip link del "$VAP_VETH_HOST" 2>/dev/null || true
     "$BUSYBOX" ip link del "$VAP_BRIDGE" 2>/dev/null || true
 
@@ -648,7 +635,7 @@ config_network_bridged() {
         log "configure it (assign an IP, run DHCP + NAT) on its own."
     fi
 
-    cat > "$STATE_FILE" <<EOF
+    $CAT > "$STATE_FILE" <<EOF
 mode=bridged
 container=$CONTAINER
 bridge=$VAP_BRIDGE
@@ -656,7 +643,7 @@ band=$BAND
 channel=$CHANNEL
 ssid=$SSID
 gateway=$VAP_LAN_GW
-started=$(date '+%Y-%m-%d %H:%M:%S')
+started=$($DATE '+%Y-%m-%d %H:%M:%S')
 EOF
 
     log "Managed network wiring completed."
@@ -668,14 +655,13 @@ start_services_bridged() {
     write_hostapd_conf ""          # no bridge= - we enslave ap0 ourselves below
     start_hostapd || return 1
 
-    # Enslave ap0 AFTER hostapd is up (proven order from the PoC), retrying past
-    # the transient EPERM.
+    # Enslave ap0 only after hostapd is up, retrying past the transient EPERM.
     local i=0
     while [ $i -lt 6 ]; do
         "$IP" link set "$AP_IFACE" master "$VAP_BRIDGE" 2>/dev/null && break
-        i=$((i + 1)); sleep 0.3
+        i=$((i + 1)); $SLEEP 0.3
     done
-    if ! "$IP" -o link show "$AP_IFACE" 2>/dev/null | grep -q "master $VAP_BRIDGE"; then
+    if ! "$IP" -o link show "$AP_IFACE" 2>/dev/null | $GREP -q "master $VAP_BRIDGE"; then
         error "Failed to enslave $AP_IFACE to $VAP_BRIDGE."
         return 1
     fi
@@ -691,14 +677,12 @@ teardown_bridged() {
                    rm -f /run/hostapd.pid /run/hostapd.conf" 2>/dev/null || true
     run_in_chroot "iw dev $AP_IFACE del" 2>/dev/null || "$IP" link del "$AP_IFACE" 2>/dev/null || true
 
-    # Delete the host bridge + veth (busybox - /system/bin/ip EPERMs on these).
-    # Removing the host veth also removes VAP_PORT inside the container.
+    # Delete host bridge + veth (busybox ip). This also removes VAP_PORT inside
+    # the container; its uci LAN config is left intact.
     "$BUSYBOX" ip link del "$VAP_VETH_HOST" 2>/dev/null || true
     "$BUSYBOX" ip link del "$VAP_BRIDGE" 2>/dev/null || true
 
-    # The container's own LAN config (uci) is left intact - stopping the
-    # container is a separate, user-driven action.
-    rm -f "$STATE_FILE"
+    $RM -f "$STATE_FILE"
     log "Managed AP stopped (container '$CONTAINER' left running)."
 }
 
@@ -706,7 +690,7 @@ teardown_bridged() {
 
 cmd_start() {
     [ -z "$SSID" ] && { error "SSID not set (use -s or save a config first)"; exit 1; }
-    if [ "$(printf %s "$PASSWORD" | wc -c)" -lt 8 ]; then
+    if [ "$($PRINTF %s "$PASSWORD" | $WC -c)" -lt 8 ]; then
         error "Password must be at least 8 characters."; exit 1
     fi
 
@@ -737,14 +721,11 @@ cmd_start() {
     # before anything can fail - a failed attempt must not lose the config.
     save_conf
 
-    # Restart semantics: tear down any previous AP (either mode), then recycle
-    # the chroot. The namespace holder is the PID-ns init but never reaps
-    # reparented children (busybox sleep has no wait loop), so dead
-    # hostapd/dnsmasq pile up as zombies under it - a fresh namespace per AP
-    # session keeps the process table clean.
+    # Tear down any previous AP, then recycle the chroot: a fresh namespace per
+    # session reaps the zombie hostapd/dnsmasq the ns-init never wait()s for.
     if [ -f "$STATE_FILE" ]; then
         log "Existing AP state found - restarting..."
-        if grep -q '^mode=bridged' "$STATE_FILE"; then teardown_bridged; else teardown; fi
+        if $GREP -q '^mode=bridged' "$STATE_FILE"; then teardown_bridged; else teardown; fi
     fi
     sh "$VAP_SH" stop -s >/dev/null 2>&1
     sh "$VAP_SH" start -s || { error "Failed to start chroot environment"; exit 1; }
@@ -783,10 +764,7 @@ cmd_start() {
     fi
 }
 
-# Full teardown: AP rules/services first, then the whole chroot. The chroot
-# exists only to serve the AP - killing the PID-namespace holder makes the
-# kernel reap every process in the namespace, including the zombies that
-# 'busybox sleep' (the ns init) never wait()ed for.
+# Full teardown: AP rules/services, then the whole chroot.
 full_stop() {
     teardown
     sh "$VAP_SH" stop -s >/dev/null 2>&1
@@ -800,7 +778,7 @@ full_stop_bridged() {
 }
 
 cmd_stop() {
-    if grep -q '^mode=bridged' "$STATE_FILE" 2>/dev/null; then
+    if $GREP -q '^mode=bridged' "$STATE_FILE" 2>/dev/null; then
         full_stop_bridged
     else
         full_stop
@@ -809,7 +787,7 @@ cmd_stop() {
 
 cmd_status() {
     local running=0 hostapd_state="dead" dnsmasq_state="dead" clients=0 mode="routed"
-    [ -f "$STATE_FILE" ] && grep -q '^mode=bridged' "$STATE_FILE" && mode="bridged"
+    [ -f "$STATE_FILE" ] && $GREP -q '^mode=bridged' "$STATE_FILE" && mode="bridged"
 
     if [ -f "$STATE_FILE" ]; then
         run_in_chroot "[ -f /run/hostapd.pid ] && kill -0 \$(cat /run/hostapd.pid)" 2>/dev/null && hostapd_state="running"
@@ -819,19 +797,19 @@ cmd_status() {
             run_in_chroot "[ -f /run/dnsmasq.pid ] && kill -0 \$(cat /run/dnsmasq.pid)" 2>/dev/null && dnsmasq_state="running"
         fi
         [ "$hostapd_state" = "running" ] && running=1
-        clients=$(run_in_chroot "iw dev $AP_IFACE station dump" 2>/dev/null | grep -c '^Station')
+        clients=$(run_in_chroot "iw dev $AP_IFACE station dump" 2>/dev/null | $GREP -c '^Station')
     fi
 
-    echo "running=$running"
-    echo "mode=$mode"
-    echo "hostapd=$hostapd_state"
-    echo "dnsmasq=$dnsmasq_state"
-    echo "clients=$clients"
+    $ECHO "running=$running"
+    $ECHO "mode=$mode"
+    $ECHO "hostapd=$hostapd_state"
+    $ECHO "dnsmasq=$dnsmasq_state"
+    $ECHO "clients=$clients"
     # gateway/ssid/etc. come from the state file (routed: IP_GW; bridged: VAP_LAN_GW)
     if [ -f "$STATE_FILE" ]; then
-        grep -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|dns_servers|container|started)=' "$STATE_FILE"
+        $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|dns_servers|container|started)=' "$STATE_FILE"
     else
-        echo "gateway=$IP_GW"
+        $ECHO "gateway=$IP_GW"
     fi
 }
 
@@ -840,53 +818,51 @@ cmd_leases() {
 }
 
 cmd_interfaces() {
-    # Candidate upstream interfaces as "name:ip" lines for the WebUI.
-    # ap0 and lo are never valid upstreams.
+    # Candidate upstreams as "name:ip" lines for the app (ap0/lo excluded).
     local name addr
     for path in /sys/class/net/*; do
-        name=$(basename "$path")
+        name="${path##*/}"
         case "$name" in
             lo|"$AP_IFACE") continue ;;
         esac
         addr=$("$IP" -4 -o addr show dev "$name" 2>/dev/null \
-            | sed -n 's/.*inet \([0-9.]*\).*/\1/p' | head -n1)
-        echo "$name:${addr:-no-ip}"
+            | $SED -n 's/.*inet \([0-9.]*\).*/\1/p' | $HEAD -n1)
+        $ECHO "$name:${addr:-no-ip}"
     done
 }
 
 cmd_containers() {
-    # Running Droidspaces containers, one name per line. Empty output means
-    # either Droidspaces isn't installed or nothing is running - the app uses
-    # this to decide whether to show the container-integration UI at all.
+    # Running Droidspaces containers, one name per line. Empty = not installed or
+    # nothing running; the app uses this to show/hide the container UI.
     [ -x "/data/local/Droidspaces/bin/droidspaces" ] \
         || command -v droidspaces >/dev/null 2>&1 || return 0
     "$DROIDSPACES" show --format 2>/dev/null \
-        | sed -n 's/^CONT_\(.*\)=[0-9][0-9]*$/\1/p'
+        | $SED -n 's/^CONT_\(.*\)=[0-9][0-9]*$/\1/p'
 }
 
 # --- Main ---
 
-if [ "$(id -u)" -ne 0 ]; then
+if [ "$($ID -u)" -ne 0 ]; then
     error "This script must be run as root."; exit 1
 fi
 
 print_usage() {
-    echo "Usage: $SCRIPT_NAME <start|stop|status|leases|interfaces> [options]"
-    echo ""
-    echo "start options:"
-    echo "  -s <SSID>      AP name"
-    echo "  -p <password>  AP password (min 8 chars)"
-    echo "  -o <iface>     Upstream interface, or 'auto' (default: auto)"
-    echo "  -b <band>      2 = 2.4GHz (default), 5 = 5GHz"
-    echo "  -c <channel>   Channel (auto-picked / STA-followed when omitted)"
-    echo "  -g <gateway>   Custom gateway IP (default: 192.168.42.1)"
-    echo "  -d <dns>       Comma-separated list of upstream DNS servers"
-    echo "  -w <iface>     Physical WiFi interface (default: wlan0)"
-    echo "  -H <0|1>       Hide SSID (0 = visible [default], 1 = hidden)"
-    echo "  -K <container> Managed mode: hand the AP's LAN to a Droidspaces"
-    echo "                 container (it owns DHCP/DNS/NAT). Disables -o/-g/-d."
-    echo ""
-    echo "Saved settings in $CONF_FILE are reused when flags are omitted."
+    $ECHO "Usage: $SCRIPT_NAME <start|stop|status|leases|interfaces> [options]"
+    $ECHO ""
+    $ECHO "start options:"
+    $ECHO "  -s <SSID>      AP name"
+    $ECHO "  -p <password>  AP password (min 8 chars)"
+    $ECHO "  -o <iface>     Upstream interface, or 'auto' (default: auto)"
+    $ECHO "  -b <band>      2 = 2.4GHz (default), 5 = 5GHz"
+    $ECHO "  -c <channel>   Channel (auto-picked / STA-followed when omitted)"
+    $ECHO "  -g <gateway>   Custom gateway IP (default: 192.168.42.1)"
+    $ECHO "  -d <dns>       Comma-separated list of upstream DNS servers"
+    $ECHO "  -w <iface>     Physical WiFi interface (default: wlan0)"
+    $ECHO "  -H <0|1>       Hide SSID (0 = visible [default], 1 = hidden)"
+    $ECHO "  -K <container> Managed mode: hand the AP's LAN to a Droidspaces"
+    $ECHO "                 container (it owns DHCP/DNS/NAT). Disables -o/-g/-d."
+    $ECHO ""
+    $ECHO "Saved settings in $CONF_FILE are reused when flags are omitted."
 }
 
 COMMAND="$1"
