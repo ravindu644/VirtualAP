@@ -149,10 +149,19 @@ EOF
 # Run a command in the target container (droidspaces execvp's argv directly).
 ds_run() { "$DROIDSPACES" -n "$CONTAINER" run "$@"; }
 
+# Running containers as "name=pid" lines, parsed from `droidspaces show
+# --format` JSON ({"running":[{"name":"X","pid":N,...},...]}). Each object is
+# split onto its own line so a plain sed can pick the name/pid pair; no jq in
+# the chroot.
+ds_list() {
+    "$DROIDSPACES" show --format 2>/dev/null \
+        | $TR '{' '\n' \
+        | $SED -n 's/^"name":"\([^"]*\)","pid":\([0-9][0-9]*\).*/\1=\2/p'
+}
+
 # PID of a running container by name, empty if not running.
 ds_container_pid() {
-    "$DROIDSPACES" show --format 2>/dev/null \
-        | $SED -n "s/^CONT_$1=//p" | $HEAD -n1
+    ds_list | $SED -n "s/^$1=//p" | $HEAD -n1
 }
 
 # True if the container's /etc/os-release identifies it as OpenWrt.
@@ -1020,8 +1029,7 @@ cmd_containers() {
     # nothing running; the app uses this to show/hide the container UI.
     [ -x "/data/local/Droidspaces/bin/droidspaces" ] \
         || command -v droidspaces >/dev/null 2>&1 || return 0
-    "$DROIDSPACES" show --format 2>/dev/null \
-        | $SED -n 's/^CONT_\(.*\)=[0-9][0-9]*$/\1/p'
+    ds_list | $SED 's/=[0-9]*$//'
 }
 
 cmd_caps() {
