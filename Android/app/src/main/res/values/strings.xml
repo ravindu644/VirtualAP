@@ -48,7 +48,6 @@
     <string name="container_label">Container</string>
     <string name="container_upstream_desc">This Droidspaces container manages DHCP, DNS and NAT for the hotspot.</string>
     <string name="interface_upstream_desc">VirtualAP handles DHCP, DNS and NAT over this interface.</string>
-    <string name="managed_label">Managed</string>
     <string name="starting">Starting…</string>
     <string name="stopping">Stopping…</string>
     <string name="view_logs">View Logs</string>
@@ -113,7 +112,7 @@
     <string name="width_mhz">%1$s MHz</string>
     <string name="command_failed">Command exited with an error</string>
     <string name="clients_label">Clients</string>
-    <string name="routed_label">Routed</string>
+    <string name="upstream_managed_by">Managed by %1$s</string>
     <string name="dns_label">DNS</string>
     <string name="dns_system">System resolvers</string>
 </resources>

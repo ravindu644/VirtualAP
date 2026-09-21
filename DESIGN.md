@@ -143,15 +143,14 @@ without anyone typing a clearance number. Keep it that way: a bar that is not th
 
 ### Card headers line up
 
-The active network card puts a status beacon and label on the left and a mode pill on the
-right, above a divider, exactly as the Droidspaces status card does. It takes its numbers
-from `CardContentPadding` and `CardHeaderHeight` in `ui/component/CardMetrics.kt` rather
-than typing them out. The header is 48dp because the card puts the Wi-Fi QR icon button in
-it, and 48dp is the touch floor.
+The active network card has no title: its first row is the network name on the left and the
+status pill on the right, above a divider, at a minimum height of `CardHeaderHeight` and
+inside `CardContentPadding`, both from `ui/component/CardMetrics.kt`. The height is 48dp
+because the row holds the Wi-Fi QR icon button, and 48dp is the touch floor.
 
-It is the only card of that shape today. If you add a second, take the values from there, so
-a user scrolling between them sees the dividers and pills hold the same line. If you change
-them, you are moving every card header in the app, which is the intended way round.
+A card that does get a title-and-pill header takes the same two values, so its divider and
+pill hold the same line as this one. If you change them, you are moving every card header in
+the app, which is the intended way round.
 
 ## Shape
 

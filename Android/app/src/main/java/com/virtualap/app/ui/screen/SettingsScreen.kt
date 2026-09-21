@@ -209,11 +209,18 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         onDismiss = onDismiss,
         footer = { DialogDismissButton(label = stringResource(R.string.ok), onDismiss = onDismiss) }
     ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(R.string.app_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
         Text(
             text = stringResource(R.string.about_description),
             style = MaterialTheme.typography.bodyMedium,

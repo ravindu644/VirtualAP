@@ -14,7 +14,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -29,7 +28,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -632,30 +630,25 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                 .padding(CardContentPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Headless card: the network name is the header. The row keeps the
+            // shared header height so its pill sits where any titled card's would.
             Row(
-                modifier = Modifier.fillMaxWidth().height(CardHeaderHeight),
+                modifier = Modifier.fillMaxWidth().heightIn(min = CardHeaderHeight),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Status beacon + label, as on the Droidspaces status card.
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(modifier = Modifier.size(10.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = stringResource(R.string.status_running).uppercase(),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp,
-                        color = MaterialTheme.colorScheme.primary,
+                        text = status.ssid ?: vm.config.ssid,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    status.started?.let { Caption(stringResource(R.string.since_time, it)) }
                 }
                 StatusPill(
-                    label = stringResource(if (bridged) R.string.managed_label else R.string.routed_label).uppercase(),
+                    label = stringResource(R.string.status_running).uppercase(),
                     color = MaterialTheme.colorScheme.primary
                 )
                 IconButton(onClick = { showQr = true }) {
@@ -669,48 +662,18 @@ private fun ActiveNetworkCard(vm: APViewModel) {
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-            // Wordmark block, same type as "DROIDSPACES" on its status card.
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = stringResource(R.string.app_name).uppercase(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = (-0.5).sp
-                )
-                Text(
-                    text = stringResource(R.string.app_subtitle).uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-
-            status.ssid?.let { ssid ->
-                Text(text = ssid, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            status.started?.let { Caption(stringResource(R.string.since_time, it)) }
-
             StatGrid(
                 left = {
                     StatRow(Icons.Default.Router, stringResource(R.string.gateway_label), status.gateway)
                     StatRow(Icons.Default.SignalCellularAlt, stringResource(R.string.band_label), radio)
                 },
                 right = {
-                    if (bridged) {
-                        StatRow(
-                            ImageVector.vectorResource(R.drawable.ic_droidspaces),
-                            stringResource(R.string.container_label),
-                            status.container ?: stringResource(R.string.unknown)
-                        )
-                    } else {
-                        StatRow(
-                            Icons.Default.SwapVert,
-                            stringResource(R.string.upstream_label),
-                            status.upstream ?: stringResource(R.string.auto_label)
-                        )
-                    }
+                    StatRow(
+                        if (bridged) ImageVector.vectorResource(R.drawable.ic_droidspaces) else Icons.Default.SwapVert,
+                        stringResource(R.string.upstream_label),
+                        if (bridged) stringResource(R.string.upstream_managed_by, status.container ?: stringResource(R.string.unknown))
+                        else status.upstream ?: stringResource(R.string.auto_label)
+                    )
                     StatRow(Icons.Default.Security, stringResource(R.string.security_label), security)
                 }
             )
