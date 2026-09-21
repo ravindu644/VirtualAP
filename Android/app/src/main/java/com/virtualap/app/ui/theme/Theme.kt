@@ -125,68 +125,43 @@ private fun lightColorSchemeFor(palette: ThemePalette): ColorScheme {
 }
 
 /**
- * Pre-computed color blends for AMOLED mode.
- * These are computed once and cached to eliminate runtime color calculations during composition.
+ * AMOLED collapses every surface to true black, so the accent has to carry the
+ * hierarchy on its own. Containers are blended down hard to stay readable on it.
  */
-private object AmoledColorCache {
-    private const val AMOLED_BLEND_RATIO = 0.6f
-
-    private var cachedPaletteName: String? = null
-    private var cachedStaticAmoledScheme: ColorScheme? = null
-
-    @Suppress("NOTHING_TO_INLINE")
-    private inline fun Color.fastBlend(other: Color, ratio: Float): Color {
-    val inverse = 1f - ratio
-    return Color(
-        red = red * inverse + other.red * ratio,
-        green = green * inverse + other.green * ratio,
-        blue = blue * inverse + other.blue * ratio,
-        alpha = alpha
+private fun amoledSchemeFrom(dynamicScheme: ColorScheme): ColorScheme =
+    dynamicScheme.copy(
+        background = AMOLED_BLACK,
+        surface = AMOLED_BLACK,
+        surfaceVariant = AMOLED_BLACK,
+        surfaceContainer = AMOLED_BLACK,
+        surfaceContainerLow = AMOLED_BLACK,
+        surfaceContainerLowest = AMOLED_BLACK,
+        surfaceContainerHigh = AMOLED_BLACK,
+        surfaceContainerHighest = AMOLED_BLACK,
+        primaryContainer = dynamicScheme.primaryContainer.blend(AMOLED_BLACK, 0.7f),
+        secondaryContainer = dynamicScheme.secondaryContainer.blend(AMOLED_BLACK, 0.7f),
+        tertiaryContainer = dynamicScheme.tertiaryContainer.blend(AMOLED_BLACK, 0.7f)
     )
-    }
 
-    fun createAmoledScheme(dynamicScheme: ColorScheme): ColorScheme {
-        return dynamicScheme.copy(
-            background = AMOLED_BLACK,
-            surface = AMOLED_BLACK,
-            surfaceVariant = AMOLED_BLACK,
-            surfaceContainer = AMOLED_BLACK,
-            surfaceContainerLow = AMOLED_BLACK,
-            surfaceContainerLowest = AMOLED_BLACK,
-            surfaceContainerHigh = AMOLED_BLACK,
-            surfaceContainerHighest = AMOLED_BLACK,
-            primaryContainer = dynamicScheme.primaryContainer.fastBlend(AMOLED_BLACK, 0.7f),
-            secondaryContainer = dynamicScheme.secondaryContainer.fastBlend(AMOLED_BLACK, 0.7f),
-            tertiaryContainer = dynamicScheme.tertiaryContainer.fastBlend(AMOLED_BLACK, 0.7f)
-        )
-    }
-
-    fun createStaticAmoledScheme(palette: ThemePalette): ColorScheme {
-        if (cachedPaletteName == palette.name && cachedStaticAmoledScheme != null) {
-            return cachedStaticAmoledScheme!!
-        }
-
-        val baseScheme = darkColorSchemeFor(palette)
-        val p = palette.primaryDark
-
-        val scheme = baseScheme.copy(
-            background = AMOLED_BLACK,
-            surface = AMOLED_BLACK,
-            surfaceVariant = AMOLED_BLACK,
-            surfaceContainer = AMOLED_BLACK,
-            surfaceContainerLow = AMOLED_BLACK,
-            surfaceContainerLowest = AMOLED_BLACK,
-            surfaceContainerHigh = AMOLED_BLACK,
-            surfaceContainerHighest = AMOLED_BLACK,
-            outlineVariant = p.copy(alpha = 0.25f),
-            primaryContainer = p.copy(alpha = 0.2f),
-            onPrimaryContainer = p.blend(Color.White, 0.85f)
-        )
-
-        cachedPaletteName = palette.name
-        cachedStaticAmoledScheme = scheme
-        return scheme
-    }
+/**
+ * Same idea for the fixed palettes, but the surfaces keep a trace of the selected
+ * accent so the palette is still recognisable against the black.
+ */
+private fun staticAmoledSchemeFor(palette: ThemePalette): ColorScheme {
+    val p = palette.primaryDark
+    return darkColorSchemeFor(palette).copy(
+        background = AMOLED_BLACK,
+        surface = AMOLED_BLACK,
+        surfaceVariant = AMOLED_BLACK,
+        surfaceContainer = AMOLED_BLACK,
+        surfaceContainerLow = AMOLED_BLACK,
+        surfaceContainerLowest = AMOLED_BLACK,
+        surfaceContainerHigh = AMOLED_BLACK,
+        surfaceContainerHighest = AMOLED_BLACK,
+        outlineVariant = p.copy(alpha = 0.25f), // Keep subtle outline for hierarchy
+        primaryContainer = p.copy(alpha = 0.2f),
+        onPrimaryContainer = p.blend(Color.White, 0.85f)
+    )
 }
 
 @Composable
@@ -200,17 +175,22 @@ fun VirtualAPTheme(
 ) {
     val context = LocalContext.current
 
+    // Memoize color scheme computation to avoid recalculation on every recomposition
+    // This eliminates color processing from the main thread during draw cycles
     val colorScheme = remember(darkTheme, dynamicColor, amoledMode, themePalette, context) {
         when {
         amoledMode && darkTheme && dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                val dynamicScheme = dynamicDarkColorScheme(context)
-                AmoledColorCache.createAmoledScheme(dynamicScheme)
+                // Pre-computed AMOLED scheme with dynamic colors - zero runtime cost
+            val dynamicScheme = dynamicDarkColorScheme(context)
+                amoledSchemeFrom(dynamicScheme)
         }
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                // Memoized dynamic color scheme - computed once per theme change
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         amoledMode && darkTheme -> {
-                AmoledColorCache.createStaticAmoledScheme(themePalette)
+                // Pre-computed static AMOLED scheme using selected palette
+                staticAmoledSchemeFor(themePalette)
         }
         darkTheme -> darkColorSchemeFor(themePalette)
         else -> lightColorSchemeFor(themePalette)

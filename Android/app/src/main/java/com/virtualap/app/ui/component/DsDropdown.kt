@@ -1,0 +1,98 @@
+package com.virtualap.app.ui.component
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun <T> DsDropdown(
+    label: String,
+    selected: T,
+    options: List<T>,
+    displayName: (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    enabled: Boolean = true
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    val fieldShape = RoundedCornerShape(16.dp)
+    val fieldColors = DsTextFieldDefaults.colors()
+
+    ExposedDropdownMenuBox(
+        expanded = expanded && enabled,
+        onExpandedChange = {
+            if (!enabled) return@ExposedDropdownMenuBox
+            expanded = it
+            if (!it) focusManager.clearFocus()
+        },
+        modifier = modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = displayName(selected),
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            isError = isError,
+            label = { Text(label) },
+            supportingText = supportingText?.let { { Text(it) } },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
+            shape = fieldShape,
+            colors = fieldColors,
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+        DsMenuTheme {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { 
+                    expanded = false
+                    focusManager.clearFocus()
+                },
+                modifier = Modifier.dsMenuBorder()
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(displayName(option), fontWeight = FontWeight.Medium) },
+                        onClick = {
+                            onSelect(option)
+                            expanded = false
+                            focusManager.clearFocus()
+                        },
+                        leadingIcon = if (option == selected) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        } else null
+                    )
+                }
+            }
+        }
+    }
+}

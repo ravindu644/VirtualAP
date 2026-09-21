@@ -170,14 +170,16 @@ android {
     }
 }
 
-// ---------------------------------------------------------------------------
 // prepareAssets: stages the backend script and the static AP-stack binaries
 // into the assets directory. Binaries are staged per-arch under
 // assets/bin/<arch>/ (aarch64, armhf), each with its own PAYLOAD_VERSION marker
 // (a hash of that arch's binaries) so the app can detect when an APK update
 // ships new binaries. The app deploys only the arch matching the device.
-// ---------------------------------------------------------------------------
 tasks.register("prepareAssets") {
+    // Declared so gradle can skip the copy when nothing under backend/ changed.
+    inputs.dir(file("../../backend"))
+    outputs.dir(file("src/main/assets/bin"))
+    outputs.file(file("src/main/assets/backend/start-ap"))
     doLast {
         val toolsSrc = file("../../backend")
         val assetTools = file("src/main/assets/backend")
@@ -238,12 +240,14 @@ tasks.configureEach {
 
 dependencies {
     // Compose BOM
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    // Required by ui/util/LoadingIndicator.kt (Material 3 Expressive shapes)
+    implementation("androidx.graphics:graphics-shapes:1.0.1")
 
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")

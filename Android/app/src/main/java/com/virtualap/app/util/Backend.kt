@@ -16,6 +16,9 @@ import java.io.File
  * /data/local/virtualap.
  */
 object Backend {
+    /** Every dynamic value that reaches the root shell goes through here: POSIX single-quote wrap. */
+    fun quote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+
     /** Full root-shell command prefix, e.g. "sh /data/data/<pkg>/files/backend/start-ap" */
     lateinit var startAp: String
         private set

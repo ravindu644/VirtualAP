@@ -85,8 +85,8 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     SwitchItem(
-                        label = stringResource(R.string.follow_system_theme_label),
-                        subtitle = stringResource(R.string.follow_system_theme_desc),
+                        title = stringResource(R.string.follow_system_theme_label),
+                        summary = stringResource(R.string.follow_system_theme_desc),
                         icon = Icons.Default.Brightness4,
                         checked = appVm.followSystemTheme,
                         onCheckedChange = { appVm.setFollowSystemTheme(it) }
@@ -98,8 +98,8 @@ fun SettingsScreen(
                     ) {
                         Column {
                             SwitchItem(
-                                label = stringResource(R.string.dark_mode_label),
-                                subtitle = stringResource(R.string.dark_mode_desc),
+                                title = stringResource(R.string.dark_mode_label),
+                                summary = stringResource(R.string.dark_mode_desc),
                                 icon = Icons.Default.DarkMode,
                                 checked = appVm.darkThemeEnabled,
                                 onCheckedChange = { appVm.setDarkTheme(it) }
@@ -111,8 +111,8 @@ fun SettingsScreen(
                             ) {
                                 Column {
                                     SwitchItem(
-                                        label = stringResource(R.string.amoled_mode_label),
-                                        subtitle = stringResource(R.string.amoled_mode_desc),
+                                        title = stringResource(R.string.amoled_mode_label),
+                                        summary = stringResource(R.string.amoled_mode_desc),
                                         icon = Icons.Default.PhoneAndroid,
                                         checked = appVm.amoledMode,
                                         onCheckedChange = { appVm.setAmoledMode(it) }
@@ -121,8 +121,8 @@ fun SettingsScreen(
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 SwitchItem(
-                                    label = stringResource(R.string.dynamic_color_label),
-                                    subtitle = stringResource(R.string.dynamic_color_desc),
+                                    title = stringResource(R.string.dynamic_color_label),
+                                    summary = stringResource(R.string.dynamic_color_desc),
                                     icon = Icons.Default.Palette,
                                     checked = appVm.dynamicColor,
                                     onCheckedChange = { appVm.setDynamicColor(it) }

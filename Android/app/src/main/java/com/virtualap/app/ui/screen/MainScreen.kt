@@ -659,8 +659,8 @@ fun MainScreen(
 
                         // Hide SSID
                         SwitchItem(
-                            label = stringResource(R.string.hidden_ssid_label),
-                            subtitle = stringResource(R.string.hidden_ssid_desc),
+                            title = stringResource(R.string.hidden_ssid_label),
+                            summary = stringResource(R.string.hidden_ssid_desc),
                             icon = Icons.Default.VisibilityOff,
                             checked = vm.config.hidden,
                             onCheckedChange = { vm.config = vm.config.copy(hidden = it) },
@@ -673,8 +673,8 @@ fun MainScreen(
                         if (vm.config.security == "wpa2") {
                             Spacer(Modifier.height(8.dp))
                             SwitchItem(
-                                label = stringResource(R.string.pmf_label),
-                                subtitle = stringResource(R.string.pmf_desc),
+                                title = stringResource(R.string.pmf_label),
+                                summary = stringResource(R.string.pmf_desc),
                                 icon = Icons.Default.Security,
                                 checked = vm.config.pmf,
                                 onCheckedChange = { vm.setPmf(it) },

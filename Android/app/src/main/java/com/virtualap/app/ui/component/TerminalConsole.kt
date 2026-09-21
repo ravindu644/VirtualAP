@@ -55,6 +55,8 @@ fun ShimmerAnimation(
     )
 
     // Smoothly fade shimmer out instead of cutting abruptly.
+    // An instant brush change on isProcessing=false was causing a recomposition
+    // spike that interrupted the scroll animation at the worst possible moment.
     val shimmerAlpha by animateFloatAsState(
         targetValue = if (enabled) 1f else 0f,
         animationSpec = tween(durationMillis = 800, easing = LinearOutSlowInEasing),
@@ -132,6 +134,8 @@ fun TerminalConsole(
         snapshotFlow { verticalScrollState.value }
             .collect { value ->
                 // Only track user scrolling if we aren't currently auto-scrolling.
+                // This prevents the animation itself from triggering "userScrolledUp"
+                // due to measurement delays or extreme log bursts.
                 if (!isAutoScrolling) {
                     userScrolledUp = value < verticalScrollState.maxValue - 200
                 }
@@ -139,6 +143,22 @@ fun TerminalConsole(
     }
 
     // Auto-scroll logic: ensures the terminal stays at the bottom during processing.
+    //
+    // Why isProcessing is inside the snapshotFlow tuple and not read from closure:
+    //   snapshotFlow only re-emits when its observed state changes. If isProcessing
+    //   were read from closure (as it was post-4a3f6a5), the collector would branch on
+    //   a stale value - e.g. starting a spring animation when isProcessing was true,
+    //   then having isProcessing flip false mid-spring, causing a second emission (via
+    //   the LaunchedEffect(isProcessing) reset below) that fires scrollTo() concurrently
+    //   with the still-running animateScrollTo(). The two coroutines fight over scroll
+    //   state, the spring gets cancelled mid-animation, and the terminal stalls ~500ms
+    //   before printing the final 2 lines. 1-in-50 because it's a narrow timing window.
+    //
+    // Why scrollJob?.cancel() before each launch:
+    //   Guarantees at most one scroll coroutine is live at any moment. Without this,
+    //   rapid log bursts or an isProcessing flip can queue up multiple animateScrollTo
+    //   calls that run concurrently, producing the same stutter even with the correct
+    //   isProcessing value.
     LaunchedEffect(Unit) {
         var scrollJob: Job? = null
         snapshotFlow {
@@ -175,6 +195,8 @@ fun TerminalConsole(
     }
 
     // Reset scroll state only when a NEW operation starts, never on finish.
+    // Resetting on finish (isProcessing = false) was the trigger that produced
+    // the spurious snapshotFlow re-emission that started the race in 4a3f6a5.
     LaunchedEffect(isProcessing) {
         if (isProcessing) {
             userScrolledUp = false
@@ -211,14 +233,14 @@ fun TerminalConsole(
                     logs.forEach { (level, message) ->
                         val annotatedText = remember(message) {
                             val displayMessage = if (message.isEmpty()) {
-                                " "
+                                "\u00A0"
                             } else {
                                 message.replace(Regex("""^( +)""")) { match: kotlin.text.MatchResult ->
-                                    match.value.replace(" ", " ")
+                                    match.value.replace(" ", "\u00A0")
                                 }
                             }
 
-                            if (displayMessage.contains("[")) {
+                            if (displayMessage.contains("\u001B[")) {
                                 val defaultColor = when (level) {
                                     Log.ERROR -> errorColor
                                     Log.WARN -> warnColor

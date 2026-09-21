@@ -35,8 +35,8 @@
     <string name="status_stopped">Stopped</string>
     <string name="access_point_title">Access Point</string>
     <string name="ssid_label">Network Name (SSID)</string>
-    <string name="password_label">Password (8–63 chars)</string>
-    <string name="password_length_error">Must be 8–63 characters</string>
+    <string name="password_label">Password (8-63 chars)</string>
+    <string name="password_length_error">Must be 8-63 characters</string>
     <string name="hide_password_desc">Hide password</string>
     <string name="show_password_desc">Show password</string>
     <string name="band_label">Band</string>
@@ -77,7 +77,7 @@
     <!-- About Section -->
     <string name="about_header">About</string>
     <string name="about_virtualap">About VirtualAP</string>
-    <string name="about_description">Turn your rooted Android phone into a real wireless access point — powered by fully-static hostapd and dnsmasq binaries that run directly on Android.</string>
+    <string name="about_description">Turn your rooted Android phone into a real wireless access point, powered by fully-static hostapd and dnsmasq binaries that run directly on Android.</string>
     <string name="maintainer_header">Maintainer</string>
     <string name="maintainer_name">ravindu644</string>
     <string name="maintainer_role">Maintainer</string>
@@ -90,7 +90,7 @@
     <string name="hotspot_settings_header">Hotspot Settings</string>
     <string name="advanced_settings_title">Advanced</string>
     <string name="hidden_ssid_label">Hide SSID</string>
-    <string name="hidden_ssid_desc">Don\'t broadcast the network name — clients connect manually</string>
+    <string name="hidden_ssid_desc">Don\'t broadcast the network name, clients connect manually</string>
     <string name="pmf_label">Protected Management Frames</string>
     <string name="pmf_desc">Adds 802.11w protection to WPA2. Leave off if older devices fail to connect</string>
     <string name="gateway_ip_label">Gateway IP</string>
@@ -105,4 +105,18 @@
     <!-- Wi-Fi QR sheet -->
     <string name="qr_title">Wi-Fi QR code</string>
     <string name="qr_scan_hint">Scan with a phone camera to join</string>
+
+    <!-- Backend option labels -->
+    <string name="security_open">Open</string>
+    <string name="security_wpa2">WPA2-Personal</string>
+    <string name="security_wpa2_wpa3">WPA2/WPA3-Personal</string>
+    <string name="security_wpa3">WPA3-Personal</string>
+    <string name="band_2ghz">2.4 GHz</string>
+    <string name="band_5ghz">5 GHz</string>
+    <string name="width_20">20 MHz</string>
+    <string name="width_40">40 MHz</string>
+    <string name="width_80">80 MHz</string>
+    <string name="channel_short">ch %1$s</string>
+    <string name="width_mhz">%1$s MHz</string>
+    <string name="command_failed">Command exited with an error</string>
 </resources>
