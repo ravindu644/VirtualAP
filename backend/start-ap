@@ -231,9 +231,15 @@ resolve_upstream() {
 # --- Wireless helpers (static iw) ---
 
 sta_channel() {
-    # Current channel of the STA connection, empty if not connected
-    "$IW" dev "$PHY_IFACE" info 2>/dev/null \
-        | $SED -n 's/.*channel \([0-9]*\).*/\1/p' | $HEAD -n1
+    # Current channel of the STA connection, empty if not connected. Derived
+    # from the link frequency: Samsung's Broadcom driver omits the "channel"
+    # line from `iw dev info` entirely, but `iw dev link` always has "freq:".
+    local f
+    f=$("$IW" dev "$PHY_IFACE" link 2>/dev/null \
+        | $SED -n 's/^[[:space:]]*freq: \([0-9]*\).*/\1/p' | $HEAD -n1)
+    [ -z "$f" ] && return
+    # ponytail: 2.4GHz ch 14 (2484) maps wrong here; it is never usable for AP anyway.
+    if [ "$f" -lt 5000 ]; then $ECHO $(( (f - 2407) / 5 )); else $ECHO $(( (f - 5000) / 5 )); fi
 }
 
 reg_country() {
@@ -244,6 +250,36 @@ reg_country() {
 is_dfs_channel() {
     # 5GHz DFS range: beaconing needs radar detection - phone chips refuse
     [ "$1" -ge 52 ] 2>/dev/null && [ "$1" -le 144 ] 2>/dev/null
+}
+
+# True if the phy lists channel $1 as "no IR" (beaconing forbidden).
+chan_no_ir() { phy_info | $GREP -q "\[$1\] .*no IR"; }
+
+# Make sure the driver's regdomain allows an AP on 5GHz channel $1 (CHANNEL).
+# Samsung's Broadcom FullMAC firmware boots in world country "99" and the
+# framework sometimes never pushes a real code (race with telephony at boot):
+# every 5GHz channel then stays NO-IR, and hostapd dies ~5s in - after our 2s
+# liveness check - so the AP looks ACTIVE but never beacons. The wiphy is
+# self-managed, so `iw reg set` and hostapd's country_code are ignored; the
+# only lever is the driver's private COUNTRY command via the supplicant's
+# control socket (no wpa_cli on phones - our hostapd_cli speaks the same
+# protocol). The reply never makes it back (SELinux), so don't wait for it.
+# Country: the framework's own answer, falling back to US.
+# $1 = STA channel (for the 2.4GHz fallback), may be empty.
+WPA_CTRL_DIR="/data/vendor/wifi/wpa/sockets"
+ensure_5g_ir() {
+    chan_no_ir "$CHANNEL" || return 0
+    local cc
+    cc=$(cmd wifi get-country-code 2>/dev/null | $SED -n 's/.*= *\([A-Za-z][A-Za-z]\).*/\1/p' | $TR 'a-z' 'A-Z')
+    cc="${cc:-US}"
+    warn "5GHz channel $CHANNEL is NO-IR (driver in world regdomain) - setting driver country to $cc."
+    "$BIN_DIR/hostapd_cli" -p "$WPA_CTRL_DIR" -i "$PHY_IFACE" raw "DRIVER COUNTRY $cc" >/dev/null 2>&1 &
+    $SLEEP 1
+    PHY_INFO_CACHE=""
+    if chan_no_ir "$CHANNEL"; then
+        CHANNEL=$([ -n "$1" ] && [ "$1" -le 14 ] && $ECHO "$1" || $ECHO 6)
+        warn "Channel still NO-IR after setting country - falling back to 2.4GHz channel $CHANNEL."
+    fi
 }
 
 # --- Channel-width helpers (5GHz VHT geometry + chip capabilities) ---
@@ -352,6 +388,9 @@ pick_channel() {
             CHANNEL="${CHANNEL:-6}"
         fi
     fi
+
+    # 5GHz needs the regdomain to allow beaconing there - see ensure_5g_ir.
+    if [ "$CHANNEL" -ge 36 ] 2>/dev/null; then ensure_5g_ir "$sta_ch"; fi
 
     # Sync BAND from the final channel so hw_mode is always correct.
     if [ "$CHANNEL" -ge 36 ] 2>/dev/null; then
