@@ -94,19 +94,6 @@ fun MainScreen(
                         }
                     },
                     actions = {
-                        // Hidden until the first fetch lands so a wrong "Stopped"
-                        // never flashes.
-                        if (vm.isReady) {
-                            StatusPill(
-                                label = stringResource(
-                                    if (status.running) R.string.status_running else R.string.status_stopped
-                                ).uppercase(),
-                                color = if (status.running) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                busy = busy,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                        }
                         IconButton(onClick = { vm.openLogSheet() }) {
                             Icon(
                                 imageVector = Icons.Default.Terminal,

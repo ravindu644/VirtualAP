@@ -31,7 +31,6 @@
     <!-- Main Screen -->
     <string name="app_subtitle">Your phone, an actual router</string>
     <string name="status_running">Running</string>
-    <string name="status_stopped">Stopped</string>
     <string name="access_point_title">Access Point</string>
     <string name="ssid_label">Network Name (SSID)</string>
     <string name="password_label">Password (8-63 chars)</string>
