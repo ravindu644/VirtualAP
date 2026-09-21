@@ -22,12 +22,12 @@ Never hardcode a hex colour, an sp size, or a radius you picked by eye.
 
 ## What the app looks like, and why
 
-**Flat, always.** Nothing in this app is elevated. `tonalElevation = 0.dp` appears at 15 sites
+**Flat, always.** Nothing in this app is elevated. `tonalElevation = 0.dp` appears at 17 sites
 and there is not one `CardDefaults.cardElevation` in the tree. Depth is expressed by stepping
 the surface colour up one level and drawing a 1dp border. If you reach for a shadow, you have
 left the design.
 
-**`Surface` is the primitive.** 17 `Surface` uses and no `Card()` at all. Buttons are
+**`Surface` is the primitive.** 19 `Surface` uses and no `Card()` at all. Buttons are
 clickable Surfaces, not Material `Button`s. Dialogs are `Dialog { Surface { } }`, not
 `AlertDialog`. Material components are not banned, but they arrive with their own elevation and
 radius defaults and have to be argued for.
@@ -194,10 +194,13 @@ larger inner radius makes the buttons read as sitting proud of the wrapper rathe
 flush inside it. Matching the two radii flattens the effect and has been reverted twice already
 in Droidspaces.
 
-Nothing uses it yet. When a row of peer actions inside a card appears, this is its shape. A
-dialog's confirm and cancel are not that, and have their own rule below. The Clear and Copy row
-above the log console (`LogActionRow`) is not that either: it is a bare row of two 38dp
-buttons with no wrapper, ported as is from upstream's terminal dialog.
+One site uses it today, as a selector rather than a row of actions: the Interface or
+Container switch on the main screen (`SegmentedSelector` in `ui/screen/MainScreen.kt`). The
+selected segment takes the tinted fill and accent border, the other stays transparent, and
+the geometry is exactly the one above. A dialog's confirm and cancel are not that, and have
+their own rule below. The Clear and Copy row above the log console (`LogActionRow`) is not
+that either: it is a bare row of two 38dp buttons with no wrapper, ported as is from
+upstream's terminal dialog.
 
 ## Dialogs
 
@@ -310,9 +313,6 @@ misses.
   belongs at the bottom edge, and the logs sheet blocks gesture dismissal while a command is
   running so the sheet cannot leave a touch-eating scrim behind. Their shell is
   `surfaceContainer` with 24dp top corners, matching the shape table.
-- **The upstream selector is a Material `SingleChoiceSegmentedButtonRow`.** It is a two-way
-  switch between "Interface" and "Container", not a row of peer actions, so the action pill
-  does not apply and a hand-built toggle would only re-implement the selection state.
 - **Faint fill alphas of 0.03 and 0.06** in `DialogFooterRow` and `LogActionRow` stay unshared.
   They are invisible in isolation, and snapping them together would mean inventing a token
   for something nobody can see.

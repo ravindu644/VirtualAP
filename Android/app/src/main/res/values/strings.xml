@@ -113,4 +113,9 @@
     <string name="channel_short">ch %1$s</string>
     <string name="width_mhz">%1$s MHz</string>
     <string name="command_failed">Command exited with an error</string>
+    <string name="clients_label">Clients</string>
+    <string name="mode_label">Mode</string>
+    <string name="routed_label">Routed</string>
+    <string name="dns_label">DNS</string>
+    <string name="dns_system">System resolvers</string>
 </resources>

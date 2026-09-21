@@ -5,7 +5,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -232,6 +237,57 @@ private fun ConfigCard(title: String, content: @Composable ColumnScope.() -> Uni
     }
 }
 
+/**
+ * A two-way selector in the action pill geometry: 12dp wrapper on
+ * surfaceContainerHigh, 16dp segments inset by 4dp. The selected segment takes
+ * the tinted fill and accent border; the other stays transparent.
+ */
+@Composable
+private fun SegmentedSelector(
+    options: List<String>,
+    selected: Int,
+    enabled: Boolean,
+    onSelect: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            options.forEachIndexed { index, label ->
+                val active = index == selected
+                val accent = if (active) MaterialTheme.colorScheme.primary
+                             else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 0.7f else 0.38f)
+                Surface(
+                    onClick = { onSelect(index) },
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+                    border = if (active) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null,
+                    tonalElevation = 0.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = accent,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Caption(text: String) {
     Text(
@@ -372,31 +428,20 @@ private fun UpstreamCard(vm: APViewModel) {
 
     ConfigCard(title = stringResource(R.string.upstream_card_title)) {
         // Interface | Container selector, shown only when Droidspaces is present
-        // with at least one running container. Material's SegmentedButton stays
-        // here: it is a two-way selector, not a row of peer actions, so the
-        // action pill pattern does not apply.
+        // with at least one running container.
         if (hasContainers) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = !vm.config.containerMode,
-                    onClick = { if (editable) vm.config = vm.config.copy(containerMode = false) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    enabled = editable,
-                    icon = {}
-                ) { Text(stringResource(R.string.interface_label)) }
-                SegmentedButton(
-                    selected = vm.config.containerMode,
-                    onClick = {
-                        if (editable) vm.config = vm.config.copy(
-                            containerMode = true,
-                            containerName = vm.config.containerName.ifBlank { vm.containers.first() }
-                        )
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    enabled = editable,
-                    icon = {}
-                ) { Text(stringResource(R.string.container_label)) }
-            }
+            SegmentedSelector(
+                options = listOf(stringResource(R.string.interface_label), stringResource(R.string.container_label)),
+                selected = if (vm.config.containerMode) 1 else 0,
+                enabled = editable,
+                onSelect = { index ->
+                    vm.config = if (index == 0) vm.config.copy(containerMode = false)
+                    else vm.config.copy(
+                        containerMode = true,
+                        containerName = vm.config.containerName.ifBlank { vm.containers.first() }
+                    )
+                }
+            )
         }
 
         if (vm.config.containerMode && hasContainers) {
@@ -537,6 +582,10 @@ private fun AdvancedCard(vm: APViewModel) {
 private fun ActiveNetworkCard(vm: APViewModel) {
     val status = vm.status
     var showQr by remember { mutableStateOf(false) }
+    // Tap anywhere on the card to reveal the second row of details, the way
+    // the Droidspaces container card expands.
+    var expanded by remember { mutableStateOf(false) }
+    val cardShape = RoundedCornerShape(20.dp)
 
     val band = when (status.band) {
         "2", "2.4" -> stringResource(R.string.band_2ghz)
@@ -547,17 +596,35 @@ private fun ActiveNetworkCard(vm: APViewModel) {
         band,
         status.channel?.let { stringResource(R.string.channel_short, it) },
         status.width?.let { stringResource(R.string.width_mhz, it) }
-    ).joinToString(" · ")
+    ).joinToString(" \u00B7 ")
+    val security = when (status.security) {
+        "open" -> stringResource(R.string.security_open)
+        "wpa2wpa3" -> stringResource(R.string.security_wpa2_wpa3)
+        "wpa3" -> stringResource(R.string.security_wpa3)
+        "wpa2" -> stringResource(R.string.security_wpa2)
+        else -> stringResource(R.string.unknown)
+    }
+    val bridged = status.mode == "bridged"
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .clickable(
+                onClick = { expanded = !expanded },
+                indication = rememberRipple(bounded = true),
+                interactionSource = remember { MutableInteractionSource() }
+            ),
+        shape = cardShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         tonalElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier.padding(CardContentPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(animationSpec = AnimationUtils.mediumSpec())
+                .padding(CardContentPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
@@ -591,16 +658,13 @@ private fun ActiveNetworkCard(vm: APViewModel) {
             }
             status.started?.let { Caption(stringResource(R.string.since_time, it)) }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatGrid(
+                left = {
                     StatRow(Icons.Default.Router, stringResource(R.string.gateway_label), status.gateway)
                     StatRow(Icons.Default.SignalCellularAlt, stringResource(R.string.band_label), radio)
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (status.mode == "bridged") {
+                },
+                right = {
+                    if (bridged) {
                         StatRow(
                             ImageVector.vectorResource(R.drawable.ic_droidspaces),
                             stringResource(R.string.container_label),
@@ -620,12 +684,42 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                         )
                     }
                 }
+            )
+
+            if (expanded) {
+                StatGrid(
+                    left = {
+                        StatRow(Icons.Default.Security, stringResource(R.string.security_label), security)
+                        StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
+                    },
+                    right = {
+                        StatRow(
+                            Icons.Default.Hub,
+                            stringResource(R.string.mode_label),
+                            stringResource(if (bridged) R.string.managed_label else R.string.routed_label)
+                        )
+                        StatRow(
+                            Icons.Default.Dns,
+                            stringResource(R.string.dns_label),
+                            if (bridged) status.container ?: stringResource(R.string.unknown)
+                            else status.dnsServers?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dns_system)
+                        )
+                    }
+                )
             }
         }
     }
 
     if (showQr) {
         WifiQrSheet(vm = vm, onDismiss = { showQr = false })
+    }
+}
+
+@Composable
+private fun StatGrid(left: @Composable ColumnScope.() -> Unit, right: @Composable ColumnScope.() -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), content = left)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp), content = right)
     }
 }
 
