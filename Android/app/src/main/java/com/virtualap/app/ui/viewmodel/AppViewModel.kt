@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.virtualap.app.ui.theme.ThemePalette
 import com.virtualap.app.util.APManager
 import com.virtualap.app.util.PreferencesManager
 import com.virtualap.app.util.RootChecker
@@ -28,25 +27,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     var installStatus by mutableStateOf(InstallStatus.Checking)
         private set
-
-    // Private mutable backing state — read via computed val to avoid JVM setter clash.
-    private var _followSystemTheme by mutableStateOf(prefs.followSystemTheme)
-    private var _darkThemeEnabled  by mutableStateOf(prefs.darkTheme)
-    private var _dynamicColor      by mutableStateOf(prefs.useDynamicColor)
-    private var _amoledMode        by mutableStateOf(prefs.amoledMode)
-    private var _themePalette      by mutableStateOf(ThemePalette.fromName(prefs.themePalette))
-
-    val followSystemTheme: Boolean    get() = _followSystemTheme
-    val darkThemeEnabled:  Boolean    get() = _darkThemeEnabled
-    val dynamicColor:      Boolean    get() = _dynamicColor
-    val amoledMode:        Boolean    get() = _amoledMode
-    val themePalette:      ThemePalette get() = _themePalette
-
-    fun setFollowSystemTheme(v: Boolean) { _followSystemTheme = v; prefs.followSystemTheme = v }
-    fun setDarkTheme(v: Boolean)         { _darkThemeEnabled  = v; prefs.darkTheme = v }
-    fun setDynamicColor(v: Boolean)      { _dynamicColor      = v; prefs.useDynamicColor = v }
-    fun setAmoledMode(v: Boolean)        { _amoledMode        = v; prefs.amoledMode = v }
-    fun setThemePalette(p: ThemePalette) { _themePalette      = p; prefs.themePalette = p.name }
 
     init {
         if (prefs.hasSeenRootCheck && prefs.rootAvailable) {

@@ -4,10 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +21,8 @@ import com.virtualap.app.ui.screen.RootCheckScreen
 import com.virtualap.app.ui.screen.SetupScreen
 import com.virtualap.app.ui.screen.SettingsScreen
 import com.virtualap.app.ui.theme.VirtualAPTheme
+import com.virtualap.app.ui.theme.rememberThemeState
+import com.virtualap.app.util.AnimationUtils
 import com.virtualap.app.ui.viewmodel.APViewModel
 import com.virtualap.app.ui.viewmodel.AppViewModel
 import com.virtualap.app.ui.viewmodel.InstallStatus
@@ -37,14 +37,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appVm: AppViewModel = viewModel()
             val apVm: APViewModel = viewModel()
-            val systemDark = isSystemInDarkTheme()
-            val darkTheme = if (appVm.followSystemTheme) systemDark else appVm.darkThemeEnabled
+            val themeState = rememberThemeState()
 
             VirtualAPTheme(
-                darkTheme = darkTheme,
-                dynamicColor = appVm.dynamicColor,
-                amoledMode = appVm.amoledMode,
-                themePalette = appVm.themePalette
+                darkTheme = themeState.darkTheme,
+                dynamicColor = themeState.useDynamicColor,
+                amoledMode = themeState.amoledMode,
+                themePalette = themeState.themePalette
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -70,8 +69,8 @@ class MainActivity : ComponentActivity() {
 
                     // navigation-compose defaults to a 700ms fade between
                     // destinations, which feels sluggish entering Settings and
-                    // going back. Use a quick standard ~200ms fade instead.
-                    val navFade = tween<Float>(durationMillis = 200)
+                    // going back. Use the standard medium fade instead.
+                    val navFade = AnimationUtils.mediumSpec<Float>()
                     NavHost(
                         navController = navController,
                         startDestination = startDestination,
@@ -99,10 +98,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable(Screens.SETTINGS) {
-                            SettingsScreen(
-                                appVm = appVm,
-                                onBack = { navController.popBackStack() }
-                            )
+                            SettingsScreen(onBack = { navController.popBackStack() })
                         }
                     }
 

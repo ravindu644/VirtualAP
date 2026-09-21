@@ -1,23 +1,38 @@
 package com.virtualap.app.ui.screen
 
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
+import com.virtualap.app.ui.component.LogActionRow
+import com.virtualap.app.ui.component.PrimaryActionBottomBar
 import com.virtualap.app.ui.component.TerminalConsole
+import com.virtualap.app.util.ViewModelLogger
 import com.virtualap.app.util.VirtualAPInstaller
 
 private enum class SetupState { INSTALLING, SUCCESS, ERROR }
@@ -30,34 +45,28 @@ fun SetupScreen(
     val context = LocalContext.current
     var setupState by remember { mutableStateOf(SetupState.INSTALLING) }
     val logs = remember { mutableStateListOf<Pair<Int, String>>() }
-    var retryKey by remember { mutableStateOf(0) }
+    val logger = remember { ViewModelLogger { level, msg -> logs.add(level to msg) } }
+    var retryKey by remember { mutableIntStateOf(0) }
 
-    // Handle back button
+    // Back is a no-op while installing and after a failure; Done handles success.
     BackHandler(enabled = true) {
-        when (setupState) {
-            SetupState.SUCCESS -> onInstalled()
-            SetupState.ERROR -> { /* allow going back on error if needed */ }
-            SetupState.INSTALLING -> { /* block during install */ }
-        }
+        if (setupState == SetupState.SUCCESS) onInstalled()
     }
 
-    // Run installation; retryKey increments on each retry to re-trigger this effect
+    // retryKey increments on each retry to re-trigger this effect.
     LaunchedEffect(retryKey) {
         logs.clear()
-        logs.add(Log.INFO to "Starting VirtualAP installation...")
-        val result = VirtualAPInstaller.install(context) { level, message ->
-            logs.add(level to message)
-        }
-        // Surface the failure reason in the terminal - onProgress doesn't cover
-        // every failure path (e.g. deployAsset errors are only in the Result).
-        result.exceptionOrNull()?.let { logs.add(Log.ERROR to "[ERROR] ${it.message}") }
+        logger.i("Starting VirtualAP installation...")
+        val result = VirtualAPInstaller.install(context, logger)
+        // Surface the failure reason in the terminal: the installer's own log
+        // lines do not cover every failure path (deployAsset errors are only
+        // in the Result).
+        result.exceptionOrNull()?.let { logger.e("[ERROR] ${it.message}") }
         setupState = if (result.isSuccess) SetupState.SUCCESS else SetupState.ERROR
     }
 
-    val installLogsLabel = stringResource(R.string.install_logs_label)
-    val logsCopiedMsg = stringResource(R.string.logs_copied)
-
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -67,7 +76,8 @@ fun SetupScreen(
                             SetupState.SUCCESS -> stringResource(R.string.installation_complete)
                             SetupState.ERROR -> stringResource(R.string.installation_failed)
                         },
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
                 },
                 navigationIcon = {
@@ -78,85 +88,34 @@ fun SetupScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            when (setupState) {
+                SetupState.SUCCESS -> PrimaryActionBottomBar(
+                    label = stringResource(R.string.done),
+                    icon = Icons.Default.CheckCircle,
+                    onClick = onInstalled
+                )
+                SetupState.ERROR -> PrimaryActionBottomBar(
+                    label = stringResource(R.string.retry),
+                    icon = Icons.Default.Refresh,
+                    onClick = {
+                        setupState = SetupState.INSTALLING
+                        retryKey++
+                    },
+                    secondaryAction = { LogActionRow(logs = logs, isBlocking = false, onClear = null) }
+                )
+                SetupState.INSTALLING -> Unit
+            }
         }
     ) { innerPadding ->
-        BoxWithConstraints(
+        TerminalConsole(
+            logs = logs,
+            isProcessing = setupState == SetupState.INSTALLING,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-        ) {
-            val consoleMaxHeight = if (setupState == SetupState.INSTALLING) {
-                maxHeight
-            } else {
-                maxHeight - ButtonDefaults.MinHeight - 12.dp
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .animateContentSize()
-            ) {
-                TerminalConsole(
-                    logs = logs,
-                    isProcessing = setupState == SetupState.INSTALLING,
-                    modifier = Modifier.fillMaxWidth(),
-                    maxHeight = consoleMaxHeight
-                )
-
-                when (setupState) {
-                    SetupState.SUCCESS -> {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = onInstalled,
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.done), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                    SetupState.ERROR -> {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    // Retry: increment key to re-trigger LaunchedEffect
-                                    setupState = SetupState.INSTALLING
-                                    retryKey++
-                                },
-                                modifier = Modifier.weight(1f).height(56.dp)
-                            ) {
-                                Text(stringResource(R.string.retry), style = MaterialTheme.typography.labelLarge)
-                            }
-                            Button(
-                                onClick = {
-                                    val logText = logs.joinToString("\n") { it.second }
-                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    val clip = android.content.ClipData.newPlainText(installLogsLabel, logText)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, logsCopiedMsg, Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.weight(1f).height(56.dp)
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.copy_logs), style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
-                    SetupState.INSTALLING -> {
-                        // No buttons during installation
-                    }
-                }
-            }
-        }
+                .padding(24.dp)
+        )
     }
 }
-

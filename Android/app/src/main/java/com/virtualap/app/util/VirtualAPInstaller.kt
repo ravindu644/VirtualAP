@@ -2,7 +2,6 @@ package com.virtualap.app.util
 
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -63,7 +62,7 @@ object VirtualAPInstaller {
 
     suspend fun install(
         context: Context,
-        onProgress: (Int, String) -> Unit  // level, message
+        logger: BackendLogger
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val cacheDir = context.cacheDir
@@ -71,13 +70,13 @@ object VirtualAPInstaller {
             // Step 0: A re-install (backend update) must not race a live backend.
             // Overwriting a binary some process still executes fails with
             // ETXTBSY, so stop the AP first (deployAsset also unlinks first).
-            onProgress(Log.INFO, "Stopping any running AP...")
+            logger.i("Stopping any running AP...")
             Shell.cmd("${Backend.startAp} stop").exec()
 
             // Step 1: Create directories. Scripts are NOT deployed here - they run
             // straight from the app's files dir (see Backend) so APK updates always
             // take effect. Remove stale files from the old chroot-based versions.
-            onProgress(Log.INFO, "Creating directories...")
+            logger.i("Creating directories...")
             Shell.cmd(
                 "mkdir -p ${Constants.VAP_DIR}/bin ${Constants.VAP_DIR}/logs ${Constants.VAP_DIR}/run",
                 "rm -f ${Constants.VAP_DIR}/vap.sh ${Constants.VAP_DIR}/start-ap",
@@ -91,16 +90,16 @@ object VirtualAPInstaller {
                 return@withContext Result.failure(
                     Exception("No binaries found in assets/bin/$arch/. Run scripts/build-static.sh and rebuild the APK.")
                 )
-            onProgress(Log.INFO, "Installing $arch binaries...")
+            logger.i("Installing $arch binaries...")
             for (name in binaries) {
-                onProgress(Log.INFO, "Installing $name...")
+                logger.i("Installing $name...")
                 deployAsset(context, "bin/$arch/$name", "${Constants.VAP_DIR}/bin/$name", cacheDir)
                     ?.let { return@withContext Result.failure(it) }
             }
             Shell.cmd("chmod 755 ${Constants.VAP_DIR}/bin/*").exec()
 
             // Step 3: Verify every binary is in place and executable.
-            onProgress(Log.INFO, "Verifying installation...")
+            logger.i("Verifying installation...")
             val verify = binaries.joinToString(" && ") { "test -x ${Constants.VAP_DIR}/bin/$it" }
             val ok = Shell.cmd("$verify && echo ok").exec().out.any { it.contains("ok") }
             if (!ok) return@withContext Result.failure(
@@ -113,10 +112,10 @@ object VirtualAPInstaller {
                 PreferencesManager.getInstance(context).payloadVersion = it
             }
 
-            onProgress(Log.INFO, "Installation complete!")
+            logger.i("Installation complete!")
             Result.success(Unit)
         } catch (e: Exception) {
-            onProgress(Log.ERROR, "Installation failed: ${e.message}")
+            logger.e("Installation failed: ${e.message}")
             Result.failure(e)
         }
     }

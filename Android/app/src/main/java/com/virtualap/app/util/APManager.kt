@@ -1,6 +1,5 @@
 package com.virtualap.app.util
 
-import android.util.Log
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,9 +66,9 @@ object APManager {
         band: String, channel: String?, width: String, gateway: String, dnsServers: String?,
         hidden: Boolean = false, security: String = "wpa2", pmf: Boolean = false,
         container: String = "",
-        onLine: (Int, String) -> Unit
+        logger: BackendLogger
     ): Boolean = withContext(Dispatchers.IO) {
-        val sq = { s: String -> "'" + s.replace("'", "'\\''") + "'" }
+        val sq = Backend::quote
         val channelVal = channel ?: ""
         val dnsVal = dnsServers ?: ""
         val hiddenVal = if (hidden) "1" else "0"
@@ -78,26 +77,17 @@ object APManager {
         // in ap.conf never silently re-enables it.
         val cmd = "${Backend.startAp} start -s ${sq(ssid)} -p ${sq(password)} -o ${sq(upstream)} -b ${sq(band)} -c ${sq(channelVal)} -W ${sq(width)} -g ${sq(gateway)} -d ${sq(dnsVal)} -H $hiddenVal -A ${sq(security)} -M $pmfVal -K ${sq(container)}"
 
-        val outputList = object : com.topjohnwu.superuser.CallbackList<String>() {
-            override fun onAddElement(e: String?) {
-                e ?: return
-                val level = when {
-                    e.contains("[ERROR]") -> Log.ERROR
-                    e.contains("[WARN]")  -> Log.WARN
-                    else                  -> Log.INFO
-                }
-                onLine(level, e)
-            }
-        }
-        val result = Shell.cmd(cmd).to(outputList).exec()
-        result.isSuccess
+        Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
     }
 
-    suspend fun stop(onLine: (Int, String) -> Unit): Boolean = withContext(Dispatchers.IO) {
-        val outputList = object : com.topjohnwu.superuser.CallbackList<String>() {
-            override fun onAddElement(e: String?) { e?.let { onLine(Log.INFO, it) } }
-        }
-        Shell.cmd("${Backend.startAp} stop").to(outputList).exec().isSuccess
+    suspend fun stop(logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("${Backend.startAp} stop").to(logSink(logger)).exec().isSuccess
+    }
+
+    /** libsu delivers each output line on the main thread, so the logger's
+     *  synchronous path is the right one here. */
+    private fun logSink(logger: BackendLogger) = object : com.topjohnwu.superuser.CallbackList<String>() {
+        override fun onAddElement(e: String?) { e?.let { logger.logImmediate(classifyLine(it), it) } }
     }
 
 

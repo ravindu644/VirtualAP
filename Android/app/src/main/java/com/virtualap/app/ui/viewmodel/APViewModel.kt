@@ -9,10 +9,13 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.snapshotFlow
+import com.virtualap.app.R
 import com.virtualap.app.util.APManager
 import com.virtualap.app.util.APStatus
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
+import com.virtualap.app.util.ViewModelLogger
+import com.virtualap.app.util.classifyLine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -71,6 +74,10 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     var logText by mutableStateOf("")
         private set
     val actionLogs = mutableStateListOf<Pair<Int, String>>()
+    private val logger = ViewModelLogger { level, msg -> actionLogs.add(level to msg) }
+    /** The tailed ap.log as log lines, for the sheet when no command output is live. */
+    val fallbackLogs: List<Pair<Int, String>>
+        get() = if (logText.isBlank()) emptyList() else logText.lines().map { classifyLine(it) to it }
     var showActionLogs by mutableStateOf(false)
         private set
     /** False until the first status/interfaces/containers fetch completes, so
@@ -90,7 +97,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
-        // One parallel initial load — gate the UI on it so everything appears at
+        // One parallel initial load, gate the UI on it so everything appears at
         // once (no status flicker, no late-popping container toggle).
         viewModelScope.launch {
             val s = async { APManager.getStatus() }
@@ -124,10 +131,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun loadContainers() {
-        viewModelScope.launch { applyContainerList(APManager.getContainers()) }
-    }
-
     /** Pull-to-refresh: re-fetch status, interfaces, containers and log in
      *  parallel and suspend until they all land (so the spinner reflects real
      *  work). Root status is refreshed separately by the caller. */
@@ -157,10 +160,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             val s = APManager.getStatus()
             status = s
         }
-    }
-
-    fun loadInterfaces() {
-        viewModelScope.launch { applyInterfaceList(APManager.getInterfaces()) }
     }
 
     /** Switch band: valid channels differ per band, so reset to Auto. Width is
@@ -208,17 +207,17 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             actionLogs.clear()
             logText = ""
             showActionLogs = true
-            APManager.start(
+            val ok = APManager.start(
                 cfg.ssid, cfg.password, cfg.upstream, cfg.band,
                 cfg.channel.takeIf { it.isNotBlank() },
                 cfg.width,
                 cfg.gateway.ifBlank { DEFAULT_GATEWAY }, cfg.dnsServers.takeIf { it.isNotBlank() },
                 cfg.hidden,
                 cfg.security, cfg.pmf,
-                if (cfg.containerMode) cfg.containerName else ""
-            ) { level, msg ->
-                actionLogs.add(level to msg)
-            }
+                if (cfg.containerMode) cfg.containerName else "",
+                logger
+            )
+            if (!ok) logFailure()
             delay(500)
             refreshStatus()
             isStarting = false
@@ -231,11 +230,17 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             actionLogs.clear()
             logText = ""
             showActionLogs = true
-            APManager.stop { level, msg -> actionLogs.add(level to msg) }
+            if (!APManager.stop(logger)) logFailure()
             delay(500)
             refreshStatus()
             isStopping = false
         }
+    }
+
+    /** The script's own [ERROR] lines already explain most failures; this
+     *  covers the exit code with no message (killed, missing binary). */
+    private fun logFailure() {
+        logger.logImmediate(Log.ERROR, getApplication<Application>().getString(R.string.command_failed))
     }
 
     fun clearLog() {
@@ -253,7 +258,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         /** Default AP/LAN gateway when the gateway field is left blank. */
         const val DEFAULT_GATEWAY = "192.168.42.1"
 
-        // Must be companion (not instance method) — called from property initializer
+        // Must be companion (not instance method): called from property initializer
         // before the instance exists.
         fun validChannelForBand(band: String, channel: String): String {
             if (channel.isBlank()) return ""
