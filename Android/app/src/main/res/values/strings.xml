@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VirtualAP</string>
-    <string name="root_check_title">Root Access Required</string>
     <string name="root_check_body">VirtualAP needs root access to create virtual network interfaces and manage the AP.</string>
     <string name="root_denied">Root access denied</string>
     <string name="setup_title">Setting Up VirtualAP</string>
@@ -51,7 +50,6 @@
     <string name="container_upstream_desc">This Droidspaces container manages DHCP, DNS and NAT for the hotspot.</string>
     <string name="interface_upstream_desc">VirtualAP handles DHCP, DNS and NAT over this interface.</string>
     <string name="managed_label">Managed</string>
-    <string name="refresh_interfaces_desc">Refresh interfaces</string>
     <string name="starting">Starting…</string>
     <string name="stopping">Stopping…</string>
     <string name="view_logs">View Logs</string>
@@ -68,7 +66,6 @@
     <!-- Setup Screen -->
     <string name="installation_complete">Installation Complete</string>
     <string name="installation_failed">Installation Failed</string>
-    <string name="install_logs_label">VirtualAP install logs</string>
 
     <!-- Root Check Screen -->
     <string name="checking_root">Checking root access…</string>
@@ -82,12 +79,10 @@
     <string name="maintainer_name">ravindu644</string>
     <string name="maintainer_role">Maintainer</string>
     <string name="source_code">Source Code</string>
-    <string name="github">GitHub</string>
     <string name="ok">OK</string>
     <string name="unknown">Unknown</string>
 
     <!-- Hotspot Settings / Advanced -->
-    <string name="hotspot_settings_header">Hotspot Settings</string>
     <string name="advanced_settings_title">Advanced</string>
     <string name="hidden_ssid_label">Hide SSID</string>
     <string name="hidden_ssid_desc">Don\'t broadcast the network name, clients connect manually</string>

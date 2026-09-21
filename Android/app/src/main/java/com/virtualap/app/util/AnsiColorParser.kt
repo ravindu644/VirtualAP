@@ -64,7 +64,7 @@ object AnsiColorParser {
      * Optimized for performance with minimal allocations.
      */
     fun parseAnsi(text: String, defaultColor: Color): AnnotatedString {
-        if (!text.contains("[")) {
+        if (!text.contains("\u001B[")) {
             // Fast path: no ANSI codes, return plain text
             return AnnotatedString(text)
         }
@@ -99,7 +99,7 @@ object AnsiColorParser {
                 // Parse ANSI codes
                 val codes = match.groupValues[1]
                 if (codes.isEmpty()) {
-                    // Reset all styles ([m)
+                    // Reset all styles (ESC[m)
                     currentColor = null
                     currentBgColor = null
                     isBold = false

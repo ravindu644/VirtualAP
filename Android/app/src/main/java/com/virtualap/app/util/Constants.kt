@@ -2,7 +2,6 @@ package com.virtualap.app.util
 
 object Constants {
     const val VAP_DIR = "/data/local/virtualap"
-    const val CONF_FILE = "$VAP_DIR/ap.conf"
     const val LOG_FILE = "$VAP_DIR/logs/ap.log"
     const val BUSYBOX = "$VAP_DIR/bin/busybox"
     const val PREFS_NAME = "virtualap_prefs"
