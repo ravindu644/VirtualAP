@@ -5,7 +5,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -585,9 +584,6 @@ private fun AdvancedCard(vm: APViewModel) {
 private fun ActiveNetworkCard(vm: APViewModel) {
     val status = vm.status
     var showQr by remember { mutableStateOf(false) }
-    // Tap anywhere on the card to reveal the second row of details, the way
-    // the Droidspaces container card expands.
-    var expanded by remember { mutableStateOf(false) }
     val cardShape = RoundedCornerShape(20.dp)
 
     val band = when (status.band) {
@@ -614,7 +610,8 @@ private fun ActiveNetworkCard(vm: APViewModel) {
             .fillMaxWidth()
             .clip(cardShape)
             .clickable(
-                onClick = { expanded = !expanded },
+                // The card has nothing to open; the ripple is the whole point.
+                onClick = {},
                 indication = rememberRipple(bounded = true),
                 interactionSource = remember { MutableInteractionSource() }
             ),
@@ -626,7 +623,6 @@ private fun ActiveNetworkCard(vm: APViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize(animationSpec = AnimationUtils.mediumSpec())
                 .padding(CardContentPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -678,28 +674,26 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                 }
             )
 
-            if (expanded) {
-                StatGrid(
-                    left = {
-                        StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
-                        if (!bridged) {
-                            StatRow(
-                                Icons.Default.SettingsEthernet,
-                                stringResource(R.string.interface_label),
-                                status.upstreamIface ?: stringResource(R.string.unknown)
-                            )
-                        }
-                    },
-                    right = {
+            StatGrid(
+                left = {
+                    StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
+                    if (!bridged) {
                         StatRow(
-                            Icons.Default.Dns,
-                            stringResource(R.string.dns_label),
-                            if (bridged) status.container ?: stringResource(R.string.unknown)
-                            else status.dnsServers?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dns_system)
+                            Icons.Default.SettingsEthernet,
+                            stringResource(R.string.interface_label),
+                            status.upstreamIface ?: stringResource(R.string.unknown)
                         )
                     }
-                )
-            }
+                },
+                right = {
+                    StatRow(
+                        Icons.Default.Dns,
+                        stringResource(R.string.dns_label),
+                        if (bridged) status.container ?: stringResource(R.string.unknown)
+                        else status.dnsServers?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dns_system)
+                    )
+                }
+            )
         }
     }
 
