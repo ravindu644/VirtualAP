@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -27,6 +28,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -49,6 +52,7 @@ import com.virtualap.app.ui.util.ClearFocusOnClickOutside
 import com.virtualap.app.ui.util.FullScreenLoading
 import com.virtualap.app.ui.util.LoadingIndicator
 import com.virtualap.app.ui.util.LoadingSize
+import com.virtualap.app.ui.theme.JetBrainsMono
 import com.virtualap.app.ui.viewmodel.APViewModel
 import com.virtualap.app.util.AnimationUtils
 import com.virtualap.app.util.QrCodeGenerator
@@ -85,16 +89,17 @@ fun MainScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Wifi,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
                             Text(
                                 text = stringResource(R.string.app_name),
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = stringResource(R.string.app_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                fontWeight = FontWeight.Black
                             )
                         }
                     },
@@ -632,14 +637,25 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.active_network_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
+                // Status beacon + label, as on the Droidspaces status card.
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(modifier = Modifier.size(10.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}
+                    Text(
+                        text = stringResource(R.string.status_running).uppercase(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.5.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 StatusPill(
-                    label = stringResource(R.string.status_running).uppercase(),
+                    label = stringResource(if (bridged) R.string.managed_label else R.string.routed_label).uppercase(),
                     color = MaterialTheme.colorScheme.primary
                 )
                 IconButton(onClick = { showQr = true }) {
@@ -652,6 +668,24 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+            // Wordmark block, same type as "DROIDSPACES" on its status card.
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(R.string.app_name).uppercase(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.5).sp
+                )
+                Text(
+                    text = stringResource(R.string.app_subtitle).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
 
             status.ssid?.let { ssid ->
                 Text(text = ssid, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -670,34 +704,30 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                             stringResource(R.string.container_label),
                             status.container ?: stringResource(R.string.unknown)
                         )
-                        StatRow(Icons.Default.SwapVert, stringResource(R.string.upstream_label), stringResource(R.string.managed_label))
                     } else {
                         StatRow(
                             Icons.Default.SwapVert,
                             stringResource(R.string.upstream_label),
                             status.upstream ?: stringResource(R.string.auto_label)
                         )
-                        StatRow(
-                            Icons.Default.SettingsEthernet,
-                            stringResource(R.string.interface_label),
-                            status.upstreamIface ?: stringResource(R.string.unknown)
-                        )
                     }
+                    StatRow(Icons.Default.Security, stringResource(R.string.security_label), security)
                 }
             )
 
             if (expanded) {
                 StatGrid(
                     left = {
-                        StatRow(Icons.Default.Security, stringResource(R.string.security_label), security)
                         StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
+                        if (!bridged) {
+                            StatRow(
+                                Icons.Default.SettingsEthernet,
+                                stringResource(R.string.interface_label),
+                                status.upstreamIface ?: stringResource(R.string.unknown)
+                            )
+                        }
                     },
                     right = {
-                        StatRow(
-                            Icons.Default.Hub,
-                            stringResource(R.string.mode_label),
-                            stringResource(if (bridged) R.string.managed_label else R.string.routed_label)
-                        )
                         StatRow(
                             Icons.Default.Dns,
                             stringResource(R.string.dns_label),
@@ -743,8 +773,8 @@ private fun StatRow(icon: ImageVector, label: String, value: String) {
 @Composable
 private fun WifiQrSheet(vm: APViewModel, onDismiss: () -> Unit) {
     val ssid = vm.status.ssid ?: vm.config.ssid
-    // The password is still embedded in the QR (so scanning joins automatically);
-    // it's just not shown on screen.
+    // The password is embedded in the QR so scanning joins automatically, and
+    // shown in plain text under the SSID for people typing it by hand.
     val payload = remember(ssid, vm.config.password, vm.config.security, vm.config.hidden) {
         QrCodeGenerator.wifiPayload(ssid, vm.config.password, vm.config.security, vm.config.hidden)
     }
@@ -787,6 +817,15 @@ private fun WifiQrSheet(vm: APViewModel, onDismiss: () -> Unit) {
             }
             Spacer(Modifier.height(20.dp))
             Text(text = ssid, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            if (vm.config.security != "open") {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = vm.config.password,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = JetBrainsMono,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

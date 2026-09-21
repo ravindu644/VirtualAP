@@ -53,7 +53,6 @@
     <string name="stopping">Stopping…</string>
     <string name="view_logs">View Logs</string>
     <string name="enter_ssid_prompt">Enter a network name to get started</string>
-    <string name="active_network_title">Active Network</string>
     <string name="since_time">Since %s</string>
     <string name="gateway_label">Gateway</string>
     <string name="upstream_label">Upstream</string>
@@ -114,7 +113,6 @@
     <string name="width_mhz">%1$s MHz</string>
     <string name="command_failed">Command exited with an error</string>
     <string name="clients_label">Clients</string>
-    <string name="mode_label">Mode</string>
     <string name="routed_label">Routed</string>
     <string name="dns_label">DNS</string>
     <string name="dns_system">System resolvers</string>
