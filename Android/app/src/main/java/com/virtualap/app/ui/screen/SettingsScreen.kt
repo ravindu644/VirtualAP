@@ -55,7 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
 import com.virtualap.app.ui.component.AccentColorPicker
-import com.virtualap.app.ui.component.DialogDismissButton
+import com.virtualap.app.ui.component.DialogCloseButton
 import com.virtualap.app.ui.component.DsDialog
 import com.virtualap.app.ui.component.SectionHeader
 import com.virtualap.app.ui.component.SwitchItem
@@ -103,7 +103,7 @@ fun SettingsScreen(
                 text = stringResource(R.string.appearance_header),
                 modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
             )
-            SettingsGroup(darkTheme = themeState.darkTheme) {
+            SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
                 SwitchItem(
                     icon = Icons.Default.BrightnessAuto,
                     title = stringResource(R.string.follow_system_theme_label),
@@ -156,7 +156,7 @@ fun SettingsScreen(
                 text = stringResource(R.string.about_header),
                 modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
             )
-            SettingsGroup(darkTheme = themeState.darkTheme) {
+            SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
                 ListItem(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     leadingContent = { Icon(imageVector = Icons.Default.Info, contentDescription = null) },
@@ -182,11 +182,11 @@ fun SettingsScreen(
 
 /** The grouped surface every settings section sits in (mirrors Droidspaces). */
 @Composable
-private fun SettingsGroup(darkTheme: Boolean, content: @Composable () -> Unit) {
+private fun SettingsGroup(raised: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        color = if (darkTheme) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+        color = if (raised) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         tonalElevation = 0.dp
     ) {
@@ -205,21 +205,27 @@ private fun GroupDivider() {
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    DsDialog(
-        onDismiss = onDismiss,
-        footer = { DialogDismissButton(label = stringResource(R.string.ok), onDismiss = onDismiss) }
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.app_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
+    // Deviates from the full-width dismiss rule: About is an info page, not a
+    // decision, so it closes from the header like the log sheet.
+    DsDialog(onDismiss = onDismiss) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.app_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+            DialogCloseButton(onClick = onDismiss)
         }
         Text(
             text = stringResource(R.string.about_description),
@@ -227,31 +233,37 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         SectionHeader(text = stringResource(R.string.maintainer_header))
-        LinkRow(
-            icon = Icons.Default.Person,
-            title = stringResource(R.string.maintainer_name),
-            subtitle = stringResource(R.string.maintainer_role),
-            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ravindu644"))) }
-        )
-        LinkRow(
-            icon = Icons.Default.Code,
-            title = stringResource(R.string.source_code),
-            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ravindu644/VirtualAP"))) }
-        )
+        SettingsGroup(raised = true) {
+            LinkRow(
+                icon = Icons.Default.Person,
+                title = stringResource(R.string.maintainer_name),
+                subtitle = stringResource(R.string.maintainer_role),
+                onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ravindu644"))) }
+            )
+            GroupDivider()
+            LinkRow(
+                icon = Icons.Default.Code,
+                title = stringResource(R.string.source_code),
+                onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ravindu644/VirtualAP"))) }
+            )
+        }
     }
 }
 
 @Composable
 private fun LinkRow(icon: ImageVector, title: String, subtitle: String? = null, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.primary
         )
         Column(modifier = Modifier.weight(1f)) {
@@ -260,14 +272,14 @@ private fun LinkRow(icon: ImageVector, title: String, subtitle: String? = null, 
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = title,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
     }
