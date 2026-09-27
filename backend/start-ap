@@ -909,6 +909,9 @@ teardown_bridged() {
 # --- Subcommands ---
 
 cmd_start() {
+    # One session per file: nothing reads ap.log but a person with a shell, and
+    # without this it grows for as long as the phone lives.
+    : > "$LOG_FILE"
     [ -z "$SSID" ] && { error "SSID not set (use -s or save a config first)"; exit 1; }
     # Open networks carry no passphrase; WPA modes use a WPA-PSK/SAE passphrase,
     # which the standard (and hostapd) bound to 8-63 characters.
