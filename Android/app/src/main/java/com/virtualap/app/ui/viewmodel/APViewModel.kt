@@ -1,20 +1,17 @@
 package com.virtualap.app.ui.viewmodel
 
 import android.app.Application
-import android.util.Log
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.snapshotFlow
-import com.virtualap.app.R
+import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.APManager
-import com.virtualap.app.util.APStatus
+import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
-import com.virtualap.app.util.ViewModelLogger
 import com.virtualap.app.util.classifyLine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -23,58 +20,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-data class APConfig(
-    val ssid: String = "",
-    val password: String = "",
-    val band: String = "2",
-    val channel: String = "",
-    val width: String = "auto",
-    val upstream: String = "auto",
-    val gateway: String = "",        // blank = APViewModel.DEFAULT_GATEWAY
-    val dnsServers: String = "",
-    val hidden: Boolean = false,
-    val security: String = "wpa2",   // open | wpa2 | wpa2wpa3 | wpa3
-    val pmf: Boolean = false,        // Protected Management Frames (wpa2 only)
-    val containerMode: Boolean = false,
-    val containerName: String = ""
-)
-
 class APViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager.getInstance(application)
 
-    var status by mutableStateOf(APStatus())
-        private set
-    var config by mutableStateOf(
-        APConfig(
-            ssid = prefs.apSsid,
-            password = prefs.apPassword,
-            band = prefs.apBand,
-            channel = validChannelForBand(prefs.apBand, prefs.apChannel),
-            width = prefs.apWidth,
-            upstream = prefs.apUpstream,
-            // Normalize a legacy stored default to blank so it shows as a hint.
-            gateway = prefs.apGateway.takeUnless { it == DEFAULT_GATEWAY } ?: "",
-            dnsServers = prefs.apDnsServers,
-            hidden = prefs.apHidden,
-            security = prefs.apSecurity,
-            pmf = prefs.apPmf,
-            containerMode = prefs.apContainerMode,
-            containerName = prefs.apContainer
-        )
-    )
+    /** Session state lives in [Hotspot] so the tile and the screen agree. */
+    val status get() = Hotspot.status
+    val phase get() = Hotspot.phase
+    val actionLogs get() = Hotspot.actionLogs
+    var config by mutableStateOf(APConfig.fromPrefs(prefs))
     var interfaces by mutableStateOf<List<NetworkIface>>(emptyList())
         private set
     /** Running Droidspaces containers; empty = hide the integration UI entirely. */
     var containers by mutableStateOf<List<String>>(emptyList())
         private set
-    var isStarting by mutableStateOf(false)
-        private set
-    var isStopping by mutableStateOf(false)
-        private set
     var logText by mutableStateOf("")
         private set
-    val actionLogs = mutableStateListOf<Pair<Int, String>>()
-    private val logger = ViewModelLogger { level, msg -> actionLogs.add(level to msg) }
     /** The tailed ap.log as log lines, for the sheet when no command output is live. */
     val fallbackLogs: List<Pair<Int, String>>
         get() = if (logText.isBlank()) emptyList() else logText.lines().map { classifyLine(it) to it }
@@ -100,10 +60,10 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         // One parallel initial load, gate the UI on it so everything appears at
         // once (no status flicker, no late-popping container toggle).
         viewModelScope.launch {
-            val s = async { APManager.getStatus() }
+            val s = async { Hotspot.refresh() }
             val ifs = async { APManager.getInterfaces() }
             val cs = async { APManager.getContainers() }
-            status = s.await()
+            s.await()
             applyInterfaceList(ifs.await())
             applyContainerList(cs.await())
             logText = APManager.readLog()
@@ -135,10 +95,10 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
      *  parallel and suspend until they all land (so the spinner reflects real
      *  work). Root status is refreshed separately by the caller. */
     suspend fun refreshAllNow() = coroutineScope {
-        val s = async { APManager.getStatus() }
+        val s = async { Hotspot.refresh() }
         val ifs = async { APManager.getInterfaces() }
         val cs = async { APManager.getContainers() }
-        status = s.await()
+        s.await()
         applyInterfaceList(ifs.await())
         applyContainerList(cs.await())
         logText = APManager.readLog()
@@ -156,10 +116,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshStatus() {
-        viewModelScope.launch {
-            val s = APManager.getStatus()
-            status = s
-        }
+        viewModelScope.launch { Hotspot.refresh() }
     }
 
     /** Switch band: valid channels differ per band, so reset to Auto. Width is
@@ -187,10 +144,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     /** Open networks have no passphrase field; WPA modes show one. */
     fun passwordRequired(): Boolean = config.security != "open"
 
-    /** Open needs no passphrase; WPA (WPA-PSK/SAE) passphrases are 8-63 chars. */
-    fun passwordValid(): Boolean =
-        config.security == "open" || config.password.length in 8..63
-
     private fun refreshLog() {
         viewModelScope.launch {
             logText = APManager.readLog()
@@ -198,76 +151,25 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun start() {
-        val cfg = config
-        if (cfg.ssid.isBlank()) return
-        if (!passwordValid()) return
-        if (cfg.containerMode && cfg.containerName.isBlank()) return
-        viewModelScope.launch {
-            isStarting = true
-            actionLogs.clear()
-            logText = ""
-            showActionLogs = true
-            val ok = APManager.start(
-                cfg.ssid, cfg.password, cfg.upstream, cfg.band,
-                cfg.channel.takeIf { it.isNotBlank() },
-                cfg.width,
-                cfg.gateway.ifBlank { DEFAULT_GATEWAY }, cfg.dnsServers.takeIf { it.isNotBlank() },
-                cfg.hidden,
-                cfg.security, cfg.pmf,
-                if (cfg.containerMode) cfg.containerName else "",
-                logger
-            )
-            if (!ok) logFailure()
-            delay(500)
-            refreshStatus()
-            isStarting = false
-        }
+        logText = ""
+        showActionLogs = true
+        Hotspot.start(config)
     }
 
     fun stop() {
-        viewModelScope.launch {
-            isStopping = true
-            actionLogs.clear()
-            logText = ""
-            showActionLogs = true
-            if (!APManager.stop(logger)) logFailure()
-            delay(500)
-            refreshStatus()
-            isStopping = false
-        }
-    }
-
-    /** The script's own [ERROR] lines already explain most failures; this
-     *  covers the exit code with no message (killed, missing binary). */
-    private fun logFailure() {
-        logger.logImmediate(Log.ERROR, getApplication<Application>().getString(R.string.command_failed))
+        logText = ""
+        showActionLogs = true
+        Hotspot.stop()
     }
 
     fun clearLog() {
         viewModelScope.launch {
             APManager.clearLog()
             logText = ""
-            actionLogs.clear()
+            Hotspot.actionLogs.clear()
         }
     }
 
     fun openLogSheet() { showActionLogs = true }
     fun dismissActionLogs() { showActionLogs = false }
-
-    companion object {
-        /** Default AP/LAN gateway when the gateway field is left blank. */
-        const val DEFAULT_GATEWAY = "192.168.42.1"
-
-        // Must be companion (not instance method): called from property initializer
-        // before the instance exists.
-        fun validChannelForBand(band: String, channel: String): String {
-            if (channel.isBlank()) return ""
-            val valid = if (band == "5") {
-                setOf("36", "40", "44", "48", "149", "153", "157", "161", "165")
-            } else {
-                (1..11).map { "$it" }.toSet()
-            }
-            return if (channel in valid) channel else ""
-        }
-    }
 }

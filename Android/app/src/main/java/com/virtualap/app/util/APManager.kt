@@ -61,21 +61,15 @@ object APManager {
         )
     }
 
-    suspend fun start(
-        ssid: String, password: String, upstream: String,
-        band: String, channel: String?, width: String, gateway: String, dnsServers: String?,
-        hidden: Boolean = false, security: String = "wpa2", pmf: Boolean = false,
-        container: String = "",
-        logger: BackendLogger
-    ): Boolean = withContext(Dispatchers.IO) {
+    suspend fun start(cfg: APConfig, logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
         val sq = Backend::quote
-        val channelVal = channel ?: ""
-        val dnsVal = dnsServers ?: ""
-        val hiddenVal = if (hidden) "1" else "0"
-        val pmfVal = if (pmf) "1" else "0"
+        val hiddenVal = if (cfg.hidden) "1" else "0"
+        val pmfVal = if (cfg.pmf) "1" else "0"
+        val gateway = cfg.gateway.ifBlank { APConfig.DEFAULT_GATEWAY }
         // -K is always passed (empty clears managed mode) so a stale CONTAINER
         // in ap.conf never silently re-enables it.
-        val cmd = "${Backend.startAp} start -s ${sq(ssid)} -p ${sq(password)} -o ${sq(upstream)} -b ${sq(band)} -c ${sq(channelVal)} -W ${sq(width)} -g ${sq(gateway)} -d ${sq(dnsVal)} -H $hiddenVal -A ${sq(security)} -M $pmfVal -K ${sq(container)}"
+        val container = if (cfg.containerMode) cfg.containerName else ""
+        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(gateway)} -d ${sq(cfg.dnsServers)} -H $hiddenVal -A ${sq(cfg.security)} -M $pmfVal -K ${sq(container)}"
 
         Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
     }

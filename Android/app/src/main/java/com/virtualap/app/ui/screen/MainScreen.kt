@@ -52,6 +52,7 @@ import com.virtualap.app.ui.util.LoadingSize
 import com.virtualap.app.ui.theme.JetBrainsMono
 import com.virtualap.app.ui.viewmodel.APViewModel
 import com.virtualap.app.util.AnimationUtils
+import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.QrCodeGenerator
 import kotlinx.coroutines.launch
 
@@ -77,7 +78,7 @@ fun MainScreen(
     onRefresh: () -> Unit = {}
 ) {
     val status = vm.status
-    val busy = vm.isStarting || vm.isStopping
+    val busy = vm.phase != Hotspot.Phase.IDLE
 
     ClearFocusOnClickOutside {
         Scaffold(
@@ -174,10 +175,8 @@ fun MainScreen(
 @Composable
 private fun StartStopBar(vm: APViewModel) {
     val status = vm.status
-    val busy = vm.isStarting || vm.isStopping
-    val canStart = vm.config.ssid.isNotBlank() && vm.passwordValid() &&
-        (!vm.config.containerMode || vm.config.containerName.isNotBlank())
-    val enabled = !busy && (status.running || canStart)
+    val busy = vm.phase != Hotspot.Phase.IDLE
+    val enabled = !busy && (status.running || vm.config.isValid())
     val container = when {
         !enabled && !busy -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         status.running -> MaterialTheme.colorScheme.error
@@ -197,7 +196,7 @@ private fun StartStopBar(vm: APViewModel) {
         if (busy) {
             LoadingIndicator(modifier = Modifier.size(20.dp), color = content)
             Text(
-                text = stringResource(if (vm.isStarting) R.string.starting else R.string.stopping),
+                text = stringResource(if (vm.phase == Hotspot.Phase.STARTING) R.string.starting else R.string.stopping),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = content

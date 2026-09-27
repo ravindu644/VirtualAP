@@ -3,6 +3,7 @@ package com.virtualap.app
 import android.app.Application
 import com.topjohnwu.superuser.Shell
 import com.virtualap.app.util.Backend
+import com.virtualap.app.util.Hotspot
 
 class VirtualAPApplication : Application() {
     override fun onCreate() {
@@ -15,5 +16,6 @@ class VirtualAPApplication : Application() {
         )
         // Synchronous: everything that shells out depends on these paths.
         Backend.install(this)
+        Hotspot.init(this)
     }
 }

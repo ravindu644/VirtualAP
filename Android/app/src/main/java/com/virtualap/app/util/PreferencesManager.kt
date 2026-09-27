@@ -73,7 +73,7 @@ class PreferencesManager private constructor(context: Context) {
         get() = prefs.getString(Constants.KEY_AP_UPSTREAM, "auto") ?: "auto"
         set(value) { prefs.edit().putString(Constants.KEY_AP_UPSTREAM, value).apply() }
 
-    // Blank = use the default gateway (APViewModel.DEFAULT_GATEWAY). Stored blank
+    // Blank = use the default gateway (APConfig.DEFAULT_GATEWAY). Stored blank
     // so the field shows the default as a hint rather than a prefilled value.
     var apGateway: String
         get() = prefs.getString(Constants.KEY_AP_GATEWAY, "") ?: ""
