@@ -106,17 +106,6 @@ object APManager {
         }
     }
 
-    suspend fun readLog(lines: Int = 150): String = withContext(Dispatchers.IO) {
-        val result = Shell.cmd("${Constants.BUSYBOX} tail -n $lines ${Constants.LOG_FILE} 2>/dev/null").exec()
-        result.out.joinToString("\n")
-    }
-
-    suspend fun clearLog() = withContext(Dispatchers.IO) {
-        Shell.cmd(": > ${Constants.LOG_FILE}").exec()
-    }
-
-
-
     /** Every static binary the backend needs, under VAP_DIR/bin. */
     private val REQUIRED_BINARIES = listOf("busybox", "hostapd", "hostapd_cli", "iw", "dnsmasq")
 

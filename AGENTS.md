@@ -145,8 +145,9 @@ These are choke points. Bypassing one is a bug, not a shortcut.
   `$TR`, `$WC`. Each one word-splits to `busybox <applet>`, so never quote one and never call
   a bare `grep`. `ip` and `iptables` are Android's own, `$IP` and `$IPT`. `iw`, `hostapd` and
   `dnsmasq` are our static binaries, `$IW`, `$HOSTAPD`, `$DNSMASQ`.
-- Logging is `log`, `warn`, `error`. They tee into `logs/ap.log`, which is what the app's
-  log sheet shows. A bare `echo` is invisible to the user.
+- Logging is `log`, `warn`, `error`. They print to stdout, which the app streams into its
+  log sheet, and append a timestamped copy to `logs/ap.log` for reading from a shell. The
+  app never reads that file. A bare `echo` is invisible to the user.
 - `hostapd_cli` is a shell function in `backend/start-ap`, not the binary. The binary puts
   its reply socket under `/tmp`, which Android does not have, so a direct call fails before
   it connects. The function adds `-s "$RUN_DIR"`; the client count and the NO-IR country

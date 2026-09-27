@@ -163,7 +163,7 @@ fun MainScreen(
     // Unified log bottom sheet: auto-opens on start/stop, re-openable from the top bar.
     if (vm.showActionLogs) {
         ActionLogsSheet(
-            logs = if (vm.actionLogs.isNotEmpty()) vm.actionLogs else vm.fallbackLogs,
+            logs = vm.actionLogs,
             isProcessing = busy,
             onDismiss = { if (!busy) vm.dismissActionLogs() },
             onClear = { vm.clearLog() }
@@ -850,7 +850,9 @@ private fun ActionLogsSheet(
             LogActionRow(logs = logs, isBlocking = isProcessing, onClear = onClear)
 
             TerminalConsole(
-                logs = if (logs.isEmpty()) listOf(android.util.Log.INFO to stringResource(R.string.no_logs_msg)) else logs,
+                // While a command runs the console shimmers on its own until the first
+                // line lands; the placeholder is only for an idle sheet with nothing kept.
+                logs = if (logs.isEmpty() && !isProcessing) listOf(android.util.Log.INFO to stringResource(R.string.no_logs_msg)) else logs,
                 isProcessing = isProcessing,
                 modifier = Modifier.fillMaxWidth(),
                 maxHeight = 460.dp

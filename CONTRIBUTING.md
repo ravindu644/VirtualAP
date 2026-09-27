@@ -268,7 +268,7 @@ conventions: 24.dp for dialog and screen horizontal padding, 16.dp for card inne
 | --- | --- | --- |
 | `Backend.quote(value)` | `util/Backend.kt` | **Every** dynamic value going into a root command. POSIX single-quote wrap that escapes embedded quotes |
 | `Backend.startAp`, `Backend.install(context)` | `util/Backend.kt` | The script's command prefix and its extraction from the APK |
-| `APManager.getStatus/start/stop/getContainers/getInterfaces/readLog/clearLog/isInstalled` | `util/APManager.kt` | Driving `start-ap`. The only class that runs it. Do not assemble these by hand |
+| `APManager.getStatus/start/stop/getContainers/getInterfaces/isInstalled` | `util/APManager.kt` | Driving `start-ap`. The only class that runs it. Do not assemble these by hand |
 | `Hotspot.start(cfg)/stop()/refresh()`, `phase`, `status`, `actionLogs` | `util/Hotspot.kt` | Starting or stopping the AP from anywhere, and reading the session state. The only caller of `APManager.start/stop`; also posts the running notification and wakes the tile |
 | `APConfig.fromPrefs(prefs)`, `isValid()`, `passwordValid()`, `validChannelForBand` | `util/APConfig.kt` | The saved hotspot config and the one start validation |
 | `BackendLogger` / `ViewModelLogger(onLog)` + `classifyLine(line)` | `util/BackendLogger.kt` | The log sink the installer and the AP calls take, and the `[ERROR]`/`[WARN]` level tagging |
@@ -305,7 +305,7 @@ should be set.
 
 | Symbol | Use it when |
 | --- | --- |
-| `log`, `warn`, `error` | Every message. They tee into `logs/ap.log` |
+| `log`, `warn`, `error` | Every message. Stdout is what the app shows live; `logs/ap.log` is the timestamped copy for a shell |
 | `save_conf`, `load_conf`, `sq()` | Persisting and escaping `ap.conf` |
 | `$CAT` ... `$WC` applet variables | Every coreutil. Unquoted |
 | `hostapd_cli` (function) | Every call to the binary. It supplies the `-s` client socket dir Android lacks; the station count in `cmd_status` and `ensure_5g_ir` use it |

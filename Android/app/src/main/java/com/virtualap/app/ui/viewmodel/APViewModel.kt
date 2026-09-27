@@ -12,7 +12,6 @@ import com.virtualap.app.util.APManager
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
-import com.virtualap.app.util.classifyLine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -33,11 +32,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     /** Running Droidspaces containers; empty = hide the integration UI entirely. */
     var containers by mutableStateOf<List<String>>(emptyList())
         private set
-    var logText by mutableStateOf("")
-        private set
-    /** The tailed ap.log as log lines, for the sheet when no command output is live. */
-    val fallbackLogs: List<Pair<Int, String>>
-        get() = if (logText.isBlank()) emptyList() else logText.lines().map { classifyLine(it) to it }
     var showActionLogs by mutableStateOf(false)
         private set
     /** False until the first status/interfaces/containers fetch completes, so
@@ -66,7 +60,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             s.await()
             applyInterfaceList(ifs.await())
             applyContainerList(cs.await())
-            logText = APManager.readLog()
             isReady = true
             startPolling()
         }
@@ -101,7 +94,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         s.await()
         applyInterfaceList(ifs.await())
         applyContainerList(cs.await())
-        logText = APManager.readLog()
     }
 
     private fun startPolling() {
@@ -110,7 +102,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             while (isActive) {
                 delay(3000)   // initial state already loaded; poll afterwards
                 refreshStatus()
-                refreshLog()
             }
         }
     }
@@ -144,30 +135,16 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     /** Open networks have no passphrase field; WPA modes show one. */
     fun passwordRequired(): Boolean = config.security != "open"
 
-    private fun refreshLog() {
-        viewModelScope.launch {
-            logText = APManager.readLog()
-        }
-    }
-
     fun start() {
-        logText = ""
-        showActionLogs = true
-        Hotspot.start(config)
+        if (Hotspot.start(config)) showActionLogs = true
     }
 
     fun stop() {
-        logText = ""
-        showActionLogs = true
-        Hotspot.stop()
+        if (Hotspot.stop()) showActionLogs = true
     }
 
     fun clearLog() {
-        viewModelScope.launch {
-            APManager.clearLog()
-            logText = ""
-            Hotspot.actionLogs.clear()
-        }
+        Hotspot.actionLogs.clear()
     }
 
     fun openLogSheet() { showActionLogs = true }

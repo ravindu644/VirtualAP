@@ -54,24 +54,27 @@ object Hotspot {
         )
     }
 
-    fun start(cfg: APConfig) {
-        if (phase != Phase.IDLE || !cfg.isValid()) return
+    /** False when nothing was started (busy, or the config cannot start). */
+    fun start(cfg: APConfig): Boolean {
+        if (phase != Phase.IDLE || !cfg.isValid()) return false
         enterPhase(Phase.STARTING)
         actionLogs.clear()
         scope.launch {
             if (!APManager.start(cfg, logger)) logFailure()
             settle()
         }
+        return true
     }
 
-    fun stop() {
-        if (phase != Phase.IDLE) return
+    fun stop(): Boolean {
+        if (phase != Phase.IDLE) return false
         enterPhase(Phase.STOPPING)
         actionLogs.clear()
         scope.launch {
             if (!APManager.stop(logger)) logFailure()
             settle()
         }
+        return true
     }
 
     /** Re-read status; only a real change fans out to the tile and the
