@@ -136,6 +136,10 @@ These are choke points. Bypassing one is a bug, not a shortcut.
 - `Backend.quote()` in `Android/app/src/main/java/com/virtualap/app/util/Backend.kt` wraps
   every dynamic value that reaches a root shell. `APManager` is the only class that runs
   `start-ap`, and `Backend.startAp` is the only way to spell its path.
+- `Hotspot` is the only caller of `APManager.start` and `APManager.stop`. It owns the
+  starting/stopping phase, the command log, the running notification and the Quick Settings
+  tile sync, so the screen and the tile always agree. `APConfig.isValid()` is the only
+  start validation; the screen's button and the tile both ask it.
 - Coreutils in `backend/start-ap` go through the bundled busybox: `$CAT`, `$CUT`, `$DATE`,
   `$ECHO`, `$GREP`, `$HEAD`, `$ID`, `$KILL`, `$MKDIR`, `$PRINTF`, `$RM`, `$SED`, `$SLEEP`,
   `$TR`, `$WC`. Each one word-splits to `busybox <applet>`, so never quote one and never call

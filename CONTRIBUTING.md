@@ -269,6 +269,8 @@ conventions: 24.dp for dialog and screen horizontal padding, 16.dp for card inne
 | `Backend.quote(value)` | `util/Backend.kt` | **Every** dynamic value going into a root command. POSIX single-quote wrap that escapes embedded quotes |
 | `Backend.startAp`, `Backend.install(context)` | `util/Backend.kt` | The script's command prefix and its extraction from the APK |
 | `APManager.getStatus/start/stop/getContainers/getInterfaces/readLog/clearLog/isInstalled` | `util/APManager.kt` | Driving `start-ap`. The only class that runs it. Do not assemble these by hand |
+| `Hotspot.start(cfg)/stop()/refresh()`, `phase`, `status`, `actionLogs` | `util/Hotspot.kt` | Starting or stopping the AP from anywhere, and reading the session state. The only caller of `APManager.start/stop`; also posts the running notification and wakes the tile |
+| `APConfig.fromPrefs(prefs)`, `isValid()`, `passwordValid()`, `validChannelForBand` | `util/APConfig.kt` | The saved hotspot config and the one start validation |
 | `BackendLogger` / `ViewModelLogger(onLog)` + `classifyLine(line)` | `util/BackendLogger.kt` | The log sink the installer and the AP calls take, and the `[ERROR]`/`[WARN]` level tagging |
 
 The global libsu configuration lives in `VirtualAPApplication.kt`. That is the only place it
@@ -288,6 +290,8 @@ should be set.
 | `RootChecker.checkRootAccess()` / `RootStatus` | `util/RootChecker.kt` | Root availability |
 | `VirtualAPInstaller.deviceArch/bundledPayloadVersion/payloadUpdateAvailable/install` | `util/VirtualAPInstaller.kt` | Deploying the arch's binaries to `/data/local/virtualap` and detecting a new payload after an APK update |
 | `QrCodeGenerator.wifiPayload/encode` | `util/QrCodeGenerator.kt` | The Wi-Fi join code. The only zxing caller |
+| `HotspotTileService` | `HotspotTileService.kt` | The Quick Settings toggle. Optimistic state like AOSP's HotspotTile; holds no state of its own |
+| `HotspotStopReceiver` | `HotspotStopReceiver.kt` | The notification's Stop action |
 | `AnsiColorParser.parseAnsi/stripAnsi` | `util/AnsiColorParser.kt` | Rendering or cleaning ANSI output |
 
 ### Android: ViewModels
@@ -295,7 +299,7 @@ should be set.
 | Symbol | Path | Owns |
 | --- | --- | --- |
 | `AppViewModel` | `ui/viewmodel/AppViewModel.kt` | Root status and backend install state |
-| `APViewModel` | `ui/viewmodel/APViewModel.kt` | AP status polling, the editable config, start and stop, interface and container lists, log lines |
+| `APViewModel` | `ui/viewmodel/APViewModel.kt` | Status polling, the editable config, interface and container lists, the tailed log. Start, stop and the session state are forwarded to `Hotspot` |
 
 ### Backend: logging and config
 

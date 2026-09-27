@@ -111,6 +111,14 @@
     <string name="channel_short">ch %1$s</string>
     <string name="width_mhz">%1$s MHz</string>
     <string name="command_failed">Command exited with an error</string>
+
+    <!-- Quick Settings tile and running notification -->
+    <string name="tile_configure_first">Set a network name and password in VirtualAP first</string>
+    <string name="notification_channel">Hotspot status</string>
+    <plurals name="notification_clients">
+        <item quantity="one">%d device connected</item>
+        <item quantity="other">%d devices connected</item>
+    </plurals>
     <string name="clients_label">Clients</string>
     <string name="upstream_managed_by">Managed by %1$s</string>
     <string name="dns_label">DNS</string>

@@ -1,7 +1,11 @@
 package com.virtualap.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.fadeIn
@@ -31,6 +35,17 @@ import com.virtualap.app.util.RootStatus
 import com.virtualap.app.util.VirtualAPInstaller
 
 class MainActivity : ComponentActivity() {
+    private val askNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    /** Android 13+ hides the running notification until this is granted. Asked
+     *  once the main screen is up, so it never competes with the root prompt. */
+    private fun askNotifications() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -91,6 +106,7 @@ class MainActivity : ComponentActivity() {
                             SetupScreen(onInstalled = { appVm.markInstalled() })
                         }
                         composable(Screens.MAIN) {
+                            LaunchedEffect(Unit) { askNotifications() }
                             MainScreen(
                                 vm = apVm,
                                 onNavigateToSettings = { navController.navigate(Screens.SETTINGS) },
