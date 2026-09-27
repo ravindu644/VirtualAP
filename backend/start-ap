@@ -24,6 +24,9 @@ DNSMASQ_LOG="${BASE_DIR}/logs/dnsmasq.log"
 HOSTAPD="${BIN_DIR}/hostapd"
 IW="${BIN_DIR}/iw"
 DNSMASQ="${BIN_DIR}/dnsmasq"
+# hostapd_cli creates its own reply socket under /tmp, which Android does not
+# have, so every call needs -s pointed at a directory that exists.
+hostapd_cli() { "$BIN_DIR/hostapd_cli" -s "$RUN_DIR" "$@"; }
 
 IP="/system/bin/ip"
 IPT="/system/bin/iptables"
@@ -273,7 +276,7 @@ ensure_5g_ir() {
     cc=$(cmd wifi get-country-code 2>/dev/null | $SED -n 's/.*= *\([A-Za-z][A-Za-z]\).*/\1/p' | $TR 'a-z' 'A-Z')
     cc="${cc:-US}"
     warn "5GHz channel $CHANNEL is NO-IR (driver in world regdomain) - setting driver country to $cc."
-    "$BIN_DIR/hostapd_cli" -p "$WPA_CTRL_DIR" -i "$PHY_IFACE" raw "DRIVER COUNTRY $cc" >/dev/null 2>&1 &
+    hostapd_cli -p "$WPA_CTRL_DIR" -i "$PHY_IFACE" raw "DRIVER COUNTRY $cc" >/dev/null 2>&1 &
     $SLEEP 1
     PHY_INFO_CACHE=""
     if chan_no_ir "$CHANNEL"; then
@@ -1007,7 +1010,9 @@ cmd_status() {
             [ -f "$RUN_DIR/dnsmasq.pid" ] && $KILL -0 "$($CAT "$RUN_DIR/dnsmasq.pid")" 2>/dev/null && dnsmasq_state="running"
         fi
         [ "$hostapd_state" = "running" ] && running=1
-        clients=$("$IW" dev "$AP_IFACE" station dump 2>/dev/null | $GREP -c '^Station')
+        # hostapd's own list, not the driver's: MediaTek's gen4m has no
+        # dump_station, so `iw station dump` is always empty there.
+        clients=$(hostapd_cli -p "$RUN_DIR/hostapd" -i "$AP_IFACE" list_sta 2>/dev/null | $GREP -c ':')
     fi
 
     $ECHO "running=$running"

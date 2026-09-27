@@ -147,6 +147,10 @@ These are choke points. Bypassing one is a bug, not a shortcut.
   `dnsmasq` are our static binaries, `$IW`, `$HOSTAPD`, `$DNSMASQ`.
 - Logging is `log`, `warn`, `error`. They tee into `logs/ap.log`, which is what the app's
   log sheet shows. A bare `echo` is invisible to the user.
+- `hostapd_cli` is a shell function in `backend/start-ap`, not the binary. The binary puts
+  its reply socket under `/tmp`, which Android does not have, so a direct call fails before
+  it connects. The function adds `-s "$RUN_DIR"`; the client count and the NO-IR country
+  command both go through it.
 - Config is written by `save_conf`, and every value in it passes through `sq()`, the
   single-quote escaper. Never append to `ap.conf` by hand. A new key is a default at the top
   of the script, a line in `save_conf`, and a flag in `cmd_start`.

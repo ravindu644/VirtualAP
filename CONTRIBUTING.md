@@ -308,6 +308,7 @@ should be set.
 | `log`, `warn`, `error` | Every message. They tee into `logs/ap.log` |
 | `save_conf`, `load_conf`, `sq()` | Persisting and escaping `ap.conf` |
 | `$CAT` ... `$WC` applet variables | Every coreutil. Unquoted |
+| `hostapd_cli` (function) | Every call to the binary. It supplies the `-s` client socket dir Android lacks; the station count in `cmd_status` and `ensure_5g_ir` use it |
 
 ### Backend: upstream, radio, channel
 
