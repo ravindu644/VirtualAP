@@ -48,6 +48,11 @@ PRIO_FROM_AP=7010     # from all iif ap0 lookup <table>  (upstream steering)
 # rule 6095 instead of leaking out WAN via 6100.
 ANDROID_LOCAL_NETWORK_TABLE=97
 
+# Droidspaces' fixed NAT subnets. In managed mode the hotspot's traffic reaches
+# the host from the container's address in these.
+DS_NAT_NET="172.28.0.0/16"
+DS_NAT_NET6="fd64:7370::/48"
+
 # Defaults (overridden by ap.conf, then by CLI flags)
 PHY_IFACE="wlan0"
 UPSTREAM="auto"
@@ -478,14 +483,34 @@ ttl_supported() {
     return $rc
 }
 
-# $1 = I (insert) or D (delete). FORWARD only sees forwarded packets, after the
-# kernel took its one off the TTL, so the phone's own traffic is left alone and
-# 64 is what leaves. Not tied to ap0 or an uplink: in managed mode the clients
-# arrive through the container's NAT, and "auto" can change the uplink.
-ttl_rules() {
-    "$IPT" -t mangle "-$1" FORWARD -j TTL --ttl-set 64 2>/dev/null || return 1
-    # IPv6 calls the same field hop limit. Clients only have IPv6 in managed mode.
-    "$IP6T" -t mangle "-$1" FORWARD -j HL --hl-set 64 2>/dev/null || true
+# Our TTL rules live in a chain of their own, so clearing them never depends
+# on knowing which subnet they were written for.
+ttl_clear() {
+    local ipt
+    for ipt in "$IPT" "$IP6T"; do
+        while "$ipt" -t mangle -D FORWARD -j vap_ttl 2>/dev/null; do :; done
+        "$ipt" -t mangle -F vap_ttl 2>/dev/null
+        "$ipt" -t mangle -X vap_ttl 2>/dev/null
+    done
+}
+
+# $1 = IPv4 source subnet of the tethered traffic, $2 = IPv6 one (optional).
+# FORWARD only sees forwarded packets, after the kernel took its one off the
+# TTL, so the phone's own traffic is left alone and 64 is what leaves. Matching
+# the source keeps it to outbound packets: replies on their way back to the
+# clients come from the internet and keep the TTL they arrived with.
+ttl_apply() {
+    ttl_clear
+    "$IPT" -t mangle -N vap_ttl 2>/dev/null
+    "$IPT" -t mangle -A vap_ttl -s "$1" -j TTL --ttl-set 64 2>/dev/null \
+        && "$IPT" -t mangle -I FORWARD -j vap_ttl 2>/dev/null \
+        || { ttl_clear; return 1; }
+    # IPv6 calls the same field hop limit.
+    [ -n "$2" ] || return 0
+    "$IP6T" -t mangle -N vap_ttl 2>/dev/null
+    "$IP6T" -t mangle -A vap_ttl -s "$2" -j HL --hl-set 64 2>/dev/null \
+        && "$IP6T" -t mangle -I FORWARD -j vap_ttl 2>/dev/null
+    return 0
 }
 
 teardown() {
@@ -1017,7 +1042,9 @@ cmd_start() {
         log "  SSID     : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
         log "  Upstream : container '$CONTAINER' via $VAP_BRIDGE -> $VAP_PORT"
         log "  LAN      : served by the container ($IP_GW)"
-        ttl_label="TTL fix  "
+        # The container NATs the clients, so their traffic reaches the host
+        # from Droidspaces' own NAT subnets.
+        ttl_label="TTL fix  "; ttl_src="$DS_NAT_NET"; ttl_src6="$DS_NAT_NET6"
     else
         # --- Routed mode: classic VirtualAP L3 ---
         resolve_upstream || exit 1
@@ -1032,14 +1059,13 @@ cmd_start() {
         log "  SSID    : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
         log "  Gateway : $IP_GW (static - never changes)"
         log "  Upstream: ${UPSTREAM_IFACE_RESOLVED:-$UPSTREAM} (table $UPSTREAM_TABLE)"
-        ttl_label="TTL fix "
+        ttl_label="TTL fix "; ttl_src="$IP_NET"; ttl_src6=""
     fi
 
-    # Clear first, so a restart never stacks a second copy and switching the
-    # option off takes effect.
-    while ttl_rules D; do :; done
+    # Clear first, so switching the option off takes effect on a restart.
+    ttl_clear
     if [ "$TTL_FIX" = "1" ]; then
-        if ttl_rules I; then
+        if ttl_apply "$ttl_src" "$ttl_src6"; then
             log "  $ttl_label: forwarded packets leave with TTL 64"
         else
             warn "TTL fix is not available: the kernel or iptables lacks the TTL target. Continuing without it."
@@ -1048,7 +1074,7 @@ cmd_start() {
 }
 
 cmd_stop() {
-    while ttl_rules D; do :; done
+    ttl_clear
     if $GREP -q '^mode=bridged' "$STATE_FILE" 2>/dev/null; then
         teardown_bridged
     else
