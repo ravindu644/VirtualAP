@@ -1017,6 +1017,7 @@ cmd_start() {
         log "  SSID     : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
         log "  Upstream : container '$CONTAINER' via $VAP_BRIDGE -> $VAP_PORT"
         log "  LAN      : served by the container ($IP_GW)"
+        ttl_label="TTL fix  "
     else
         # --- Routed mode: classic VirtualAP L3 ---
         resolve_upstream || exit 1
@@ -1031,6 +1032,7 @@ cmd_start() {
         log "  SSID    : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
         log "  Gateway : $IP_GW (static - never changes)"
         log "  Upstream: ${UPSTREAM_IFACE_RESOLVED:-$UPSTREAM} (table $UPSTREAM_TABLE)"
+        ttl_label="TTL fix "
     fi
 
     # Clear first, so a restart never stacks a second copy and switching the
@@ -1038,7 +1040,7 @@ cmd_start() {
     while ttl_rules D; do :; done
     if [ "$TTL_FIX" = "1" ]; then
         if ttl_rules I; then
-            log "  TTL fix : forwarded packets leave with TTL 64"
+            log "  $ttl_label: forwarded packets leave with TTL 64"
         else
             warn "TTL fix is not available: the kernel or iptables lacks the TTL target. Continuing without it."
         fi
