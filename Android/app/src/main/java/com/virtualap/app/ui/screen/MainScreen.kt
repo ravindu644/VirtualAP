@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Image
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -166,7 +167,9 @@ fun MainScreen(
         ActionLogsSheet(
             logs = vm.actionLogs,
             isProcessing = busy,
-            onDismiss = { if (!busy) vm.dismissActionLogs() },
+            // No "busy" check here: it would be captured when the sheet opens,
+            // which is mid-command, and go on refusing after the command ends.
+            onDismiss = { vm.dismissActionLogs() },
             onClear = { vm.clearLog() }
         )
     }
@@ -808,13 +811,10 @@ private fun ActionLogsSheet(
     onDismiss: () -> Unit,
     onClear: () -> Unit
 ) {
-    // The sheet must be truly undismissable while a command runs: rejecting
-    // Hidden here blocks swipe-down, scrim taps and back presses at the
-    // state-machine level. Guarding only onDismissRequest is not enough:
-    // gesture dismissal animates the sheet away BEFORE that callback fires,
-    // so the sheet ended up hidden while showActionLogs stayed true, leaving
-    // an invisible scrim that ate every touch once the command finished.
+    // The sheet must stay up while a command runs. Rejecting Hidden here stops
+    // swipe-down and scrim taps at the state-machine level.
     val processing by rememberUpdatedState(isProcessing)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { it != SheetValue.Hidden || !processing }
@@ -830,10 +830,20 @@ private fun ActionLogsSheet(
         }
     }
 
+    // Back is ours, not the sheet's. Material3 answers Back by sliding the sheet
+    // away without asking confirmValueChange, and a sheet that is hidden but
+    // still composed leaves an invisible window over the app that eats every
+    // touch. The sheet's window is made non-focusable below, so Back lands here
+    // instead: ignored while a command runs, an ordinary dismiss otherwise.
+    BackHandler(onBack = animatedDismiss)
+
     ModalBottomSheet(
         // Only reachable when confirmValueChange allowed Hidden (not processing).
-        onDismissRequest = onDismiss,
+        // Read through rememberUpdatedState: the sheet holds on to callbacks from
+        // its first composition.
+        onDismissRequest = { currentOnDismiss() },
         sheetState = sheetState,
+        properties = ModalBottomSheetDefaults.properties(isFocusable = false),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp
