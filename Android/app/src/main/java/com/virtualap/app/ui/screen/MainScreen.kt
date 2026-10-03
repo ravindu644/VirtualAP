@@ -51,6 +51,7 @@ import com.virtualap.app.ui.util.LoadingIndicator
 import com.virtualap.app.ui.util.LoadingSize
 import com.virtualap.app.ui.theme.JetBrainsMono
 import com.virtualap.app.ui.viewmodel.APViewModel
+import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.AnimationUtils
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.QrCodeGenerator
@@ -401,8 +402,8 @@ private fun AccessPointCard(vm: APViewModel) {
             enabled = editable
         )
 
-        // All widths are always selectable; the backend downgrades an
-        // unsupported width (wrong band/chip/channel) to the widest it can do.
+        // Only the widths the band can carry are offered. The backend still
+        // downgrades one the chip or channel cannot do.
         val widthNames = mapOf(
             "auto" to autoLabel,
             "20" to stringResource(R.string.width_20),
@@ -412,7 +413,7 @@ private fun AccessPointCard(vm: APViewModel) {
         DsDropdown(
             label = stringResource(R.string.width_label),
             selected = vm.config.width,
-            options = widthNames.keys.toList(),
+            options = APConfig.widthsForBand(vm.config.band),
             displayName = { widthNames[it] ?: it },
             onSelect = { vm.selectWidth(it) },
             enabled = editable

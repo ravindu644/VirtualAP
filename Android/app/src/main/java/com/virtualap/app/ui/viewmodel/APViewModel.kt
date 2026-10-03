@@ -117,10 +117,13 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { Hotspot.refresh() }
     }
 
-    /** Switch band: valid channels differ per band, so reset to Auto. Width is
-     *  left to the user; the backend downgrades any unsupported width safely. */
+    /** Switch band: valid channels differ per band, so reset to Auto. A width
+     *  the new band cannot carry (80 MHz on 2.4 GHz) goes back to Auto too. */
     fun selectBand(value: String) {
-        config = config.copy(band = value, channel = "")
+        config = config.copy(
+            band = value, channel = "",
+            width = APConfig.validWidthForBand(value, config.width)
+        )
     }
 
     fun selectChannel(value: String) {
