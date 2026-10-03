@@ -315,6 +315,11 @@ phy_info() {
 
 phy_supports_vht()  { phy_info | $GREP -q 'VHT Capabilities'; }
 phy_supports_ht40() { phy_info | $GREP -q 'HT20/HT40'; }
+# The same question for the 2.4GHz band alone (Band 1). Plenty of phone chips
+# do 40MHz on 5GHz only.
+phy_supports_ht40_24() {
+    phy_info | $SED -n '/Band 1:/,/Band 2:/p' | $GREP -q 'HT20/HT40'
+}
 
 # 80MHz block center channel index (vht_oper_centr_freq_seg0_idx) for a primary
 # 5GHz channel. Empty if the channel is not part of a valid 80MHz block.
@@ -344,8 +349,16 @@ ht40_dir() {
 EFFECTIVE_WIDTH="20"
 pick_width() {
     if [ "$BAND" != "5" ]; then
-        # 2.4GHz: HT40 is unreliable/discouraged in practice - stay at 20MHz.
-        EFFECTIVE_WIDTH="20"; return
+        # 2.4GHz: a 40MHz channel takes up most of the band and crowds out the
+        # neighbours and Bluetooth, so "auto" stays at 20MHz and 40 is only used
+        # when asked for by name. Channel 14 has no room for a second channel.
+        EFFECTIVE_WIDTH="20"
+        if [ "$WIDTH" = "40" ] && [ "$CHANNEL" -le 13 ] && phy_supports_ht40_24; then
+            EFFECTIVE_WIDTH="40"
+        fi
+        [ "$EFFECTIVE_WIDTH" != "$WIDTH" ] && [ "$WIDTH" != "auto" ] && \
+            warn "Requested ${WIDTH}MHz but using ${EFFECTIVE_WIDTH}MHz (channel/chip limit)."
+        return
     fi
 
     # Widest the chip + channel can actually do. A non-empty vht_seg0 means the
@@ -662,6 +675,15 @@ vht_oper_chwidth=0"
     else
         hw_mode="g"
         extra="ieee80211n=1"
+        # 40MHz: the second channel sits four above the primary for channels
+        # 1-7 and four below for 8-13, so the pair always stays inside the band.
+        # no_pri_sec_switch for the same reason as on 5GHz above.
+        if [ "$EFFECTIVE_WIDTH" = "40" ]; then
+            if [ "$CHANNEL" -le 7 ]; then dir='+'; else dir='-'; fi
+            extra="$extra
+no_pri_sec_switch=1
+ht_capab=[HT40$dir]"
+        fi
     fi
 
     # Security block. open = no encryption (no wpa lines). PMF (ieee80211w):
@@ -731,7 +753,7 @@ hostapd_try() {
 
 # Generate the conf at the picked width and launch hostapd once. pick_width has
 # already resolved EFFECTIVE_WIDTH to a width the chip + channel support (warning
-# on any downgrade), so there's no width fallback to attempt here.
+# on any downgrade), so the only width fallback here is 40MHz on 2.4GHz.
 # $1 = optional bridge name (managed mode), passed through to write_hostapd_conf.
 start_hostapd() {
     local hb="$1"
@@ -744,6 +766,14 @@ start_hostapd() {
     # Clean only hostapd's pidfile (the shared dnsmasq.conf must survive).
     [ -f "$RUN_DIR/hostapd.pid" ] && $KILL "$($CAT "$RUN_DIR/hostapd.pid")" 2>/dev/null
     $RM -f "$RUN_DIR/hostapd.pid"
+    # 40MHz on 2.4GHz is the one width the radio can advertise and the firmware
+    # still refuse, for instance while the phone's own Wi-Fi sits on a 20MHz
+    # network on the same channel. A hotspot at 20MHz beats no hotspot.
+    if [ "$BAND" != "5" ] && [ "$EFFECTIVE_WIDTH" = "40" ]; then
+        warn "hostapd refused 40MHz on 2.4GHz, retrying at 20MHz."
+        EFFECTIVE_WIDTH="20"
+        start_hostapd "$hb"; return
+    fi
     error "hostapd failed to start (check band/channel - try band 2)."
     return 1
 }
@@ -1162,8 +1192,7 @@ cmd_containers() {
 
 cmd_caps() {
     # 5GHz channel-width capabilities of the Wi-Fi chip, for the app to grey out
-    # unsupported width options. 20MHz is always available (not reported). 2.4GHz
-    # is fixed to 20MHz by policy regardless of these.
+    # unsupported width options. 20MHz is always available (not reported).
     local ht40=0 vht=0
     phy_supports_ht40 && ht40=1
     phy_supports_vht  && vht=1
@@ -1187,7 +1216,8 @@ print_usage() {
     $ECHO "  -o <iface>     Upstream interface, or 'auto' (default: auto)"
     $ECHO "  -b <band>      2 = 2.4GHz (default), 5 = 5GHz"
     $ECHO "  -c <channel>   Channel (auto-picked / STA-followed when omitted)"
-    $ECHO "  -W <width>     Channel width: auto (default), 20, 40, 80 (5GHz only)"
+    $ECHO "  -W <width>     Channel width: auto (default), 20, 40, or 80 (80 is 5GHz"
+    $ECHO "                 only; on 2.4GHz auto means 20)"
     $ECHO "  -g <gateway>   Custom gateway IP (default: 192.168.42.1)"
     $ECHO "  -d <dns>       Comma-separated list of upstream DNS servers"
     $ECHO "  -w <iface>     Physical WiFi interface (default: wlan0)"
