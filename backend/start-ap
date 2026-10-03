@@ -843,6 +843,9 @@ config_network_bridged() {
 
     # Neutral host bridge (no IP - the container owns all L3).
     "$IP" link add name "$VAP_BRIDGE" type bridge || { error "Failed to create $VAP_BRIDGE"; return 1; }
+    # No IP has to hold for IPv6 too: Android leaves accept_ra at 2, so the host
+    # would take an address and a default route from the container's own RAs.
+    echo 1 > "/proc/sys/net/ipv6/conf/$VAP_BRIDGE/disable_ipv6" 2>/dev/null || true
     ip_up_retry "$VAP_BRIDGE"
 
     # veth: host side joins the bridge, peer crosses into the container.
