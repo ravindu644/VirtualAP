@@ -30,6 +30,7 @@ hostapd_cli() { "$BIN_DIR/hostapd_cli" -s "$RUN_DIR" "$@"; }
 
 IP="/system/bin/ip"
 IPT="/system/bin/iptables"
+IP6T="/system/bin/ip6tables"
 
 # Network constants
 AP_IFACE="ap0"
@@ -61,6 +62,9 @@ HIDDEN="0"
 # (0/1); wpa2wpa3 forces 1 and wpa3 forces 2 per the standard.
 SECURITY="wpa2"
 PMF="0"
+# Rewrite the TTL of forwarded packets so tethered traffic looks like the phone's
+# own to the operator. Needs the kernel's TTL target, so it is best effort.
+TTL_FIX="0"
 
 # --- Droidspaces container integration (managed mode) ---
 # When CONTAINER is set: ap0 becomes a bridged port on VAP_BRIDGE, a veth peer
@@ -143,6 +147,7 @@ DNS_SERVERS='$(sq "$DNS_SERVERS")'
 HIDDEN='$(sq "$HIDDEN")'
 SECURITY='$(sq "$SECURITY")'
 PMF='$(sq "$PMF")'
+TTL_FIX='$(sq "$TTL_FIX")'
 CONTAINER='$(sq "$CONTAINER")'
 EOF
 }
@@ -459,6 +464,28 @@ stop_daemons() {
     [ -f "$RUN_DIR/dnsmasq.pid" ] && $KILL "$($CAT "$RUN_DIR/dnsmasq.pid")" 2>/dev/null
     $RM -f "$RUN_DIR/hostapd.pid" "$RUN_DIR/dnsmasq.pid" \
            "$RUN_DIR/hostapd.conf" "$RUN_DIR/dnsmasq.conf"
+}
+
+# Live test for the TTL target: ask the kernel to take the real rule, in a
+# chain nothing jumps to, so no packet ever sees it. One test covers both a
+# kernel built without the target and an iptables binary without the extension.
+ttl_supported() {
+    local rc
+    "$IPT" -t mangle -N vap_ttl_probe 2>/dev/null
+    "$IPT" -t mangle -A vap_ttl_probe -j TTL --ttl-set 64 2>/dev/null; rc=$?
+    "$IPT" -t mangle -F vap_ttl_probe 2>/dev/null
+    "$IPT" -t mangle -X vap_ttl_probe 2>/dev/null
+    return $rc
+}
+
+# $1 = I (insert) or D (delete). FORWARD only sees forwarded packets, after the
+# kernel took its one off the TTL, so the phone's own traffic is left alone and
+# 64 is what leaves. Not tied to ap0 or an uplink: in managed mode the clients
+# arrive through the container's NAT, and "auto" can change the uplink.
+ttl_rules() {
+    "$IPT" -t mangle "-$1" FORWARD -j TTL --ttl-set 64 2>/dev/null || return 1
+    # IPv6 calls the same field hop limit. Clients only have IPv6 in managed mode.
+    "$IP6T" -t mangle "-$1" FORWARD -j HL --hl-set 64 2>/dev/null || true
 }
 
 teardown() {
@@ -1005,9 +1032,21 @@ cmd_start() {
         log "  Gateway : $IP_GW (static - never changes)"
         log "  Upstream: ${UPSTREAM_IFACE_RESOLVED:-$UPSTREAM} (table $UPSTREAM_TABLE)"
     fi
+
+    # Clear first, so a restart never stacks a second copy and switching the
+    # option off takes effect.
+    while ttl_rules D; do :; done
+    if [ "$TTL_FIX" = "1" ]; then
+        if ttl_rules I; then
+            log "  TTL fix : forwarded packets leave with TTL 64"
+        else
+            warn "TTL fix is not available: the kernel or iptables lacks the TTL target. Continuing without it."
+        fi
+    fi
 }
 
 cmd_stop() {
+    while ttl_rules D; do :; done
     if $GREP -q '^mode=bridged' "$STATE_FILE" 2>/dev/null; then
         teardown_bridged
     else
@@ -1102,6 +1141,7 @@ cmd_caps() {
     phy_supports_vht  && vht=1
     $ECHO "ht40=$ht40"
     $ECHO "vht=$vht"
+    if ttl_supported; then $ECHO "ttl=1"; else $ECHO "ttl=0"; fi
 }
 
 # --- Main ---
@@ -1129,6 +1169,9 @@ print_usage() {
     $ECHO "                 1=on); forced on for wpa2wpa3, required for wpa3"
     $ECHO "  -K <container> Managed mode: hand the AP's LAN to a Droidspaces"
     $ECHO "                 container (it owns DHCP/DNS/NAT). Disables -o/-g/-d."
+    $ECHO "  -T <0|1>       TTL fix: forwarded packets leave with TTL 64, so they"
+    $ECHO "                 look like the phone's own (0=off [default], 1=on)."
+    $ECHO "                 Needs the kernel's TTL target; skipped when missing."
     $ECHO ""
     $ECHO "Saved settings in $CONF_FILE are reused when flags are omitted."
 }
@@ -1139,7 +1182,7 @@ COMMAND="$1"
 # Saved config provides defaults; CLI flags override
 load_conf
 
-while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:h" opt 2>/dev/null; do
+while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:h" opt 2>/dev/null; do
     case $opt in
         s) SSID="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
@@ -1154,6 +1197,7 @@ while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:h" opt 2>/dev/null; do
         A) SECURITY="$OPTARG" ;;
         M) PMF="$OPTARG" ;;
         K) CONTAINER="$OPTARG" ;;
+        T) TTL_FIX="$OPTARG" ;;
         h) print_usage; exit 0 ;;
         *) print_usage; exit 1 ;;
     esac
