@@ -31,6 +31,14 @@ With OpenWrt in charge you can:
 - build a firewall with as many zones as you like
 - set up port forwards and traffic rules
 - limit bandwidth and speed per device
+- run a guest network that cannot reach your other devices
+- see every connected device, and give it a fixed address and a name
+- choose the DNS servers for the whole network, and add ad blocking for every device from
+  OpenWrt's package feed
+- give your devices IPv6 as well as IPv4
+- put your Droidspaces containers behind the same router, on the same network as your Wi-Fi
+  devices or walled off from them
+- install anything else OpenWrt offers with `opkg`
 
 OpenWrt's WAN side is Droidspaces, and Droidspaces switches uplinks in real time between
 mobile data, Wi-Fi and VPN tunnels. Your hotspot gets that for free:
@@ -65,6 +73,9 @@ network Android is currently using. It is all you need to share a VPN or to repe
 - Android 8.0 or newer
 - An ARM phone, 64-bit or 32-bit. One APK covers both.
 - For managed mode: Droidspaces and its OpenWrt container (see above)
+- For the TTL fix: a kernel with the netfilter TTL target (`CONFIG_NETFILTER_XT_TARGET_HL`),
+  which stock kernels do not always include. The app tests for it and greys the option out
+  when it is missing, and the hotspot works the same without it.
 
 ## Get started
 
