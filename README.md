@@ -30,6 +30,7 @@ Unlike the stock Android hotspot, VirtualAP gives you a fixed LAN, control over 
 * **Bands & channel control** - 2.4 GHz or 5 GHz, manual or auto channel, and 20/40/80 MHz width on 5 GHz (with safe fallback when the chip or channel can't do it).
 * **Security modes** - Open, WPA2-Personal, WPA2/WPA3 transition, or WPA3-Personal (SAE), plus an optional Protected Management Frames (802.11w) toggle.
 * **Hidden SSID** - broadcast or hide the network name.
+* **TTL fix** (optional, `-T 1`) - forwarded packets leave with TTL 64 like the phone's own traffic, so the operator cannot tell tethered clients apart by TTL. Needs a kernel with the netfilter TTL target (`CONFIG_NETFILTER_XT_TARGET_HL`); without it the option is greyed out in the app and skipped by the backend.
 * **DHCP + DNS** - served locally by `dnsmasq`, with optional custom upstream DNS servers.
 * **Same-channel concurrency** - the AP follows the Wi-Fi station's current channel, which is what most phone chips require and avoids 5 GHz beaconing failures.
 * **Managed mode** - hand the hotspot's LAN to a running [Droidspaces](https://github.com/ravindu644/Droidspaces) container, letting OpenWrt (or any container) own DHCP/DNS/NAT/firewall.

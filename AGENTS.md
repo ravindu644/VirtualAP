@@ -42,9 +42,11 @@ Android app, from `Android/`:
 Use the script, not gradle directly. The build needs JDK 17 (`jvmTarget = "17"`); a newer
 JDK does not work, so point `JAVA_HOME` at a 17 (on the maintainer's Fedora host that is
 `~/.jdks/jdk-17`, with `ANDROID_HOME=~/Android/Sdk`), or build inside an Ubuntu 24.04
-container with `openjdk-17-jdk`. CI runs `scripts/build-static.sh` and then
-`./gradlew assembleRelease` on every push, so the binaries are rebuilt from source every run
-and never come from the repo. CI does not check formatting or lint anything.
+container with `openjdk-17-jdk`. CI builds each arch with `scripts/build-static.sh <arch>` on
+an ARM runner and then runs `./gradlew assembleRelease`. The binaries never come from the
+repo: they are built from source and cached, and rebuilt whenever a submodule under
+`externals/` or one of the two build scripts changes. CI does not check formatting or lint
+anything.
 
 The version comes from `VERSION` at the repository root. Bump it there, nowhere else.
 

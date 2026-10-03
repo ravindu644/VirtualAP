@@ -91,8 +91,10 @@ The version string is `VERSION` at the repository root; `versionCode` is derived
 
 ### CI
 
-`.github/workflows/ci.yml` sets up QEMU, runs `scripts/build-static.sh`, then JDK 17 and
-`./gradlew assembleRelease` from `Android/`. Binaries are rebuilt from source on every run. A
+`.github/workflows/ci.yml` builds the static binaries for each arch in its own job on an ARM
+runner (`scripts/build-static.sh <arch>`, native, no QEMU), then a second job runs JDK 17 and
+`./gradlew assembleRelease` from `Android/`. The binaries are cached and rebuilt from source
+only when a submodule under `externals/` or one of the two build scripts changes. A
 `workflow_dispatch` with `create_release` cuts a GitHub release from that APK. It does **not**
 run a formatter or a linter.
 
