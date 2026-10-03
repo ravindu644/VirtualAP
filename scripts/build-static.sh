@@ -11,7 +11,7 @@
 # Sources are vendored as git submodules under externals/ (our own forks of
 # hostap/iw/dnsmasq, so the build survives upstream going away).
 #
-# Usage:  ./scripts/build-static.sh
+# Usage:  ./scripts/build-static.sh [aarch64] [armhf]   (no argument: both)
 # Output: staged into backend/{aarch64,armhf}/ (also left in scripts/out/<arch>/)
 set -euo pipefail
 
@@ -19,30 +19,37 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 IMAGE="alpine:3.23"
 
-# arch label -> docker platform (x86 intentionally unsupported)
-ARCHES="aarch64:linux/arm64 armhf:linux/arm/v7"
+# arch label -> docker platform (x86 intentionally unsupported). CI builds one
+# arch per runner, so the arches to build can be named on the command line.
+[ $# -eq 0 ] && set -- aarch64 armhf
+ARCHES=""
+for want in "$@"; do
+    case "$want" in
+        aarch64) ARCHES="$ARCHES aarch64:linux/arm64" ;;
+        armhf)   ARCHES="$ARCHES armhf:linux/arm/v7" ;;
+        *) echo "unknown arch '$want' (expected: aarch64, armhf)" >&2; exit 1 ;;
+    esac
+done
 
 # Fetch/refresh the vendored sources on the host (uses the https URLs in
 # .gitmodules - no SSH keys needed).
 echo "[*] Initializing source submodules..."
 git -C "$REPO" submodule update --init externals/hostapd externals/iw externals/dnsmasq
 
-# Register qemu binfmt handlers if either emulation isn't available yet.
-if ! docker run --rm --platform linux/arm64 "$IMAGE" true 2>/dev/null \
-   || ! docker run --rm --platform linux/arm/v7 "$IMAGE" true 2>/dev/null; then
-    echo "[*] Registering qemu binfmt handlers (arm64, arm)..."
-    docker run --rm --privileged tonistiigi/binfmt:latest --install arm64,arm >/dev/null
-fi
-
 for pair in $ARCHES; do
     label="${pair%%:*}"; platform="${pair##*:}"
     echo "[*] Building $label ($platform) in $IMAGE ..."
     # Pull the image for THIS platform right before running. alpine:3.23 is a
-    # single local tag, so the earlier binfmt check (which pulled both arches)
-    # leaves it pointing at whichever it pulled last - `docker run --platform`
-    # then silently reuses that wrong-arch image. Re-pulling per iteration keeps
-    # the local tag in sync with $platform.
+    # single local tag, so it points at whichever arch was pulled last and
+    # `docker run --platform` silently reuses that wrong-arch image. Re-pulling
+    # per iteration keeps the local tag in sync with $platform.
     docker pull --quiet --platform "$platform" "$IMAGE" >/dev/null
+    # Register qemu only if this platform cannot run as is. An ARM host runs
+    # these containers natively and never needs it.
+    if ! docker run --rm --platform "$platform" "$IMAGE" true 2>/dev/null; then
+        echo "[*] Registering qemu binfmt handlers (arm64, arm)..."
+        docker run --rm --privileged tonistiigi/binfmt:latest --install arm64,arm >/dev/null
+    fi
     # ARCH_LABEL is passed explicitly so the container never has to guess its arch
     # from `uname -m` (unreliable under emulation). :z relabels the bind mount for
     # SELinux (Fedora/RHEL); externals/ is mounted read-only and copied out before

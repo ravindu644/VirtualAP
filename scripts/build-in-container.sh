@@ -20,19 +20,19 @@ set -e
 if [ -z "${ARCH_LABEL:-}" ]; then
     case "$(uname -m)" in
         aarch64)                 ARCH_LABEL=aarch64 ;;
-        armv7l|armv7|armhf|arm)  ARCH_LABEL=armhf ;;
+        armv7l|armv8l|armv7|armhf|arm)  ARCH_LABEL=armhf ;;
         *) echo "unsupported build arch: $(uname -m)"; exit 1 ;;
     esac
 fi
 echo "### Target arch: $ARCH_LABEL (uname -m: $(uname -m))"
 
-# Sanity-check: the toolchain's actual word size must match the requested arch,
-# so a wrong-platform container (stale image cache) fails loudly instead of
-# silently producing mislabeled binaries.
-case "$ARCH_LABEL:$(uname -m)" in
-    aarch64:aarch64) ;;
-    armhf:armv7l|armhf:armv7|armhf:armhf|armhf:arm) ;;
-    *) echo "ERROR: ARCH_LABEL=$ARCH_LABEL but container is $(uname -m) - wrong-platform image?"; exit 1 ;;
+# Sanity-check: the image's own arch must match the requested one, so a
+# wrong-platform container (stale image cache) fails loudly instead of silently
+# producing mislabeled binaries. Ask apk, not uname: a 32-bit arm container
+# running natively on a 64-bit ARM host still reports the kernel's aarch64.
+case "$ARCH_LABEL:$(apk --print-arch)" in
+    aarch64:aarch64|armhf:armv7) ;;
+    *) echo "ERROR: ARCH_LABEL=$ARCH_LABEL but the image is $(apk --print-arch) - wrong-platform image?"; exit 1 ;;
 esac
 
 OUT="/work/out/$ARCH_LABEL"

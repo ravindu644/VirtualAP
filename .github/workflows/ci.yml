@@ -17,24 +17,65 @@ on:
         default: 'test'
 
 jobs:
+  binaries:
+    name: Static binaries (${{ matrix.arch }})
+    # ARM runners run both the arm64 and the 32-bit arm Alpine containers
+    # natively, so nothing is compiled under emulation.
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        arch: [aarch64, armhf]
+    steps:
+    - uses: actions/checkout@v4
+
+    # The binaries only depend on the three source submodules and the two build
+    # scripts, so most pushes can reuse the previous build.
+    - name: Hash the sources
+      id: src
+      run: echo "hash=$(git ls-tree HEAD externals/ | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore cached binaries
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: backend/${{ matrix.arch }}
+        key: bin-${{ matrix.arch }}-${{ steps.src.outputs.hash }}-${{ hashFiles('scripts/build-static.sh', 'scripts/build-in-container.sh') }}
+
+    - name: Build static binaries from source
+      if: steps.cache.outputs.cache-hit != 'true'
+      # Compiles hostapd/iw/dnsmasq (+ busybox) in an Alpine container from the
+      # externals/ submodules and stages them into backend/<arch>.
+      run: bash scripts/build-static.sh ${{ matrix.arch }}
+
+    - name: Upload binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: bin-${{ matrix.arch }}
+        path: backend/${{ matrix.arch }}
+        if-no-files-found: error
+
   build:
-    name: Build Binaries & Android App
+    name: Build Android App
+    needs: [binaries]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up QEMU (arm64 + arm emulation)
-      uses: docker/setup-qemu-action@v3
+    - name: Download aarch64 binaries
+      uses: actions/download-artifact@v4
       with:
-        platforms: arm64,arm
+        name: bin-aarch64
+        path: backend/aarch64
 
-    - name: Build static binaries from source
-      # Compiles hostapd/iw/dnsmasq (+ busybox) in aarch64 and armhf Alpine
-      # containers from the externals/ submodules and stages them into
-      # backend/{aarch64,armhf}.
-      run: |
-        chmod +x scripts/build-static.sh scripts/build-in-container.sh
-        ./scripts/build-static.sh
+    - name: Download armhf binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: bin-armhf
+        path: backend/armhf
+
+    # Artifacts do not keep the executable bit.
+    - name: Restore executable bits
+      run: chmod +x backend/aarch64/* backend/armhf/*
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -98,8 +139,8 @@ jobs:
     - name: Download Artifacts
       uses: actions/download-artifact@v4
       with:
+        name: virtualap-apk
         path: release-assets
-        merge-multiple: true
 
     - name: Generate Changelog
       id: changelog
