@@ -774,6 +774,9 @@ provision_openwrt() {
     ds_run uci set network.vaplan.proto=static
     ds_run uci set network.vaplan.ipaddr="$IP_GW"
     ds_run uci set network.vaplan.netmask=255.255.255.0
+    # A /64 from the router's ULA. Without a ULA or an IPv6 upstream this is
+    # inert, so it is safe on an OpenWrt that has neither.
+    ds_run uci set network.vaplan.ip6assign=64
     ds_run uci commit network
 
     ds_run uci set dhcp.vaplan=dhcp
@@ -781,10 +784,18 @@ provision_openwrt() {
     ds_run uci set dhcp.vaplan.start=100
     ds_run uci set dhcp.vaplan.limit=150
     ds_run uci set dhcp.vaplan.leasetime=12h
+    # Hand hotspot clients IPv6 too. ra_default 1: announce ourselves as the
+    # default router even though the only prefix is a ULA, since the upstream
+    # is NAT66 and never delegates a public one.
+    ds_run uci set dhcp.vaplan.ra=server
+    ds_run uci set dhcp.vaplan.dhcpv6=server
+    ds_run uci set dhcp.vaplan.ra_default=1
     ds_run uci commit dhcp
 
     ds_run /etc/init.d/network reload >/dev/null 2>&1
     ds_run /etc/init.d/dnsmasq restart >/dev/null 2>&1
+    # odhcpd sends the router advertisements; absent on images without IPv6.
+    ds_run /etc/init.d/odhcpd reload >/dev/null 2>&1
 
     # Most Android kernels lack nf_tables (fw4 fails) but have x_tables, so we
     # rely on iptables-legacy here.
