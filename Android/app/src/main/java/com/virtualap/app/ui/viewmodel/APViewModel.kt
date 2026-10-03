@@ -32,6 +32,9 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     /** Running Droidspaces containers; empty = hide the integration UI entirely. */
     var containers by mutableStateOf<List<String>>(emptyList())
         private set
+    /** Live answer from the backend; the toggle is greyed out while false. */
+    var ttlFixSupported by mutableStateOf(false)
+        private set
     var showActionLogs by mutableStateOf(false)
         private set
     /** False until the first status/interfaces/containers fetch completes, so
@@ -47,7 +50,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
                 prefs.saveApConfig(
                     cfg.ssid, cfg.password, cfg.band, cfg.channel, cfg.width,
                     cfg.upstream, cfg.gateway, cfg.dnsServers, cfg.hidden,
-                    cfg.security, cfg.pmf, cfg.containerMode, cfg.containerName
+                    cfg.security, cfg.pmf, cfg.ttlFix, cfg.containerMode, cfg.containerName
                 )
             }
         }
@@ -57,9 +60,13 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             val s = async { Hotspot.refresh() }
             val ifs = async { APManager.getInterfaces() }
             val cs = async { APManager.getContainers() }
+            val ttl = async { APManager.isTtlFixSupported() }
             s.await()
             applyInterfaceList(ifs.await())
             applyContainerList(cs.await())
+            ttlFixSupported = ttl.await()
+            // A saved "on" from another kernel must not linger behind a greyed-out toggle.
+            if (!ttlFixSupported && config.ttlFix) config = config.copy(ttlFix = false)
             isReady = true
             startPolling()
         }

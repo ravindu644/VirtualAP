@@ -97,6 +97,10 @@ class PreferencesManager private constructor(context: Context) {
         get() = prefs.getBoolean(Constants.KEY_AP_PMF, false)
         set(value) { prefs.edit().putBoolean(Constants.KEY_AP_PMF, value).apply() }
 
+    var apTtlFix: Boolean
+        get() = prefs.getBoolean(Constants.KEY_AP_TTL_FIX, false)
+        set(value) { prefs.edit().putBoolean(Constants.KEY_AP_TTL_FIX, value).apply() }
+
     var apContainerMode: Boolean
         get() = prefs.getBoolean(Constants.KEY_AP_CONTAINER_MODE, false)
         set(value) { prefs.edit().putBoolean(Constants.KEY_AP_CONTAINER_MODE, value).apply() }
@@ -122,7 +126,8 @@ class PreferencesManager private constructor(context: Context) {
     fun saveApConfig(
         ssid: String, password: String, band: String, channel: String, width: String,
         upstream: String, gateway: String, dnsServers: String, hidden: Boolean,
-        security: String, pmf: Boolean, containerMode: Boolean, container: String
+        security: String, pmf: Boolean, ttlFix: Boolean, containerMode: Boolean,
+        container: String
     ) {
         prefs.edit()
             .putString(Constants.KEY_AP_SSID, ssid)
@@ -136,6 +141,7 @@ class PreferencesManager private constructor(context: Context) {
             .putBoolean(Constants.KEY_AP_HIDDEN, hidden)
             .putString(Constants.KEY_AP_SECURITY, security)
             .putBoolean(Constants.KEY_AP_PMF, pmf)
+            .putBoolean(Constants.KEY_AP_TTL_FIX, ttlFix)
             .putBoolean(Constants.KEY_AP_CONTAINER_MODE, containerMode)
             .putString(Constants.KEY_AP_CONTAINER, container)
             .apply()

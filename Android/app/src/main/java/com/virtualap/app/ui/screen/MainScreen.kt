@@ -576,6 +576,19 @@ private fun AdvancedCard(vm: APViewModel) {
                 icon = Icons.Default.Security
             )
         }
+
+        // Last, because the two above are radio settings and this one is about
+        // routing. It needs kernel support, so it is greyed out without it.
+        ToggleCard(
+            title = stringResource(R.string.ttl_fix_label),
+            description = stringResource(
+                if (vm.ttlFixSupported) R.string.ttl_fix_desc else R.string.ttl_fix_unsupported
+            ),
+            checked = vm.config.ttlFix,
+            onCheckedChange = { vm.config = vm.config.copy(ttlFix = it) },
+            enabled = editable && vm.ttlFixSupported,
+            icon = Icons.Default.SwapVert
+        )
     }
 }
 

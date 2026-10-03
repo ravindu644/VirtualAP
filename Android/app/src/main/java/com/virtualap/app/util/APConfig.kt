@@ -13,6 +13,7 @@ data class APConfig(
     val hidden: Boolean = false,
     val security: String = "wpa2",   // open | wpa2 | wpa2wpa3 | wpa3
     val pmf: Boolean = false,        // Protected Management Frames (wpa2 only)
+    val ttlFix: Boolean = false,     // forwarded packets leave with TTL 64
     val containerMode: Boolean = false,
     val containerName: String = ""
 ) {
@@ -40,6 +41,7 @@ data class APConfig(
             hidden = prefs.apHidden,
             security = prefs.apSecurity,
             pmf = prefs.apPmf,
+            ttlFix = prefs.apTtlFix,
             containerMode = prefs.apContainerMode,
             containerName = prefs.apContainer
         )

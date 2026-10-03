@@ -85,6 +85,9 @@
     <string name="hidden_ssid_desc">Don\'t broadcast the network name, clients connect manually</string>
     <string name="pmf_label">Protected Management Frames</string>
     <string name="pmf_desc">Adds 802.11w protection to WPA2. Leave off if older devices fail to connect</string>
+    <string name="ttl_fix_label">TTL fix</string>
+    <string name="ttl_fix_desc">Send clients\' traffic with the same TTL as the phone\'s own, so the operator cannot tell it is tethered</string>
+    <string name="ttl_fix_unsupported">Not supported by this kernel</string>
     <string name="gateway_ip_label">Gateway IP</string>
     <string name="gateway_ip_desc">Leave blank to use the default (192.168.42.1)</string>
     <string name="gateway_ip_placeholder">192.168.42.1</string>

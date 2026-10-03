@@ -65,11 +65,12 @@ object APManager {
         val sq = Backend::quote
         val hiddenVal = if (cfg.hidden) "1" else "0"
         val pmfVal = if (cfg.pmf) "1" else "0"
+        val ttlVal = if (cfg.ttlFix) "1" else "0"
         val gateway = cfg.gateway.ifBlank { APConfig.DEFAULT_GATEWAY }
         // -K is always passed (empty clears managed mode) so a stale CONTAINER
         // in ap.conf never silently re-enables it.
         val container = if (cfg.containerMode) cfg.containerName else ""
-        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(gateway)} -d ${sq(cfg.dnsServers)} -H $hiddenVal -A ${sq(cfg.security)} -M $pmfVal -K ${sq(container)}"
+        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(gateway)} -d ${sq(cfg.dnsServers)} -H $hiddenVal -A ${sq(cfg.security)} -M $pmfVal -K ${sq(container)} -T $ttlVal"
 
         Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
     }
@@ -94,6 +95,15 @@ object APManager {
         val result = Shell.cmd("${Backend.startAp} containers 2>/dev/null").exec()
         if (!result.isSuccess) return@withContext emptyList()
         result.out.map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    /**
+     * Whether this kernel and its iptables can rewrite the TTL of forwarded
+     * packets. The backend finds out by trying the rule, so this is the live
+     * answer and not something read from a kernel config.
+     */
+    suspend fun isTtlFixSupported(): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("${Backend.startAp} caps 2>/dev/null").exec().out.any { it.trim() == "ttl=1" }
     }
 
     suspend fun getInterfaces(): List<NetworkIface> = withContext(Dispatchers.IO) {
