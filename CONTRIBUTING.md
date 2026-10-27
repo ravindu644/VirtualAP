@@ -94,9 +94,13 @@ The version string is `VERSION` at the repository root; `versionCode` is derived
 `.github/workflows/ci.yml` builds the static binaries for each arch in its own job on an ARM
 runner (`scripts/build-static.sh <arch>`, native, no QEMU), then a second job runs JDK 17 and
 `./gradlew assembleRelease` from `Android/`. The binaries are cached and rebuilt from source
-only when a submodule under `externals/` or one of the two build scripts changes. A
-`workflow_dispatch` with `create_release` cuts a GitHub release from that APK. It does **not**
-run a formatter or a linter.
+only when a submodule under `externals/` or one of the two build scripts changes. It does
+**not** run a formatter or a linter.
+
+A release is a tag: bump `VERSION`, commit it as `VirtualAP: bump vX.Y.Z`, then push `main`
+and the tag `vX.Y.Z`. CI refuses a tag that does not match `VERSION` or a run without the
+signing key, and publishes the APK and a `SHA256SUMS` file with a changelog of every commit
+since the previous tag.
 
 ## Code Style
 

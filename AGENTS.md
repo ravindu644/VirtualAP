@@ -45,8 +45,8 @@ JDK does not work, so point `JAVA_HOME` at a 17 (on the maintainer's Fedora host
 container with `openjdk-17-jdk`. CI builds each arch with `scripts/build-static.sh <arch>` on
 an ARM runner and then runs `./gradlew assembleRelease`. The binaries never come from the
 repo: they are built from source and cached, and rebuilt whenever a submodule under
-`externals/` or one of the two build scripts changes. CI does not check formatting or lint
-anything.
+`externals/` or one of the two build scripts changes. A pushed `v*` tag that matches `VERSION`
+publishes a release. CI does not check formatting or lint anything.
 
 The version comes from `VERSION` at the repository root. Bump it there, nowhere else.
 
