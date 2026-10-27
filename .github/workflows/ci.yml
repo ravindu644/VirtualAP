@@ -1,20 +1,27 @@
 name: VirtualAP CI
+
+# Every push and pull request builds the static binaries and the APK and
+# uploads the APK as an artifact. A v* tag, or a manual run with tag_name,
+# also publishes it as a GitHub release. The APK is signed with the release
+# key when the RELEASE_KEYSTORE, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD
+# secrets are set, and with a throwaway key when they are not (a fork, a pull
+# request).
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
     inputs:
-      create_release:
-        description: 'Create an Official GitHub Release?'
-        required: true
-        type: boolean
-        default: false
       tag_name:
-        description: 'Tag name (Only used if Release is checked)'
+        description: "Publish a release for this tag (existing or new, must match VERSION)"
         required: false
-        default: 'test'
+        type: string
+
+permissions:
+  # Needed to create the release on a tag; a pull request token is read-only regardless
+  contents: write
 
 jobs:
   binaries:
@@ -26,7 +33,7 @@ jobs:
       matrix:
         arch: [aarch64, armhf]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     # The binaries only depend on the three source submodules and the two build
     # scripts, so most pushes can reuse the previous build.
@@ -58,8 +65,24 @@ jobs:
     name: Build Android App
     needs: [binaries]
     runs-on: ubuntu-latest
+    env:
+      # The tag being released, if any
+      TAG: ${{ inputs.tag_name || (github.ref_type == 'tag' && github.ref_name) || '' }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
+      with:
+        # The changelog walks back to the previous tag
+        fetch-depth: 0
+
+    # One version, the VERSION file. A tag must match it, so a forgotten bump
+    # fails here instead of shipping.
+    - name: Settle the version
+      run: |
+        VERSION=$(tr -d '[:space:]' < VERSION)
+        if [ -n "$TAG" ]; then
+          [ "${TAG#v}" = "$VERSION" ] || { echo "Tag $TAG does not match VERSION $VERSION (bump VERSION first)"; exit 1; }
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Download aarch64 binaries
       uses: actions/download-artifact@v4
@@ -84,14 +107,22 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    # The key lives in a secret as base64; without it the APK is signed with a throwaway key
     - name: Decode Keystore
       env:
         RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE }}
-      if: ${{ github.event_name != 'pull_request' && env.RELEASE_KEYSTORE != '' }}
-      run: echo "${{ env.RELEASE_KEYSTORE }}" | base64 -d > virtualap.keystore
+      if: github.event_name != 'pull_request' && env.RELEASE_KEYSTORE != ''
+      run: echo "$RELEASE_KEYSTORE" | base64 -d > virtualap.keystore
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x Android/gradlew
+    # A release signed with a throwaway key could never update the real app, so
+    # a release run without the key stops here instead of publishing one
+    - name: Require the key for a release
+      if: env.TAG != ''
+      env:
+        RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      run: |
+        [ -n "$RELEASE_KEYSTORE" ] && [ -n "$KEYSTORE_PASSWORD" ] || { echo "Releases are signed with the release key: set RELEASE_KEYSTORE and KEYSTORE_PASSWORD"; exit 1; }
 
     - name: Build Android App with Gradle
       env:
@@ -100,77 +131,59 @@ jobs:
         KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEY_PASSWORD || '' }}
       run: |
         cd Android
-        ./gradlew assembleRelease \
+        chmod +x gradlew
+        ./gradlew assembleRelease --no-daemon \
           -PKEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" \
           -PKEY_ALIAS="$KEY_ALIAS" \
           -PKEY_PASSWORD="$KEY_PASSWORD"
 
+    # Every build, release or not, is named <version>-<commit> so the exact
+    # source an APK came from is legible from its filename
     - name: Stage & Rename Artifact
       run: |
-        TAG="${{ github.event.inputs.tag_name || 'test' }}"
-        DATE=$(date +%Y-%m-%d)
-        APK_NAME="VirtualAP-${TAG}-${DATE}.apk"
+        HASH=$(git log -1 --pretty=%h)
+        APK_NAME="VirtualAP-v${VERSION}-${HASH}.apk"
         mkdir -p dist
         mv Android/app/build/outputs/apk/release/app-release.apk dist/${APK_NAME}
-        echo "APK_FILE=dist/${APK_NAME}" >> $GITHUB_ENV
+        (cd dist && sha256sum ${APK_NAME} > SHA256SUMS)
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: virtualap-apk
         path: dist/
+        if-no-files-found: error
+        retention-days: 14
 
-  release:
-    name: Create GitHub Release
-    needs: [build]
-    if: |
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.create_release == 'true' &&
-      github.event.inputs.tag_name != '' &&
-      github.event.inputs.tag_name != 'test'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Download Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: virtualap-apk
-        path: release-assets
-
+    # Every commit since the previous tag, pull requests included. On a tag
+    # push HEAD is the tag, so the previous one is found from its parent; a
+    # manual run for a tag not made yet ends at HEAD
     - name: Generate Changelog
-      id: changelog
+      if: env.TAG != ''
       run: |
-        PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-        echo "Previous tag: $PREV_TAG"
-
-        if [ -z "$PREV_TAG" ]; then
-          CHANGELOG=$(git log --oneline --pretty=format:"* %s (%h)")
-        else
-          CHANGELOG=$(git log ${PREV_TAG}..HEAD --oneline --pretty=format:"* %s (%h)")
-        fi
-
+        END=HEAD
+        git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null && END="${TAG}"
+        PREV=$(git describe --tags --abbrev=0 "${END}^" 2>/dev/null || true)
+        echo "Previous tag: ${PREV:-none}"
         {
-          echo "notes<<EOF"
-          echo "$CHANGELOG"
-          echo "EOF"
-        } >> "$GITHUB_OUTPUT"
+          echo "## What's Changed"
+          git log --no-merges --pretty=format:"* %s (%h)" ${PREV:+${PREV}..}${END}
+          echo
+          echo
+          echo "---"
+          echo "**Automated Release by VirtualAP CI**"
+        } > dist/CHANGELOG.md
 
-    - name: Create Release
+    - name: Publish GitHub Release
+      if: env.TAG != ''
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ github.event.inputs.tag_name }}
-        name: VirtualAP ${{ github.event.inputs.tag_name || 'Development Build' }}
+        tag_name: ${{ env.TAG }}
+        name: VirtualAP ${{ env.TAG }}
         target_commitish: ${{ github.sha }}
-        body: |
-          ## What's Changed
-          ${{ steps.changelog.outputs.notes }}
-
-          ---
-          **Automated Release by VirtualAP CI**
         files: |
-          release-assets/*.apk
+          dist/*.apk
+          dist/SHA256SUMS
+        body_path: dist/CHANGELOG.md
+        draft: false
+        prerelease: false
