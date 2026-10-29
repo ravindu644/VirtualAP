@@ -47,6 +47,13 @@ PRIO_FROM_AP=7010     # from all iif ap0 lookup <table>  (upstream steering)
 # route back out and, on cellular where the PGW routes the whole /64 to us, bounce
 # until its hop limit dies, 64 radio transmissions for one stray packet.
 PRIO_V6_SINK=7001     # from all iif <upstream> to <our /64> blackhole
+# Android kernels file an interface's own routes, fe80::/64 included, in table
+# 1000+ifindex, which no rule reads, so a packet the phone itself sends to a
+# client's link-local on ap0 has no route. The kernel's own neighbour discovery
+# bypasses routing and works anyway; dnsmasq does not, and its answer to a
+# router solicitation is a unicast RA to that link-local. Without this rule
+# clients got an address only from the periodic multicast RA, minutes later.
+PRIO_V6_LINK=7002     # from all oif ap0 lookup main
 
 # Android's local_network table (constant since Android 5). We mirror the AP
 # subnet here so container reply packets (src 172.28.0.0/16) hit Droidspaces'
@@ -601,6 +608,7 @@ teardown_ipv6() {
     while "$IP" -6 rule del pref "$PRIO_FROM_AP" 2>/dev/null; do :; done
     while "$IP" -6 rule del pref "$PRIO_TO_SUBNET" 2>/dev/null; do :; done
     while "$IP" -6 rule del pref "$PRIO_V6_SINK" 2>/dev/null; do :; done
+    while "$IP" -6 rule del pref "$PRIO_V6_LINK" 2>/dev/null; do :; done
     "$IP6T" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null || true
     "$IP6T" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null || true
     [ -n "$up" ] && for a in $($CAT "$RUN_DIR/v6clients" 2>/dev/null); do
@@ -684,9 +692,11 @@ EOF
         v6_abort "could not add $IP6_GW to $AP_IFACE"; return 0
     fi
     "$IP" -6 route del "$IP6_NET" dev "$AP_IFACE" table main 2>/dev/null || true
+    "$IP" -6 route replace fe80::/64 dev "$AP_IFACE" table main 2>/dev/null
 
     if "$IP" -6 rule add from all to "$IP6_NET" lookup main pref "$PRIO_TO_SUBNET" 2>/dev/null \
         && "$IP" -6 rule add from all iif "$up" to "$IP6_NET" blackhole pref "$PRIO_V6_SINK" 2>/dev/null \
+        && "$IP" -6 rule add from all oif "$AP_IFACE" lookup main pref "$PRIO_V6_LINK" 2>/dev/null \
         && "$IP" -6 rule add from all iif "$AP_IFACE" lookup "$UPSTREAM_TABLE" pref "$PRIO_FROM_AP" 2>/dev/null \
         && "$IP6T" -I FORWARD 1 -i "$AP_IFACE" -j ACCEPT 2>/dev/null \
         && "$IP6T" -I FORWARD 1 -o "$AP_IFACE" -j ACCEPT 2>/dev/null
