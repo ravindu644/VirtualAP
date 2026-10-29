@@ -16,6 +16,7 @@ data class APConfig(
     val security: String = "wpa2",   // open | wpa2 | wpa2wpa3 | wpa3
     val pmf: Boolean = false,        // Protected Management Frames (wpa2 only)
     val ttlFix: Boolean = false,     // forwarded packets leave with TTL 64
+    val ipv6: Boolean = true,        // global IPv6 for clients from the upstream's /64 (NDP proxy)
     val containerMode: Boolean = false,
     val containerName: String = "",
     val macMode: String = "random",  // random | persistent | static, managed mode only
@@ -50,6 +51,7 @@ data class APConfig(
             security = prefs.apSecurity,
             pmf = prefs.apPmf,
             ttlFix = prefs.apTtlFix,
+            ipv6 = prefs.apIpv6,
             containerMode = prefs.apContainerMode,
             containerName = prefs.apContainer,
             macMode = prefs.apMacMode,

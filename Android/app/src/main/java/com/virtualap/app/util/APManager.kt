@@ -22,7 +22,9 @@ data class APStatus(
     val started: String? = null,
     val mode: String = "routed",        // "routed" or "bridged" (container-managed)
     val container: String? = null,      // target container name when bridged
-    val gatewayMac: String? = null      // the MAC the clients' gateway has, when bridged
+    val gatewayMac: String? = null,     // the MAC the clients' gateway has, when bridged
+    val ipv6Net: String? = null,        // the global /64 shared with the clients; null = IPv4 only
+    val ipv6Upstream: String? = null    // the upstream's own global /64 address that enabled it
 )
 
 data class NetworkIface(val name: String, val ip: String?)
@@ -59,7 +61,9 @@ object APManager {
             started = kv["started"],
             mode = kv["mode"] ?: "routed",
             container = kv["container"],
-            gatewayMac = kv["gw_mac"]?.takeIf { it.isNotEmpty() }
+            gatewayMac = kv["gw_mac"]?.takeIf { it.isNotEmpty() },
+            ipv6Net = kv["ipv6_net"]?.takeIf { it.isNotEmpty() },
+            ipv6Upstream = kv["ipv6_upstream"]?.takeIf { it.isNotEmpty() }
         )
     }
 
@@ -68,12 +72,13 @@ object APManager {
         val hiddenVal = if (cfg.hidden) "1" else "0"
         val pmfVal = if (cfg.pmf) "1" else "0"
         val ttlVal = if (cfg.ttlFix) "1" else "0"
+        val ipv6Val = if (cfg.ipv6) "1" else "0"
         val gateway = cfg.gateway.ifBlank { APConfig.DEFAULT_GATEWAY }
         // -K and -m are always passed (empty clears them) so a stale CONTAINER
         // or GW_MAC in ap.conf never silently comes back.
         val container = if (cfg.containerMode) cfg.containerName else ""
         val mac = if (cfg.macMode == "random") "" else cfg.gatewayMac
-        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(gateway)} -d ${sq(cfg.dnsServers)} -H $hiddenVal -A ${sq(cfg.security)} -M $pmfVal -K ${sq(container)} -T $ttlVal -m ${sq(mac)}"
+        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(gateway)} -d ${sq(cfg.dnsServers)} -H $hiddenVal -A ${sq(cfg.security)} -M $pmfVal -K ${sq(container)} -T $ttlVal -6 $ipv6Val -m ${sq(mac)}"
 
         Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
     }

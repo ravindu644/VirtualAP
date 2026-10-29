@@ -101,6 +101,11 @@ class PreferencesManager private constructor(context: Context) {
         get() = prefs.getBoolean(Constants.KEY_AP_TTL_FIX, false)
         set(value) { prefs.edit().putBoolean(Constants.KEY_AP_TTL_FIX, value).apply() }
 
+    // Hand IPv6 to the clients when the upstream has a global /64 (on by default).
+    var apIpv6: Boolean
+        get() = prefs.getBoolean(Constants.KEY_AP_IPV6, true)
+        set(value) { prefs.edit().putBoolean(Constants.KEY_AP_IPV6, value).apply() }
+
     var apContainerMode: Boolean
         get() = prefs.getBoolean(Constants.KEY_AP_CONTAINER_MODE, false)
         set(value) { prefs.edit().putBoolean(Constants.KEY_AP_CONTAINER_MODE, value).apply() }
@@ -135,7 +140,7 @@ class PreferencesManager private constructor(context: Context) {
     fun saveApConfig(
         ssid: String, password: String, band: String, channel: String, width: String,
         upstream: String, gateway: String, dnsServers: String, hidden: Boolean,
-        security: String, pmf: Boolean, ttlFix: Boolean, containerMode: Boolean,
+        security: String, pmf: Boolean, ttlFix: Boolean, ipv6: Boolean, containerMode: Boolean,
         container: String, macMode: String, gatewayMac: String
     ) {
         prefs.edit()
@@ -151,6 +156,7 @@ class PreferencesManager private constructor(context: Context) {
             .putString(Constants.KEY_AP_SECURITY, security)
             .putBoolean(Constants.KEY_AP_PMF, pmf)
             .putBoolean(Constants.KEY_AP_TTL_FIX, ttlFix)
+            .putBoolean(Constants.KEY_AP_IPV6, ipv6)
             .putBoolean(Constants.KEY_AP_CONTAINER_MODE, containerMode)
             .putString(Constants.KEY_AP_CONTAINER, container)
             .putString(Constants.KEY_AP_MAC_MODE, macMode)

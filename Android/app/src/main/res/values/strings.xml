@@ -88,6 +88,9 @@
     <string name="ttl_fix_label">TTL fix</string>
     <string name="ttl_fix_desc">Send clients\' traffic with the same TTL as the phone\'s own, so the operator cannot tell it is tethered</string>
     <string name="ttl_fix_unsupported">Not supported by this kernel</string>
+    <string name="ipv6_label">IPv6</string>
+    <string name="ipv6_desc">Give clients global IPv6 addresses from the upstream\'s /64 prefix, when it has one. Routed with an NDP proxy, no NAT</string>
+    <string name="ipv6_off">Off</string>
     <string name="gateway_mac_label">Gateway MAC</string>
     <string name="mac_mode_random">Random every start</string>
     <string name="mac_mode_persistent">Random once</string>

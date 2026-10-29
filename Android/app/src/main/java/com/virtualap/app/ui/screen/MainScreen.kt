@@ -655,6 +655,18 @@ private fun AdvancedCard(vm: APViewModel) {
             enabled = editable && vm.ttlFixSupported,
             icon = Icons.Default.SwapVert
         )
+
+        // Routed mode only: in managed mode the container owns the LAN, IPv6 included.
+        if (!vm.config.containerMode) {
+            ToggleCard(
+                title = stringResource(R.string.ipv6_label),
+                description = stringResource(R.string.ipv6_desc),
+                checked = vm.config.ipv6,
+                onCheckedChange = { vm.config = vm.config.copy(ipv6 = it) },
+                enabled = editable,
+                icon = Icons.Default.Public
+            )
+        }
     }
 }
 
@@ -770,6 +782,13 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                         if (bridged) status.container ?: stringResource(R.string.unknown)
                         else status.dnsServers?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dns_system)
                     )
+                    if (!bridged) {
+                        StatRow(
+                            Icons.Default.Public,
+                            stringResource(R.string.ipv6_label),
+                            status.ipv6Net ?: stringResource(R.string.ipv6_off)
+                        )
+                    }
                 }
             )
         }
