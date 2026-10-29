@@ -53,6 +53,20 @@ ANDROID_LOCAL_NETWORK_TABLE=97
 DS_NAT_NET="172.28.0.0/16"
 DS_NAT_NET6="fd64:7370::/48"
 
+# IPv6 for hotspot clients (routed mode). Stock kernels rarely ship ip6table_nat
+# and Android hands the phone one /64 (SLAAC) with no prefix delegation, so the
+# clients get global addresses out of that same /64 (what Android's own tethering
+# does): ap0 advertises it off-link, every client address is routed as a /128 to
+# ap0 and answered for on the upstream side with an NDP proxy entry. No NAT.
+IP6_NET=""            # the shared /64, "g1:g2:g3:g4::/64"
+IP6_P4=""             # its first four groups, zero padded
+IP6_GW=""             # ap0's own address inside it (RDNSS)
+IP6_UPSTREAM_ADDR=""
+IP6_UP_IFACE=""
+IP6_PREV_FWD=""
+IP6_PREV_PROXY=""
+IP6_ACTIVE=0
+
 # Defaults (overridden by ap.conf, then by CLI flags)
 PHY_IFACE="wlan0"
 UPSTREAM="auto"
@@ -70,6 +84,9 @@ PMF="0"
 # Rewrite the TTL of forwarded packets so tethered traffic looks like the phone's
 # own to the operator. Needs the kernel's TTL target, so it is best effort.
 TTL_FIX="0"
+# Hand IPv6 to the clients when the upstream interface has a global /64 prefix
+# (1 = yes [default], 0 = IPv4 only). Routed mode only.
+IPV6="1"
 
 # --- Droidspaces container integration (managed mode) ---
 # When CONTAINER is set: ap0 becomes a bridged port on VAP_BRIDGE, a veth peer
@@ -158,6 +175,7 @@ HIDDEN='$(sq "$HIDDEN")'
 SECURITY='$(sq "$SECURITY")'
 PMF='$(sq "$PMF")'
 TTL_FIX='$(sq "$TTL_FIX")'
+IPV6='$(sq "$IPV6")'
 CONTAINER='$(sq "$CONTAINER")'
 GW_MAC='$(sq "$GW_MAC")'
 EOF
@@ -506,11 +524,212 @@ write_resolv_conf() {
     $PRINTF "$dns_lines" > "$RUN_DIR/resolv.conf"
 }
 
+# --- IPv6 (routed mode) ---
+
+# Prints the first global /64 address on interface $1 (ULA, deprecated and
+# tentative addresses don't count), exit 1 if there is none.
+upstream_v6_addr() {
+    local a
+    a=$("$IP" -6 -o addr show dev "$1" 2>/dev/null \
+        | $GREP 'scope global' \
+        | $GREP -v -E 'deprecated|tentative' \
+        | $SED -n 's/.*inet6 \([0-9a-fA-F:]*\)\/64 .*/\1/p' \
+        | $GREP -v -E '^[fF][cCdD]' | $HEAD -n1)
+    [ -n "$a" ] || return 1
+    $ECHO "$a"
+}
+
+# Expand an IPv6 address to 8 zero-padded groups, colon separated.
+v6_expand() {
+    local a="$1" l r nl nr pad out="" g i=0
+    case "$a" in
+        *::*) l="${a%%::*}"; r="${a#*::}" ;;
+        *)    l="$a"; r="" ;;
+    esac
+    nl=$($ECHO "$l" | $TR ':' ' ' | $WC -w)
+    nr=$($ECHO "$r" | $TR ':' ' ' | $WC -w)
+    pad=$((8 - nl - nr))
+    [ "$pad" -ge 0 ] || return 1
+    for g in $($ECHO "$l" | $TR ':' ' '); do out="$out $($PRINTF '%04x' "0x$g")"; done
+    while [ $i -lt $pad ]; do out="$out 0000"; i=$((i + 1)); done
+    for g in $($ECHO "$r" | $TR ':' ' '); do out="$out $($PRINTF '%04x' "0x$g")"; done
+    $ECHO "${out# }" | $TR ' ' ':'
+}
+
+# First four groups (the /64) of an address, in v6_expand's format.
+v6_first4() { v6_expand "$1" | $CUT -d: -f1-4; }
+
+# Background loop: learns the clients' global addresses from ap0's neighbour
+# table (a client shows up there as soon as it talks to us) and, per address,
+# installs a /128 route to ap0 and an NDP proxy entry on the upstream, so the
+# upstream router finds the client behind this phone. Runs until the pid file
+# is removed.
+v6_sync_loop() {
+    local f="$RUN_DIR/v6clients" now a
+    while [ -f "$RUN_DIR/v6sync.pid" ]; do
+        now=""
+        for a in $("$IP" -6 -o neigh show dev "$AP_IFACE" 2>/dev/null \
+                | $GREP -v -E 'FAILED|INCOMPLETE' \
+                | $SED -n 's/^\([0-9a-fA-F:]*\) .*/\1/p' \
+                | $GREP -v -i -E '^(fe80|ff)'); do
+            [ "$a" = "$IP6_GW" ] && continue
+            [ "$(v6_first4 "$a")" = "$IP6_P4" ] && now="$now $a"
+        done
+        for a in $now; do
+            $GREP -qxF "$a" "$f" 2>/dev/null && continue
+            "$IP" -6 route replace "$a/128" dev "$AP_IFACE" table main 2>/dev/null
+            "$IP" -6 neigh replace proxy "$a" dev "$IP6_UP_IFACE" 2>/dev/null
+        done
+        for a in $($CAT "$f" 2>/dev/null); do
+            case " $now " in *" $a "*) continue ;; esac
+            "$IP" -6 route del "$a/128" dev "$AP_IFACE" table main 2>/dev/null
+            "$IP" -6 neigh del proxy "$a" dev "$IP6_UP_IFACE" 2>/dev/null
+        done
+        : > "$f"
+        for a in $now; do $ECHO "$a" >> "$f"; done
+        $SLEEP 0.5
+    done
+}
+
+# Undo everything setup_ipv6 did, tolerant of partial setup. $1 = upstream
+# iface, $2 = ip6 forwarding and $3 = proxy_ndp value to restore (all three come
+# from the state file on a later stop).
+teardown_ipv6() {
+    local up="$1" fwd="$2" proxy="$3" a
+    if [ -f "$RUN_DIR/v6sync.pid" ]; then
+        $KILL "$($CAT "$RUN_DIR/v6sync.pid")" 2>/dev/null
+        $RM -f "$RUN_DIR/v6sync.pid"
+    fi
+    while "$IP" -6 rule del pref "$PRIO_FROM_AP" 2>/dev/null; do :; done
+    while "$IP" -6 rule del pref "$PRIO_TO_SUBNET" 2>/dev/null; do :; done
+    "$IP6T" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null || true
+    "$IP6T" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null || true
+    if [ -n "$up" ] && [ -f "$RUN_DIR/v6clients" ]; then
+        for a in $($CAT "$RUN_DIR/v6clients" 2>/dev/null); do
+            "$IP" -6 neigh del proxy "$a" dev "$up" 2>/dev/null
+        done
+    fi
+    $RM -f "$RUN_DIR/v6clients"
+    # The /128 routes go with the interface; the address is flushed here for
+    # the rollback paths where ap0 lives on.
+    "$IP" -6 addr flush dev "$AP_IFACE" scope global 2>/dev/null || true
+    [ -n "$up" ] && [ -n "$proxy" ] && \
+        $ECHO "$proxy" > "/proc/sys/net/ipv6/conf/$up/proxy_ndp" 2>/dev/null
+    [ "$fwd" = "0" ] && $ECHO 0 > /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null
+    return 0
+}
+
+# Share the upstream's global /64 with the clients, but only if the upstream
+# interface really has one. Never fatal: on any problem the AP stays IPv4-only.
+setup_ipv6() {
+    IP6_ACTIVE=0
+    [ "$IPV6" = "1" ] || return 0
+
+    local up="$UPSTREAM_IFACE_RESOLVED" c="/proc/sys/net/ipv6/conf" mac iid b0
+    local m1 m2 m3 m4 m5 m6
+    if [ -z "$up" ]; then
+        log "IPv6: upstream interface unknown - IPv4 only."; return 0
+    fi
+    if [ ! -x "$IP6T" ] || [ ! -d /proc/sys/net/ipv6 ]; then
+        log "IPv6: ip6tables/IPv6 not available - IPv4 only."; return 0
+    fi
+    IP6_UPSTREAM_ADDR=$(upstream_v6_addr "$up") || {
+        log "IPv6: $up has no global /64 prefix - IPv4 only."; return 0; }
+    IP6_P4=$(v6_first4 "$IP6_UPSTREAM_ADDR") || {
+        warn "IPv6: cannot parse $IP6_UPSTREAM_ADDR - IPv4 only."; return 0; }
+    IP6_UP_IFACE="$up"
+    IP6_NET="${IP6_P4}::/64"
+
+    # ap0's own address in the /64: EUI-64 from its MAC, so it cannot clash.
+    mac=$($CAT "/sys/class/net/$AP_IFACE/address" 2>/dev/null)
+    IFS=: read -r m1 m2 m3 m4 m5 m6 <<EOF
+$mac
+EOF
+    if [ -z "$m6" ]; then
+        warn "IPv6: cannot read $AP_IFACE's MAC - IPv4 only."; return 0
+    fi
+    b0=$(( 0x$m1 ^ 2 ))
+    iid=$($PRINTF '%02x%s:%sff:fe%s:%s%s' "$b0" "$m2" "$m3" "$m4" "$m5" "$m6")
+    IP6_GW="${IP6_P4}:${iid}"
+    log "IPv6: $up has $IP6_UPSTREAM_ADDR/64 - sharing $IP6_NET with the clients."
+
+    # ap0 holds addresses but never configures itself from (rogue) RAs: we are
+    # the router on this link.
+    $ECHO 0 > "$c/$AP_IFACE/disable_ipv6" 2>/dev/null
+    $ECHO 0 > "$c/$AP_IFACE/accept_ra" 2>/dev/null
+    $ECHO 0 > "$c/$AP_IFACE/autoconf" 2>/dev/null
+
+    # Forwarding turns interfaces with accept_ra=1 into routers that ignore RAs;
+    # keep the upstream on 2 so it keeps its address and default route.
+    IP6_PREV_FWD=$($CAT "$c/all/forwarding" 2>/dev/null)
+    IP6_PREV_PROXY=$($CAT "$c/$up/proxy_ndp" 2>/dev/null)
+    $ECHO 2 > "$c/$up/accept_ra" 2>/dev/null
+    if ! $ECHO 1 > "$c/all/forwarding" 2>/dev/null \
+        || ! $ECHO 1 > "$c/$up/proxy_ndp" 2>/dev/null; then
+        warn "IPv6: could not enable forwarding/proxy_ndp - IPv4 only."
+        teardown_ipv6 "$up" "$IP6_PREV_FWD" "$IP6_PREV_PROXY"
+        IP6_NET=""; IP6_GW=""; return 0
+    fi
+
+    # /64 so dnsmasq advertises the prefix from it; noprefixroute (or the route
+    # delete below) because the /64 must not be on-link here - the upstream owns
+    # that route, and each client gets a /128 of its own instead.
+    if ! "$IP" -6 addr add "$IP6_GW/64" dev "$AP_IFACE" noprefixroute nodad 2>/dev/null \
+        && ! "$IP" -6 addr add "$IP6_GW/64" dev "$AP_IFACE" nodad 2>/dev/null \
+        && ! "$IP" -6 addr add "$IP6_GW/64" dev "$AP_IFACE" 2>/dev/null; then
+        warn "IPv6: could not add $IP6_GW to $AP_IFACE - IPv4 only."
+        teardown_ipv6 "$up" "$IP6_PREV_FWD" "$IP6_PREV_PROXY"
+        IP6_NET=""; IP6_GW=""; return 0
+    fi
+    "$IP" -6 route del "$IP6_NET" dev "$AP_IFACE" table main 2>/dev/null || true
+
+    if "$IP" -6 rule add from all to "$IP6_NET" lookup main pref "$PRIO_TO_SUBNET" 2>/dev/null \
+        && "$IP" -6 rule add from all iif "$AP_IFACE" lookup "$UPSTREAM_TABLE" pref "$PRIO_FROM_AP" 2>/dev/null \
+        && "$IP6T" -I FORWARD 1 -i "$AP_IFACE" -j ACCEPT 2>/dev/null \
+        && "$IP6T" -I FORWARD 1 -o "$AP_IFACE" -j ACCEPT 2>/dev/null
+    then
+        IP6_ACTIVE=1
+    else
+        warn "IPv6: policy rules/ip6tables failed - IPv4 only."
+        teardown_ipv6 "$up" "$IP6_PREV_FWD" "$IP6_PREV_PROXY"
+        IP6_NET=""; IP6_GW=""; return 0
+    fi
+
+    # Client discovery. The pid file exists before the loop starts (it runs
+    # while the file does); no fds are inherited, or the root shell that ran us
+    # would wait for the loop to end.
+    : > "$RUN_DIR/v6clients"
+    $ECHO 0 > "$RUN_DIR/v6sync.pid"
+    ( trap '' HUP; v6_sync_loop ) </dev/null >/dev/null 2>&1 &
+    $ECHO $! > "$RUN_DIR/v6sync.pid"
+    return 0
+}
+
+# The address is added with nodad, so this is normally instant; wait briefly in
+# case a kernel ignored it, then fall back to IPv4 only.
+wait_ipv6_ready() {
+    [ "$IP6_ACTIVE" = "1" ] || return 0
+    local i=0
+    while "$IP" -6 -o addr show dev "$AP_IFACE" 2>/dev/null | $GREP -q tentative; do
+        i=$((i + 1))
+        if [ $i -gt 5 ]; then
+            warn "IPv6: $AP_IFACE address still tentative - IPv4 only."
+            teardown_ipv6 "$IP6_UP_IFACE" "$IP6_PREV_FWD" "$IP6_PREV_PROXY"
+            IP6_ACTIVE=0; IP6_NET=""; IP6_GW=""
+            return 0
+        fi
+        $SLEEP 1
+    done
+    return 0
+}
+
 # --- Teardown (mirrors setup exactly; every step tolerant) ---
 
 stop_daemons() {
     [ -f "$RUN_DIR/hostapd.pid" ] && $KILL "$($CAT "$RUN_DIR/hostapd.pid")" 2>/dev/null
     [ -f "$RUN_DIR/dnsmasq.pid" ] && $KILL "$($CAT "$RUN_DIR/dnsmasq.pid")" 2>/dev/null
+    [ -f "$RUN_DIR/v6sync.pid" ] && $KILL "$($CAT "$RUN_DIR/v6sync.pid")" 2>/dev/null
+    $RM -f "$RUN_DIR/v6sync.pid"
     $RM -f "$RUN_DIR/hostapd.pid" "$RUN_DIR/dnsmasq.pid" \
            "$RUN_DIR/hostapd.conf" "$RUN_DIR/dnsmasq.conf"
 }
@@ -570,6 +789,15 @@ teardown() {
     "$IPT" -t nat -D POSTROUTING -s "$IP_NET" ! -d "$IP_NET" -j MASQUERADE 2>/dev/null || true
     "$IPT" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null || true
     "$IPT" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null || true
+
+    # IPv6: upstream iface and the sysctls to restore come from the state file
+    local v6up="" v6prev="" v6proxy=""
+    if [ -f "$STATE_FILE" ]; then
+        v6up=$($SED -n 's/^ipv6_iface=//p' "$STATE_FILE")
+        v6prev=$($SED -n 's/^prev_ip6_forward=//p' "$STATE_FILE")
+        v6proxy=$($SED -n 's/^prev_ip6_proxy_ndp=//p' "$STATE_FILE")
+    fi
+    teardown_ipv6 "$v6up" "$v6prev" "$v6proxy"
 
     "$IP" route del "$IP_NET" dev "$AP_IFACE" table main 2>/dev/null || true
     "$IP" route del "$IP_NET" dev "$AP_IFACE" table "$ANDROID_LOCAL_NETWORK_TABLE" 2>/dev/null || true
@@ -648,6 +876,9 @@ config_network() {
     "$IPT" -t nat -I POSTROUTING 1 -s "$IP_NET" ! -d "$IP_NET" -j MASQUERADE \
         || { error "MASQUERADE insert failed"; return 1; }
 
+    # IPv6 is best effort and leaves the IPv4 setup untouched when it can't run.
+    setup_ipv6
+
     # Record state for exact teardown + status
     $CAT > "$STATE_FILE" <<EOF
 upstream=$UPSTREAM
@@ -659,6 +890,12 @@ ssid=$SSID
 gateway=$IP_GW
 dns_servers=$DNS_SERVERS
 prev_ip_forward=$prev_fwd
+ipv6_net=$IP6_NET
+ipv6_gw=$IP6_GW
+ipv6_upstream=${IP6_UPSTREAM_ADDR:+$IP6_UPSTREAM_ADDR/64}
+ipv6_iface=$IP6_UP_IFACE
+prev_ip6_forward=$IP6_PREV_FWD
+prev_ip6_proxy_ndp=$IP6_PREV_PROXY
 started=$($DATE '+%Y-%m-%d %H:%M:%S')
 EOF
 
@@ -833,6 +1070,17 @@ server=$clean_dns"
         dns_config="resolv-file=$RUN_DIR/resolv.conf"
     fi
 
+    # Router advertisements (SLAAC) + IPv6 DNS, only when setup_ipv6 got going.
+    wait_ipv6_ready
+    local v6_config=""
+    if [ "$IP6_ACTIVE" = "1" ]; then
+        # off-link: clients send everything (even to the upstream LAN's own
+        # addresses) to us instead of trying to resolve them on ap0.
+        v6_config="enable-ra
+dhcp-range=${IP6_P4}::,ra-only,off-link,64,12h
+dhcp-option=option6:dns-server,[$IP6_GW]"
+    fi
+
     $CAT > "$RUN_DIR/dnsmasq.conf" <<EOF
 interface=$AP_IFACE
 bind-interfaces
@@ -841,6 +1089,7 @@ listen-address=$IP_GW
 dhcp-range=$IP_BEGIN,$IP_END,12h
 dhcp-option=option:router,$IP_GW
 dhcp-option=option:dns-server,$IP_GW
+$v6_config
 dhcp-leasefile=$RUN_DIR/dnsmasq.leases
 $dns_config
 no-hosts
@@ -849,6 +1098,13 @@ user=root
 log-facility=$DNSMASQ_LOG
 log-dhcp
 EOF
+
+    # Not every dnsmasq build knows off-link; without it the prefix is simply
+    # advertised on-link.
+    if [ "$IP6_ACTIVE" = "1" ] && ! "$DNSMASQ" --test -C "$RUN_DIR/dnsmasq.conf" >/dev/null 2>&1; then
+        warn "IPv6: this dnsmasq rejects 'off-link' - advertising the prefix on-link."
+        $SED -i 's/,ra-only,off-link,/,ra-only,/' "$RUN_DIR/dnsmasq.conf"
+    fi
 
     start_hostapd "" || return 1
 
@@ -1145,7 +1401,13 @@ cmd_start() {
         log "  SSID    : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
         log "  Gateway : $IP_GW (static - never changes)"
         log "  Upstream: ${UPSTREAM_IFACE_RESOLVED:-$UPSTREAM} (table $UPSTREAM_TABLE)"
-        ttl_label="TTL fix "; ttl_src="$IP_NET"; ttl_src6=""
+        if [ "$IP6_ACTIVE" = "1" ]; then
+            log "  IPv6    : $IP6_NET shared from $IP6_UP_IFACE (global, NDP proxy, no NAT)"
+        else
+            log "  IPv6    : off"
+        fi
+        ttl_label="TTL fix "; ttl_src="$IP_NET"
+        ttl_src6=""; [ "$IP6_ACTIVE" = "1" ] && ttl_src6="$IP6_NET"
     fi
 
     # Clear first, so switching the option off takes effect on a restart.
@@ -1214,7 +1476,7 @@ cmd_status() {
     fi
     # gateway/ssid/etc. come from the state file (IP_GW in both routed + bridged)
     if [ -f "$STATE_FILE" ]; then
-        $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started)=' "$STATE_FILE"
+        $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started|ipv6_net|ipv6_gw|ipv6_upstream)=' "$STATE_FILE"
     else
         $ECHO "gateway=$IP_GW"
     fi
@@ -1290,6 +1552,10 @@ print_usage() {
     $ECHO "  -T <0|1>       TTL fix: forwarded packets leave with TTL 64, so they"
     $ECHO "                 look like the phone's own (0=off [default], 1=on)."
     $ECHO "                 Needs the kernel's TTL target; skipped when missing."
+    $ECHO "  -6 <0|1>       IPv6 for clients when the upstream has a global /64"
+    $ECHO "                 prefix: they get global addresses from it, routed with"
+    $ECHO "                 an NDP proxy, no NAT (0=off, 1=on [default]). Routed"
+    $ECHO "                 mode only."
     $ECHO ""
     $ECHO "Saved settings in $CONF_FILE are reused when flags are omitted."
 }
@@ -1300,7 +1566,7 @@ COMMAND="$1"
 # Saved config provides defaults; CLI flags override
 load_conf
 
-while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:h" opt 2>/dev/null; do
+while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:h" opt 2>/dev/null; do
     case $opt in
         s) SSID="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
@@ -1317,6 +1583,7 @@ while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:h" opt 2>/dev/null; do
         K) CONTAINER="$OPTARG" ;;
         T) TTL_FIX="$OPTARG" ;;
         m) GW_MAC="$OPTARG" ;;
+        6) IPV6="$OPTARG" ;;
         h) print_usage; exit 0 ;;
         *) print_usage; exit 1 ;;
     esac
