@@ -23,8 +23,7 @@ data class APStatus(
     val mode: String = "routed",        // "routed" or "bridged" (container-managed)
     val container: String? = null,      // target container name when bridged
     val gatewayMac: String? = null,     // the MAC the clients' gateway has, when bridged
-    val ipv6Net: String? = null,        // the global /64 shared with the clients; null = IPv4 only
-    val ipv6Upstream: String? = null    // the upstream's own global /64 address that enabled it
+    val ipv6Net: String? = null         // the global /64 shared with the clients; null = IPv4 only
 )
 
 data class NetworkIface(val name: String, val ip: String?)
@@ -62,8 +61,7 @@ object APManager {
             mode = kv["mode"] ?: "routed",
             container = kv["container"],
             gatewayMac = kv["gw_mac"]?.takeIf { it.isNotEmpty() },
-            ipv6Net = kv["ipv6_net"]?.takeIf { it.isNotEmpty() },
-            ipv6Upstream = kv["ipv6_upstream"]?.takeIf { it.isNotEmpty() }
+            ipv6Net = kv["ipv6_net"]?.takeIf { it.isNotEmpty() }
         )
     }
 
