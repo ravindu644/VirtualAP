@@ -767,13 +767,6 @@ private fun ActiveNetworkCard(vm: APViewModel) {
             StatGrid(
                 left = {
                     StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
-                    if (!bridged) {
-                        StatRow(
-                            Icons.Default.SettingsEthernet,
-                            stringResource(R.string.interface_label),
-                            status.upstreamIface ?: stringResource(R.string.unknown)
-                        )
-                    }
                 },
                 right = {
                     StatRow(
@@ -782,13 +775,6 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                         if (bridged) status.container ?: stringResource(R.string.unknown)
                         else status.dnsServers?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dns_system)
                     )
-                    if (!bridged) {
-                        StatRow(
-                            Icons.Default.Public,
-                            stringResource(R.string.ipv6_label),
-                            status.ipv6Net ?: stringResource(R.string.ipv6_off)
-                        )
-                    }
                 }
             )
         }

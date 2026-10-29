@@ -1452,7 +1452,7 @@ cmd_status() {
     fi
     # gateway/ssid/etc. come from the state file (IP_GW in both routed + bridged)
     if [ -f "$STATE_FILE" ]; then
-        $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started|ipv6_net)=' "$STATE_FILE"
+        $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started)=' "$STATE_FILE"
     else
         $ECHO "gateway=$IP_GW"
     fi

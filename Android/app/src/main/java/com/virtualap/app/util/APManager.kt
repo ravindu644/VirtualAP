@@ -17,13 +17,11 @@ data class APStatus(
     val width: String? = null,          // actual channel width in MHz while running
     val security: String? = null,       // open | wpa2 | wpa2wpa3 | wpa3 while running
     val upstream: String? = null,
-    val upstreamIface: String? = null,
     val upstreamTable: String? = null,
     val started: String? = null,
     val mode: String = "routed",        // "routed" or "bridged" (container-managed)
     val container: String? = null,      // target container name when bridged
-    val gatewayMac: String? = null,     // the MAC the clients' gateway has, when bridged
-    val ipv6Net: String? = null         // the global /64 shared with the clients; null = IPv4 only
+    val gatewayMac: String? = null      // the MAC the clients' gateway has, when bridged
 )
 
 data class NetworkIface(val name: String, val ip: String?)
@@ -55,13 +53,11 @@ object APManager {
             width = kv["width"],
             security = kv["security"],
             upstream = kv["upstream"],
-            upstreamIface = kv["upstream_iface"],
             upstreamTable = kv["upstream_table"],
             started = kv["started"],
             mode = kv["mode"] ?: "routed",
             container = kv["container"],
-            gatewayMac = kv["gw_mac"]?.takeIf { it.isNotEmpty() },
-            ipv6Net = kv["ipv6_net"]?.takeIf { it.isNotEmpty() }
+            gatewayMac = kv["gw_mac"]?.takeIf { it.isNotEmpty() }
         )
     }
 
