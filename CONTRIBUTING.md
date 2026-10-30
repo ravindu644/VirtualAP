@@ -332,6 +332,7 @@ should be set.
 | --- | --- |
 | `check_prerequisites`, `create_ap_iface`, `config_network`, `write_hostapd_conf`, `start_hostapd`, `start_services`, `teardown`, `stop_daemons` | Routed mode setup and its mirror |
 | `ds_run`, `ds_list`, `ds_container_pid`, `ds_is_openwrt`, `provision_openwrt`, `config_network_bridged`, `start_services_bridged`, `teardown_bridged` | Managed mode |
+| `pid_alive`, `kill_pidfile`, `del_ap_iface`, `del_bridge`, `del_rules`, `state`, `retry`, `wpa_block`, `follow_sta` | The pieces setup and teardown share: pid files, interface and policy-rule deletes, state-file keys, retries past a fresh link's EPERM, the WPA lines, the STA's channel |
 | `cmd_start/stop/status/interfaces/containers/caps` | Subcommands. The app calls all six |
 
 ## Known duplicates: do not add a third copy

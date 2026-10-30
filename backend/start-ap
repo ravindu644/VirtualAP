@@ -323,13 +323,15 @@ chan_no_ir() { phy_info | $GREP -q "\[$1\] .*no IR"; }
 # only lever is the driver's private COUNTRY command via the supplicant's
 # control socket (no wpa_cli on phones - our hostapd_cli speaks the same
 # protocol). The reply never makes it back (SELinux), so don't wait for it.
-# Country: the framework's own answer, falling back to US.
+# Country: the framework's own answer (cmd wifi get-country-code is Android 11+
+# and prints null before telephony has settled), falling back to US.
 # $1 = STA channel (for the 2.4GHz fallback), may be empty.
 WPA_CTRL_DIR="/data/vendor/wifi/wpa/sockets"
 ensure_5g_ir() {
     chan_no_ir "$CHANNEL" || return 0
     local cc
-    cc=$(cmd wifi get-country-code 2>/dev/null | $SED -n 's/.*= *\([A-Za-z][A-Za-z]\).*/\1/p' | $TR 'a-z' 'A-Z')
+    cc=$(cmd wifi get-country-code 2>/dev/null \
+        | $SED -n 's/.*= *\([A-Za-z][A-Za-z]\)[[:space:]]*$/\1/p' | $TR 'a-z' 'A-Z')
     cc="${cc:-US}"
     warn "5GHz channel $CHANNEL is NO-IR (driver in world regdomain) - setting driver country to $cc."
     hostapd_cli -p "$WPA_CTRL_DIR" -i "$PHY_IFACE" raw "DRIVER COUNTRY $cc" >/dev/null 2>&1 &
@@ -459,22 +461,28 @@ pick_channel() {
     BAND="2"; [ "$CHANNEL" -ge 36 ] 2>/dev/null && BAND="5"
 }
 
-# Validate the gateway $1 as a dotted IPv4 host address and derive the /24
-# from it. The last octet is the host part, so .0 and .255 are refused.
-calculate_subnet() {
+# True if $1 is a dotted IPv4 address as inet_pton reads it: four octets of at
+# most three digits, no leading zero.
+valid_ip4() {
     local a b c d o
     case "$1" in *[!0-9.]*|*..*|.*|*.) return 1 ;; esac
     IFS=. read -r a b c d <<EOF
 $1
 EOF
     case "$d" in *.*) return 1 ;; esac
-    # Three digits at most, no leading zero: what inet_pton takes.
     for o in "$a" "$b" "$c" "$d"; do
         case "$o" in ""|????*|0?*) return 1 ;; esac
         [ "$o" -le 255 ] || return 1
     done
+}
+
+# Validate the gateway $1 as a host address and derive the /24 from it. The last
+# octet is the host part, so .0 and .255 are refused.
+calculate_subnet() {
+    valid_ip4 "$1" || return 1
+    local d="${1##*.}"
     [ "$d" -gt 0 ] && [ "$d" -lt 255 ] || return 1
-    IP_GW="$1"; IP_NET="$a.$b.$c.0/24"; IP_BEGIN="$a.$b.$c.10"; IP_END="$a.$b.$c.50"
+    IP_GW="$1"; IP_NET="${1%.*}.0/24"; IP_BEGIN="${1%.*}.10"; IP_END="${1%.*}.50"
 }
 
 check_prerequisites() {
@@ -656,8 +664,21 @@ EOF
 }
 
 # Helpers for the pieces every teardown path shares.
-pid_alive()    { [ -f "$1" ] && $KILL -0 "$($CAT "$1")" 2>/dev/null; }
-kill_pidfile() { [ -f "$1" ] && $KILL "$($CAT "$1")" 2>/dev/null; $RM -f "$1"; }
+pid_alive() { [ -f "$1" ] && $KILL -0 "$($CAT "$1")" 2>/dev/null; }
+# Kill and wait, up to 2s: deleting ap0 under a hostapd still tearing down its
+# own interface is a race the kernel does not always win.
+kill_pidfile() {
+    local pid i=0
+    if [ -f "$1" ]; then
+        pid=$($CAT "$1")
+        $KILL "$pid" 2>/dev/null
+        # v6sync is this shell's own child on the rollback paths, a zombie until
+        # reaped; wait is a no-op for the daemons, which are not.
+        wait "$pid" 2>/dev/null
+        while pid_alive "$1" && [ $i -lt 20 ]; do $SLEEP 0.1; i=$((i + 1)); done
+    fi
+    $RM -f "$1"
+}
 del_ap_iface() { "$IW" dev "$AP_IFACE" del 2>/dev/null || "$IP" link del "$AP_IFACE" 2>/dev/null; }
 # A key from the state file, empty when there is none.
 state() { $SED -n "s/^$1=//p" "$STATE_FILE" 2>/dev/null; }
@@ -1088,14 +1109,14 @@ config_network_bridged() {
     # No IP has to hold for IPv6 too: Android leaves accept_ra at 2, so the host
     # would take an address and a default route from the container's own RAs.
     $ECHO 1 > "/proc/sys/net/ipv6/conf/$VAP_BRIDGE/disable_ipv6" 2>/dev/null
-    retry "$IP" link set "$VAP_BRIDGE" up
+    retry "$IP" link set "$VAP_BRIDGE" up || { error "Failed to bring up $VAP_BRIDGE"; return 1; }
 
     # veth: host side joins the bridge, peer crosses into the container.
     "$IP" link add "$VAP_VETH_HOST" type veth peer name "$VAP_VETH_PEER" \
         || { error "Failed to create veth pair"; return 1; }
     "$IP" link set "$VAP_VETH_HOST" master "$VAP_BRIDGE" \
         || { error "Failed to enslave $VAP_VETH_HOST to $VAP_BRIDGE"; return 1; }
-    retry "$IP" link set "$VAP_VETH_HOST" up
+    retry "$IP" link set "$VAP_VETH_HOST" up || { error "Failed to bring up $VAP_VETH_HOST"; return 1; }
 
     "$IP" link set "$VAP_VETH_PEER" netns "$pid" \
         || { error "Failed to move veth into container netns"; return 1; }
@@ -1173,7 +1194,14 @@ cmd_start() {
     [ -z "$SSID" ] && { error "SSID not set (use -s or save a config first)"; exit 1; }
     # Open networks carry no passphrase; WPA modes use a WPA-PSK/SAE passphrase,
     # which the standard (and hostapd) bound to 8-63 characters.
-    local plen ttl_src ttl_src6
+    local plen ttl_src ttl_src6 d
+    calculate_subnet "$IP_GW" || { error "Invalid gateway IP address: '$IP_GW'"; exit 1; }
+    # Checked here, before save_conf: dnsmasq would only refuse a bad entry after
+    # hostapd is up, and the value would already be saved for the next start.
+    for d in $($ECHO "$DNS_SERVERS" | $TR -d '[:space:]' | $TR ',' ' '); do
+        valid_ip4 "$d" || { error "Invalid DNS server: '$d'"; exit 1; }
+    done
+    [ "$HIDDEN" = "1" ] || HIDDEN=0
     if [ "$SECURITY" != "open" ]; then
         plen=$($PRINTF %s "$PASSWORD" | $WC -c)
         [ "$plen" -ge 8 ] && [ "$plen" -le 63 ] || { error "Password must be 8-63 characters."; exit 1; }
@@ -1347,10 +1375,6 @@ cmd_caps() {
     $ECHO "mac=$(wifi_mac)"
 }
 
-if [ "$($ID -u)" -ne 0 ]; then
-    error "This script must be run as root."; exit 1
-fi
-
 print_usage() {
     $CAT <<EOF
 Usage: $SCRIPT_NAME <start|stop|status|interfaces|containers|caps> [options]
@@ -1387,12 +1411,18 @@ Saved settings in $CONF_FILE are reused when flags are omitted.
 EOF
 }
 
-COMMAND="$1"
-[ -n "$COMMAND" ] && shift
+case "$1" in -h|--help|help|"") print_usage; exit 0 ;; esac
+[ "$($ID -u)" -eq 0 ] || { error "This script must be run as root."; exit 1; }
+
+COMMAND="$1"; shift
 
 load_conf
 
 while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:" opt 2>/dev/null; do
+    # hostapd.conf and run.state are line based: a value with a line break in
+    # it would become a directive of its own.
+    [ "$($PRINTF %s "$OPTARG" | $WC -l)" -eq 0 ] \
+        || { error "-$opt cannot contain a line break."; exit 1; }
     case $opt in
         s) SSID="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
@@ -1414,11 +1444,6 @@ while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:" opt 2>/dev/null; do
     esac
 done
 
-if ! calculate_subnet "$IP_GW"; then
-    error "Invalid gateway IP address: '$IP_GW'"
-    exit 1
-fi
-
 case "$COMMAND" in
     start)      cmd_start ;;
     stop)       cmd_stop ;;
@@ -1429,6 +1454,5 @@ case "$COMMAND" in
     # Internal, started by setup_ipv6 with the gateway address, the padded /64
     # and the upstream interface. Not for people, so not in the usage text.
     v6sync)     IP6_GW="$1"; IP6_P4="$2"; IP6_UP_IFACE="$3"; v6_sync_loop ;;
-    -h|--help|help|"") print_usage; exit 0 ;;
     *) error "Unknown command: $COMMAND"; print_usage; exit 1 ;;
 esac
