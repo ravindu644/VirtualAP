@@ -321,7 +321,7 @@ should be set.
 | Symbol | Use it when |
 | --- | --- |
 | `detect_auto_table`, `table_oif`, `resolve_iface_table`, `resolve_upstream` | Upstream table resolution. The only place |
-| `sta_channel`, `reg_country`, `is_dfs_channel`, `chan_no_ir`, `ensure_5g_ir` | Radio state probes and the NO-IR country fix |
+| `sta_channel`, `is_dfs_channel`, `chan_no_ir`, `ensure_5g_ir` | Radio state probes and the NO-IR country fix |
 | `phy_idx`, `phy_info`, `phy_supports_vht`, `phy_supports_ht40`, `vht_seg0`, `ht40_dir`, `pick_width` | Chip capabilities and 40/80 MHz geometry |
 | `pick_channel` | Band and channel policy. Nowhere else |
 | `calculate_subnet` | Gateway to pool derivation |
@@ -332,7 +332,7 @@ should be set.
 | --- | --- |
 | `check_prerequisites`, `create_ap_iface`, `config_network`, `write_hostapd_conf`, `start_hostapd`, `start_services`, `teardown`, `stop_daemons` | Routed mode setup and its mirror |
 | `ds_run`, `ds_list`, `ds_container_pid`, `ds_is_openwrt`, `provision_openwrt`, `config_network_bridged`, `start_services_bridged`, `teardown_bridged` | Managed mode |
-| `cmd_start/stop/status/leases/interfaces/containers/caps` | Subcommands. The app calls `status`, `start`, `stop`, `interfaces`, `containers` |
+| `cmd_start/stop/status/interfaces/containers/caps` | Subcommands. The app calls all six |
 
 ## Known duplicates: do not add a third copy
 

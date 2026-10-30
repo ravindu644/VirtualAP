@@ -5,9 +5,9 @@
 #
 # Creates a virtual AP (ap0): static gateway, DHCP+DNS via dnsmasq, selectable
 # upstream ("auto" follows netd's default-network rule). The whole AP stack
-# (iw/hostapd/dnsmasq) ships as fully-static aarch64 binaries under bin/ and
-# runs directly on Android - no chroot, no namespaces. Routing/firewall use
-# Android's own /system/bin ip + iptables.
+# (iw/hostapd/dnsmasq) ships as fully-static aarch64 and armhf binaries under
+# bin/ and runs directly on Android - no chroot, no namespaces. Routing and
+# firewall use Android's own /system/bin ip + iptables.
 
 BASE_DIR="/data/local/virtualap"
 BIN_DIR="${BASE_DIR}/bin"
@@ -34,10 +34,15 @@ IP6T="/system/bin/ip6tables"
 
 # Network constants
 AP_IFACE="ap0"
-IP_GW="192.168.42.1"
+GW_DEFAULT="192.168.42.1"
+IP_GW="$GW_DEFAULT"
 IP_NET=""
 IP_BEGIN=""
 IP_END=""
+# What dnsmasq forwards to when no -d is given. Android has no resolv.conf, and
+# the phone's own resolvers may sit behind a VPN or on another interface that
+# dnsmasq's queries never take, so public ones are the safe default.
+DNS_DEFAULT="1.1.1.1,8.8.8.8"
 
 # Pinned rule priorities - above netd's range (10000+), clear of Droidspaces' 6090-6100.
 PRIO_TO_SUBNET=7000   # to 192.168.42.0/24 lookup main   (return path)
@@ -86,7 +91,7 @@ PASSWORD=""
 BAND="2"
 CHANNEL=""
 WIDTH="auto"
-DNS_SERVERS=""
+DNS_SERVERS=""        # comma separated; empty means DNS_DEFAULT
 HIDDEN="0"
 # Security: open | wpa2 | wpa2wpa3 | wpa3. PMF (ieee80211w) only applies to wpa2
 # (0/1); wpa2wpa3 forces 1 and wpa3 forces 2 per the standard.
@@ -99,10 +104,10 @@ TTL_FIX="0"
 # (1 = yes [default], 0 = IPv4 only). Routed mode only.
 IPV6="1"
 
-# --- Droidspaces container integration (managed mode) ---
-# When CONTAINER is set: ap0 becomes a bridged port on VAP_BRIDGE, a veth peer
-# is handed to the container as VAP_PORT, and the container owns all L3
-# (DHCP/DNS/NAT). Names are distinct from Droidspaces' own ds-br0/ds-lan.
+# Managed mode (a Droidspaces container). When CONTAINER is set: ap0 becomes a
+# bridged port on VAP_BRIDGE, a veth peer is handed to the container as
+# VAP_PORT, and the container owns all L3 (DHCP/DNS/NAT). Names are distinct
+# from Droidspaces' own ds-br0/ds-lan.
 CONTAINER=""
 VAP_BRIDGE="vap-br0"      # host-side bridge
 VAP_VETH_HOST="vap-v0"    # host-side veth (bridge port)
@@ -126,7 +131,6 @@ fi
 
 SCRIPT_NAME="${0##*/}"
 
-# --- Busybox resolution ---
 if [ -x "$BIN_DIR/busybox" ]; then
     export BUSYBOX="$BIN_DIR/busybox"
 elif command -v busybox >/dev/null 2>&1; then
@@ -163,8 +167,6 @@ log()   { $ECHO "$1";          $ECHO "[$($DATE '+%Y-%m-%d %H:%M:%S')] $1" >> "$L
 warn()  { $ECHO "[WARN] $1";   $ECHO "[$($DATE '+%Y-%m-%d %H:%M:%S')] [WARN] $1" >> "$LOG_FILE"; }
 error() { $ECHO "[ERROR] $1";  $ECHO "[$($DATE '+%Y-%m-%d %H:%M:%S')] [ERROR] $1" >> "$LOG_FILE"; }
 
-# --- Config persistence ---
-
 load_conf() {
     [ -f "$CONF_FILE" ] && . "$CONF_FILE"
 }
@@ -193,8 +195,6 @@ GW_MAC='$(sq "$GW_MAC")'
 EOF
 }
 
-# --- Droidspaces helpers (managed mode) ---
-
 # Run a command in the target container (droidspaces execvp's argv directly).
 ds_run() { "$DROIDSPACES" -n "$CONTAINER" run "$@"; }
 
@@ -219,8 +219,6 @@ ds_is_openwrt() {
     ds_run cat /etc/os-release 2>/dev/null | $GREP -qiE "^ID=['\"]?openwrt"
 }
 
-# --- Upstream resolution ---
-
 detect_auto_table() {
     # netd's default-network rule = which network has internet now. First match
     # wins (rules are priority-sorted); uidrange variants are per-app VPN, skip.
@@ -241,17 +239,11 @@ table_oif() {
 resolve_iface_table() {
     # netd names routing tables after interfaces, so a name lookup usually
     # works (incl. wg0). Fall back to scanning all tables, then to main.
-    local iface="$1"
-    if "$IP" route show table "$iface" 2>/dev/null | $GREP -q .; then
-        $ECHO "$iface"; return 0
-    fi
-    local tbl
+    local iface="$1" tbl
+    "$IP" route show table "$iface" 2>/dev/null | $GREP -q . && { $ECHO "$iface"; return 0; }
     tbl=$("$IP" route show table all 2>/dev/null \
         | $GREP " dev $iface " | $SED -n 's/.*table \([0-9]*\).*/\1/p' | $HEAD -n1)
-    if [ -n "$tbl" ]; then
-        $ECHO "$tbl"; return 0
-    fi
-    $ECHO "main"
+    $ECHO "${tbl:-main}"
 }
 
 resolve_upstream() {
@@ -277,8 +269,6 @@ resolve_upstream() {
     return 0
 }
 
-# --- Wireless helpers (static iw) ---
-
 sta_channel() {
     # Current channel of the STA connection, empty if not connected. Derived
     # from the link frequency: Samsung's Broadcom driver omits the "channel"
@@ -289,11 +279,6 @@ sta_channel() {
     [ -z "$f" ] && return
     # ponytail: 2.4GHz ch 14 (2484) maps wrong here; it is never usable for AP anyway.
     if [ "$f" -lt 5000 ]; then $ECHO $(( (f - 2407) / 5 )); else $ECHO $(( (f - 5000) / 5 )); fi
-}
-
-reg_country() {
-    "$IW" reg get 2>/dev/null \
-        | $SED -n 's/^country \([A-Z][A-Z]\):.*/\1/p' | $HEAD -n1
 }
 
 # The Wi-Fi's factory MAC, what the app's Static MAC mode starts from: the
@@ -356,8 +341,6 @@ ensure_5g_ir() {
     fi
 }
 
-# --- Channel-width helpers (5GHz VHT geometry + chip capabilities) ---
-
 # wiphy index of the STA radio (capabilities are per-wiphy). Empty if unknown.
 phy_idx() {
     "$IW" dev "$PHY_IFACE" info 2>/dev/null \
@@ -409,34 +392,35 @@ ht40_dir() {
 # after pick_channel (needs the final BAND/CHANNEL).
 EFFECTIVE_WIDTH="20"
 pick_width() {
+    local max="20" inblock
     if [ "$BAND" != "5" ]; then
         # 2.4GHz: a 40MHz channel takes up most of the band and crowds out the
         # neighbours and Bluetooth, so "auto" stays at 20MHz and 40 is only used
         # when asked for by name. Channel 14 has no room for a second channel.
         EFFECTIVE_WIDTH="20"
-        if [ "$WIDTH" = "40" ] && [ "$CHANNEL" -le 13 ] && phy_supports_ht40_24; then
-            EFFECTIVE_WIDTH="40"
-        fi
-        [ "$EFFECTIVE_WIDTH" != "$WIDTH" ] && [ "$WIDTH" != "auto" ] && \
-            warn "Requested ${WIDTH}MHz but using ${EFFECTIVE_WIDTH}MHz (channel/chip limit)."
-        return
+        [ "$WIDTH" = "40" ] && [ "$CHANNEL" -le 13 ] && phy_supports_ht40_24 && EFFECTIVE_WIDTH="40"
+    else
+        # Widest the chip + channel can actually do. A non-empty vht_seg0 means the
+        # channel sits in a valid 40/80MHz block (excludes 20MHz-only channels like 165).
+        inblock=$(vht_seg0 "$CHANNEL")
+        phy_supports_ht40 && [ -n "$inblock" ] && max="40"
+        phy_supports_vht  && [ -n "$inblock" ] && max="80"
+        case "$WIDTH" in
+            20) EFFECTIVE_WIDTH="20" ;;
+            40) [ "$max" = "20" ] && EFFECTIVE_WIDTH="20" || EFFECTIVE_WIDTH="40" ;;
+            *)  EFFECTIVE_WIDTH="$max" ;;       # 80 if possible, and auto = widest supported
+        esac
     fi
-
-    # Widest the chip + channel can actually do. A non-empty vht_seg0 means the
-    # channel sits in a valid 40/80MHz block (excludes 20MHz-only channels like 165).
-    local max="20" inblock
-    inblock=$(vht_seg0 "$CHANNEL")
-    if phy_supports_ht40 && [ -n "$inblock" ]; then max="40"; fi
-    if phy_supports_vht  && [ -n "$inblock" ]; then max="80"; fi
-
-    case "$WIDTH" in
-        20) EFFECTIVE_WIDTH="20" ;;
-        40) [ "$max" = "20" ] && EFFECTIVE_WIDTH="20" || EFFECTIVE_WIDTH="40" ;;
-        80) EFFECTIVE_WIDTH="$max" ;;       # 80 if possible, else max (40/20)
-        *)  EFFECTIVE_WIDTH="$max" ;;       # auto = widest supported
-    esac
     [ "$EFFECTIVE_WIDTH" != "$WIDTH" ] && [ "$WIDTH" != "auto" ] && \
         warn "Requested ${WIDTH}MHz but using ${EFFECTIVE_WIDTH}MHz (channel/chip limit)."
+    return 0
+}
+
+# Take the STA's channel $1, warning when a different one was asked for.
+follow_sta() {
+    [ -n "$CHANNEL" ] && [ "$CHANNEL" != "$1" ] && \
+        warn "Requested channel $CHANNEL but STA is on $1 - using $1 (same-channel concurrency)."
+    CHANNEL="$1"
 }
 
 pick_channel() {
@@ -451,10 +435,7 @@ pick_channel() {
                 warn "STA is on 5GHz DFS channel $sta_ch - AP cannot beacon there. Falling back to 2.4GHz."
                 BAND="2"; CHANNEL="${CHANNEL:-6}"
             else
-                if [ -n "$CHANNEL" ] && [ "$CHANNEL" != "$sta_ch" ]; then
-                    warn "Requested channel $CHANNEL but STA is on $sta_ch - using $sta_ch (same-channel concurrency)."
-                fi
-                CHANNEL="$sta_ch"
+                follow_sta "$sta_ch"
             fi
         elif [ -n "$sta_ch" ]; then
             warn "STA is on 2.4GHz (channel $sta_ch) - 5GHz AP would need different-band concurrency."
@@ -466,74 +447,41 @@ pick_channel() {
             # No STA connection (mobile-data upstream) - radio is free
             CHANNEL="${CHANNEL:-36}"
         fi
+    elif [ -n "$sta_ch" ] && [ "$sta_ch" -le 14 ] 2>/dev/null; then
+        follow_sta "$sta_ch"
     else
-        if [ -n "$sta_ch" ] && [ "$sta_ch" -le 14 ] 2>/dev/null; then
-            [ -n "$CHANNEL" ] && [ "$CHANNEL" != "$sta_ch" ] && \
-                warn "Requested channel $CHANNEL but STA is on $sta_ch - using $sta_ch (same-channel concurrency)."
-            CHANNEL="$sta_ch"
-        else
-            CHANNEL="${CHANNEL:-6}"
-        fi
+        CHANNEL="${CHANNEL:-6}"
     fi
 
-    # 5GHz needs the regdomain to allow beaconing there - see ensure_5g_ir.
+    # 5GHz needs the regdomain to allow beaconing there - see ensure_5g_ir, which
+    # may itself fall back to 2.4GHz, so BAND follows the final channel.
     if [ "$CHANNEL" -ge 36 ] 2>/dev/null; then ensure_5g_ir "$sta_ch"; fi
-
-    # Sync BAND from the final channel so hw_mode is always correct.
-    if [ "$CHANNEL" -ge 36 ] 2>/dev/null; then
-        BAND="5"
-    else
-        BAND="2"
-    fi
+    BAND="2"; [ "$CHANNEL" -ge 36 ] 2>/dev/null && BAND="5"
 }
 
-# --- Subnet helper ---
-
+# Validate the gateway $1 as a dotted IPv4 host address and derive the /24
+# from it. The last octet is the host part, so .0 and .255 are refused.
 calculate_subnet() {
-    local ip="$1"
-    # Match standard IPv4 format: A.B.C.D where octets are 0-255
-    if ! $ECHO "$ip" | $GREP -Eq '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'; then
-        return 1
-    fi
-
-    # Validate that last octet is not 0 or 255
-    local last_octet
-    last_octet=$($ECHO "$ip" | $CUT -d. -f4)
-    if [ "$last_octet" -eq 0 ] || [ "$last_octet" -eq 255 ]; then
-        return 1
-    fi
-
-    local base
-    base=$($ECHO "$ip" | $CUT -d. -f1-3)
-    IP_GW="$ip"
-    IP_NET="$base.0/24"
-    IP_BEGIN="$base.10"
-    IP_END="$base.50"
-    return 0
+    local a b c d o
+    case "$1" in *[!0-9.]*|*..*|.*|*.) return 1 ;; esac
+    IFS=. read -r a b c d <<EOF
+$1
+EOF
+    case "$d" in *.*) return 1 ;; esac
+    # Three digits at most, no leading zero: what inet_pton takes.
+    for o in "$a" "$b" "$c" "$d"; do
+        case "$o" in ""|????*|0?*) return 1 ;; esac
+        [ "$o" -le 255 ] || return 1
+    done
+    [ "$d" -gt 0 ] && [ "$d" -lt 255 ] || return 1
+    IP_GW="$1"; IP_NET="$a.$b.$c.0/24"; IP_BEGIN="$a.$b.$c.10"; IP_END="$a.$b.$c.50"
 }
-
-# --- Prerequisites ---
 
 check_prerequisites() {
-    [ -x "$IP" ]      || { error "$IP not found"; return 1; }
-    [ -x "$IPT" ]     || { error "$IPT not found"; return 1; }
-    [ -x "$IW" ]      || { error "iw not found at $IW"; return 1; }
-    [ -x "$HOSTAPD" ] || { error "hostapd not found at $HOSTAPD"; return 1; }
-    [ -x "$DNSMASQ" ] || { error "dnsmasq not found at $DNSMASQ"; return 1; }
-    return 0
-}
-
-# dnsmasq forwards client DNS queries through this file. net.dns* props are
-# often empty on modern Android - public resolvers are the fallback.
-write_resolv_conf() {
-    local dns_lines=""
-    for i in 1 2 3 4; do
-        local dns
-        dns=$(getprop net.dns${i} 2>/dev/null)
-        [ -n "$dns" ] && dns_lines="${dns_lines}nameserver ${dns}\n"
+    local b
+    for b in "$IP" "$IPT" "$IW" "$HOSTAPD" "$DNSMASQ"; do
+        [ -x "$b" ] || { error "$b not found"; return 1; }
     done
-    [ -z "$dns_lines" ] && dns_lines="nameserver 1.1.1.1\nnameserver 8.8.8.8\n"
-    $PRINTF "$dns_lines" > "$RUN_DIR/resolv.conf"
 }
 
 # Prints the first global /64 address on interface $1 (ULA, deprecated and
@@ -605,19 +553,16 @@ v6_sync_loop() {
 # from the state file on a later stop).
 teardown_ipv6() {
     local up="$1" fwd="$2" proxy="$3" a
-    while "$IP" -6 rule del pref "$PRIO_FROM_AP" 2>/dev/null; do :; done
-    while "$IP" -6 rule del pref "$PRIO_TO_SUBNET" 2>/dev/null; do :; done
-    while "$IP" -6 rule del pref "$PRIO_V6_SINK" 2>/dev/null; do :; done
-    while "$IP" -6 rule del pref "$PRIO_V6_LINK" 2>/dev/null; do :; done
-    "$IP6T" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null || true
-    "$IP6T" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null || true
+    del_rules -6 "$PRIO_FROM_AP" "$PRIO_TO_SUBNET" "$PRIO_V6_SINK" "$PRIO_V6_LINK"
+    "$IP6T" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null
+    "$IP6T" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null
     [ -n "$up" ] && for a in $($CAT "$RUN_DIR/v6clients" 2>/dev/null); do
         "$IP" -6 neigh del proxy "$a" dev "$up" 2>/dev/null
     done
     $RM -f "$RUN_DIR/v6clients"
     # The /128 routes go with the interface; the address is flushed here for
     # the rollback paths where ap0 lives on.
-    "$IP" -6 addr flush dev "$AP_IFACE" scope global 2>/dev/null || true
+    "$IP" -6 addr flush dev "$AP_IFACE" scope global 2>/dev/null
     [ -n "$up" ] && [ -n "$proxy" ] && \
         $ECHO "$proxy" > "/proc/sys/net/ipv6/conf/$up/proxy_ndp" 2>/dev/null
     [ "$fwd" = "0" ] && $ECHO 0 > /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null
@@ -640,17 +585,11 @@ setup_ipv6() {
 
     local up="$UPSTREAM_IFACE_RESOLVED" c="/proc/sys/net/ipv6/conf" addr mac iid b0
     local m1 m2 m3 m4 m5 m6
-    if [ -z "$up" ]; then
-        log "IPv6: upstream interface unknown - IPv4 only."; return 0
-    fi
+    [ -n "$up" ] || { log "IPv6: upstream interface unknown - IPv4 only."; return 0; }
     addr=$(upstream_v6_addr "$up")
-    if [ -z "$addr" ]; then
-        log "IPv6: $up has no global /64 prefix - IPv4 only."; return 0
-    fi
+    [ -n "$addr" ] || { log "IPv6: $up has no global /64 prefix - IPv4 only."; return 0; }
     IP6_P4=$(v6_first4 "$addr")
-    if [ -z "$IP6_P4" ]; then
-        warn "IPv6: cannot parse $addr - IPv4 only."; return 0
-    fi
+    [ -n "$IP6_P4" ] || { warn "IPv6: cannot parse $addr - IPv4 only."; return 0; }
     IP6_UP_IFACE="$up"
     # Padded groups are what the comparisons want; the prefix people read in the
     # log and the status card loses the leading zeros, like ip prints it.
@@ -661,9 +600,7 @@ setup_ipv6() {
     IFS=: read -r m1 m2 m3 m4 m5 m6 <<EOF
 $mac
 EOF
-    if [ -z "$m6" ]; then
-        warn "IPv6: cannot read $AP_IFACE's MAC - IPv4 only."; return 0
-    fi
+    [ -n "$m6" ] || { warn "IPv6: cannot read $AP_IFACE's MAC - IPv4 only."; return 0; }
     b0=$(( 0x$m1 ^ 2 ))
     iid=$($PRINTF '%02x%s:%sff:fe%s:%s%s' "$b0" "$m2" "$m3" "$m4" "$m5" "$m6")
     IP6_GW="${IP6_P4}:${iid}"
@@ -688,10 +625,9 @@ EOF
     # /64 so dnsmasq advertises the prefix from it, nodad so it is usable at
     # once. The connected route that comes with it goes: the /64 must not be
     # on-link here, the upstream owns that route and each client gets a /128.
-    if ! "$IP" -6 addr add "$IP6_GW/64" dev "$AP_IFACE" nodad 2>/dev/null; then
-        v6_abort "could not add $IP6_GW to $AP_IFACE"; return 0
-    fi
-    "$IP" -6 route del "$IP6_NET" dev "$AP_IFACE" table main 2>/dev/null || true
+    "$IP" -6 addr add "$IP6_GW/64" dev "$AP_IFACE" nodad 2>/dev/null \
+        || { v6_abort "could not add $IP6_GW to $AP_IFACE"; return 0; }
+    "$IP" -6 route del "$IP6_NET" dev "$AP_IFACE" table main 2>/dev/null
     "$IP" -6 route replace fe80::/64 dev "$AP_IFACE" table main 2>/dev/null
 
     if "$IP" -6 rule add from all to "$IP6_NET" lookup main pref "$PRIO_TO_SUBNET" 2>/dev/null \
@@ -719,15 +655,22 @@ EOF
     return 0
 }
 
-# --- Teardown (mirrors setup exactly; every step tolerant) ---
+# Helpers for the pieces every teardown path shares.
+pid_alive()    { [ -f "$1" ] && $KILL -0 "$($CAT "$1")" 2>/dev/null; }
+kill_pidfile() { [ -f "$1" ] && $KILL "$($CAT "$1")" 2>/dev/null; $RM -f "$1"; }
+del_ap_iface() { "$IW" dev "$AP_IFACE" del 2>/dev/null || "$IP" link del "$AP_IFACE" 2>/dev/null; }
+# A key from the state file, empty when there is none.
+state() { $SED -n "s/^$1=//p" "$STATE_FILE" 2>/dev/null; }
+# Delete every policy rule at the given priorities, $1 = -4 or -6.
+del_rules() {
+    local fam="$1" p; shift
+    for p; do while "$IP" "$fam" rule del pref "$p" 2>/dev/null; do :; done; done
+}
 
 stop_daemons() {
-    [ -f "$RUN_DIR/hostapd.pid" ] && $KILL "$($CAT "$RUN_DIR/hostapd.pid")" 2>/dev/null
-    [ -f "$RUN_DIR/dnsmasq.pid" ] && $KILL "$($CAT "$RUN_DIR/dnsmasq.pid")" 2>/dev/null
-    [ -f "$RUN_DIR/v6sync.pid" ] && $KILL "$($CAT "$RUN_DIR/v6sync.pid")" 2>/dev/null
-    $RM -f "$RUN_DIR/v6sync.pid"
-    $RM -f "$RUN_DIR/hostapd.pid" "$RUN_DIR/dnsmasq.pid" \
-           "$RUN_DIR/hostapd.conf" "$RUN_DIR/dnsmasq.conf"
+    local d
+    for d in hostapd dnsmasq v6sync; do kill_pidfile "$RUN_DIR/$d.pid"; done
+    $RM -f "$RUN_DIR/hostapd.conf" "$RUN_DIR/dnsmasq.conf"
 }
 
 # Live test for the TTL target: ask the kernel to take the real rule, in a
@@ -772,59 +715,35 @@ ttl_apply() {
     return 0
 }
 
+# Mirror of config_network, every step tolerant of what is already gone. The
+# subnet comes from the state file: a restart with a new -g has already saved
+# the new gateway, and the rules to remove are the old one's.
 teardown() {
+    local net
+    net=$(state gateway); net="${net:-$IP_GW}"; net="${net%.*}.0/24"
     log "Bringing down $AP_IFACE and reverting settings..."
-
     stop_daemons
-
-    # Policy rules - delete by pinned priority until none remain
-    while "$IP" rule del pref "$PRIO_FROM_AP" 2>/dev/null; do :; done
-    while "$IP" rule del pref "$PRIO_TO_SUBNET" 2>/dev/null; do :; done
-
-    # Firewall (mirror of setup inserts)
-    "$IPT" -t nat -D POSTROUTING -s "$IP_NET" ! -d "$IP_NET" -j MASQUERADE 2>/dev/null || true
-    "$IPT" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null || true
-    "$IPT" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null || true
-
-    # IPv6: upstream iface and the sysctls to restore come from the state file
-    local v6up="" v6prev="" v6proxy=""
-    if [ -f "$STATE_FILE" ]; then
-        v6up=$($SED -n 's/^ipv6_iface=//p' "$STATE_FILE")
-        v6prev=$($SED -n 's/^prev_ip6_forward=//p' "$STATE_FILE")
-        v6proxy=$($SED -n 's/^prev_ip6_proxy_ndp=//p' "$STATE_FILE")
-    fi
-    teardown_ipv6 "$v6up" "$v6prev" "$v6proxy"
-
-    "$IP" route del "$IP_NET" dev "$AP_IFACE" table main 2>/dev/null || true
-    "$IP" route del "$IP_NET" dev "$AP_IFACE" table "$ANDROID_LOCAL_NETWORK_TABLE" 2>/dev/null || true
-
+    del_rules -4 "$PRIO_FROM_AP" "$PRIO_TO_SUBNET"
+    "$IPT" -t nat -D POSTROUTING -s "$net" ! -d "$net" -j MASQUERADE 2>/dev/null
+    "$IPT" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null
+    "$IPT" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null
+    teardown_ipv6 "$(state ipv6_iface)" "$(state prev_ip6_forward)" "$(state prev_ip6_proxy_ndp)"
+    "$IP" route del "$net" dev "$AP_IFACE" table main 2>/dev/null
+    "$IP" route del "$net" dev "$AP_IFACE" table "$ANDROID_LOCAL_NETWORK_TABLE" 2>/dev/null
     # Restore ip_forward only if we were the ones who enabled it
-    if [ -f "$STATE_FILE" ]; then
-        local prev_fwd
-        prev_fwd=$($SED -n 's/^prev_ip_forward=//p' "$STATE_FILE")
-        [ "$prev_fwd" = "0" ] && $ECHO 0 > /proc/sys/net/ipv4/ip_forward 2>/dev/null
-    fi
-
-    # Delete the virtual interface (iw, host ip as fallback)
-    "$IW" dev "$AP_IFACE" del 2>/dev/null \
-        || "$IP" link del "$AP_IFACE" 2>/dev/null || true
-
+    [ "$(state prev_ip_forward)" = "0" ] && $ECHO 0 > /proc/sys/net/ipv4/ip_forward 2>/dev/null
+    del_ap_iface
     $RM -f "$STATE_FILE"
     log "AP stopped, cleanup completed."
 }
-
-# --- Setup ---
 
 # Create the ap0 virtual interface on the physical Wi-Fi chip (both modes).
 create_ap_iface() {
     log "Creating virtual AP interface '$AP_IFACE' on $PHY_IFACE..."
 
-    "$IW" dev "$AP_IFACE" del 2>/dev/null || true
-
-    if ! "$IW" dev "$PHY_IFACE" interface add "$AP_IFACE" type __ap; then
-        error "Failed to create $AP_IFACE - chip/driver may not support AP mode."
-        return 1
-    fi
+    del_ap_iface
+    "$IW" dev "$PHY_IFACE" interface add "$AP_IFACE" type __ap \
+        || { error "Failed to create $AP_IFACE - chip/driver may not support AP mode."; return 1; }
     "$IW" dev "$AP_IFACE" info >/dev/null 2>&1 || {
         error "$AP_IFACE was not created successfully"; return 1; }
     return 0
@@ -875,7 +794,6 @@ config_network() {
     # IPv6 is best effort and leaves the IPv4 setup untouched when it can't run.
     setup_ipv6
 
-    # Record state for exact teardown + status
     $CAT > "$STATE_FILE" <<EOF
 upstream=$UPSTREAM
 upstream_table=$UPSTREAM_TABLE
@@ -897,12 +815,16 @@ EOF
     return 0
 }
 
+# The WPA lines of hostapd.conf: $1 = key management, $2 = ieee80211w (PMF).
+wpa_block() {
+    $PRINTF 'wpa=2\nwpa_passphrase=%s\nwpa_key_mgmt=%s\nrsn_pairwise=CCMP\nieee80211w=%s' "$PASSWORD" "$1" "$2"
+}
+
 # Generate hostapd.conf. $1 = optional bridge name: when set, hostapd enslaves
 # ap0 to that bridge itself (managed mode) and we run no dnsmasq/L3. Channel
 # width comes from EFFECTIVE_WIDTH (set by pick_width): 20|40|80.
 write_hostapd_conf() {
-    local hb="$1" country hw_mode extra seg0 dir sec
-    country=$(reg_country)
+    local hb="$1" hw_mode extra seg0 dir vht sec
     if [ "$BAND" = "5" ]; then
         hw_mode="a"
         # 802.11n + 802.11ac. The width params are what actually open up 40/80MHz;
@@ -919,21 +841,17 @@ ieee80211ac=1"
         # anyway. Only needed for HT40/VHT (20MHz has no ht_capab, no HT_SCAN).
         # Requires the hostapd-vap fork's config-parser wiring (the upstream
         # struct field exists but is otherwise unreachable from hostapd.conf).
-        if [ "$EFFECTIVE_WIDTH" = "80" ]; then
-            seg0=$(vht_seg0 "$CHANNEL"); dir=$(ht40_dir "$CHANNEL" "$seg0")
-            extra="$extra
-no_pri_sec_switch=1
-ht_capab=[HT40$dir]
-vht_oper_chwidth=1
-vht_oper_centr_freq_seg0_idx=$seg0"
-        elif [ "$EFFECTIVE_WIDTH" = "40" ]; then
-            seg0=$(vht_seg0 "$CHANNEL"); dir=$(ht40_dir "$CHANNEL" "$seg0")
-            extra="$extra
-no_pri_sec_switch=1
-ht_capab=[HT40$dir]
-vht_oper_chwidth=0"
-        fi
         # width 20: no ht_capab / vht_oper_chwidth -> hostapd uses 20MHz.
+        if [ "$EFFECTIVE_WIDTH" != "20" ]; then
+            seg0=$(vht_seg0 "$CHANNEL"); dir=$(ht40_dir "$CHANNEL" "$seg0")
+            vht=0; [ "$EFFECTIVE_WIDTH" = "80" ] && vht=1
+            extra="$extra
+no_pri_sec_switch=1
+ht_capab=[HT40$dir]
+vht_oper_chwidth=$vht"
+            [ "$vht" = "1" ] && extra="$extra
+vht_oper_centr_freq_seg0_idx=$seg0"
+        fi
     else
         hw_mode="g"
         extra="ieee80211n=1"
@@ -953,31 +871,10 @@ ht_capab=[HT40$dir]"
     # (required). SAE (wpa3 / the wpa3 half of transition) requires hostapd built
     # with CONFIG_SAE - see scripts/build-in-container.sh.
     case "$SECURITY" in
-        open)
-            sec=""
-            ;;
-        wpa3)
-            sec="wpa=2
-wpa_passphrase=$PASSWORD
-wpa_key_mgmt=SAE
-rsn_pairwise=CCMP
-ieee80211w=2"
-            ;;
-        wpa2wpa3)
-            sec="wpa=2
-wpa_passphrase=$PASSWORD
-wpa_key_mgmt=WPA-PSK SAE
-rsn_pairwise=CCMP
-ieee80211w=1"
-            ;;
-        *)  # wpa2 (default)
-            sec="wpa=2
-wpa_passphrase=$PASSWORD
-wpa_key_mgmt=WPA-PSK
-rsn_pairwise=CCMP"
-            [ "$PMF" = "1" ] && sec="$sec
-ieee80211w=1"
-            ;;
+        open)     sec="" ;;
+        wpa3)     sec=$(wpa_block SAE 2) ;;
+        wpa2wpa3) sec=$(wpa_block "WPA-PSK SAE" 1) ;;
+        *)        [ "$PMF" = "1" ] || PMF=0; sec=$(wpa_block WPA-PSK "$PMF") ;;
     esac
 
     $CAT > "$RUN_DIR/hostapd.conf" <<EOF
@@ -1010,7 +907,7 @@ hostapd_try() {
     : > "$HOSTAPD_LOG" 2>/dev/null
     "$HOSTAPD" -B -t -f "$HOSTAPD_LOG" -P "$RUN_DIR/hostapd.pid" "$RUN_DIR/hostapd.conf" 2>>"$HOSTAPD_LOG" || return 1
     $SLEEP 2
-    [ -f "$RUN_DIR/hostapd.pid" ] && $KILL -0 "$($CAT "$RUN_DIR/hostapd.pid")" 2>/dev/null
+    pid_alive "$RUN_DIR/hostapd.pid"
 }
 
 # Generate the conf at the picked width and launch hostapd once. pick_width has
@@ -1026,8 +923,7 @@ start_hostapd() {
         return 0
     fi
     # Clean only hostapd's pidfile (the shared dnsmasq.conf must survive).
-    [ -f "$RUN_DIR/hostapd.pid" ] && $KILL "$($CAT "$RUN_DIR/hostapd.pid")" 2>/dev/null
-    $RM -f "$RUN_DIR/hostapd.pid"
+    kill_pidfile "$RUN_DIR/hostapd.pid"
     # 40MHz on 2.4GHz is the one width the radio can advertise and the firmware
     # still refuse, for instance while the phone's own Wi-Fi sits on a 20MHz
     # network on the same channel. A hotspot at 20MHz beats no hotspot.
@@ -1040,29 +936,17 @@ start_hostapd() {
     return 1
 }
 
+# dnsmasq server= lines from a comma separated list, blanks and empties dropped.
+dns_lines() {
+    $ECHO "$1" | $TR -d '[:space:]' | $TR ',' '\n' | $SED -n '/./s/^/server=/p'
+}
+
 start_services() {
     log "Generating service configs (band ${BAND}GHz, channel $CHANNEL)..."
 
-    # hostapd.conf is generated inside start_hostapd.
-
-    local dns_config=""
-    if [ -n "$DNS_SERVERS" ]; then
-        dns_config="no-resolv"
-        local old_ifs="$IFS"
-        IFS=","
-        for dns in $DNS_SERVERS; do
-            local clean_dns
-            clean_dns=$("$BB" echo "$dns" | "$BB" tr -d '[:space:]')
-            if [ -n "$clean_dns" ]; then
-                dns_config="$dns_config
-server=$clean_dns"
-            fi
-        done
-        IFS="$old_ifs"
-    else
-        write_resolv_conf
-        dns_config="resolv-file=$RUN_DIR/resolv.conf"
-    fi
+    # One server= line per upstream resolver.
+    local dns_config
+    dns_config=$(dns_lines "$DNS_SERVERS")
 
     # Router advertisements (SLAAC) + IPv6 DNS, only when setup_ipv6 got going.
     local v6_config=""
@@ -1084,6 +968,7 @@ dhcp-option=option:router,$IP_GW
 dhcp-option=option:dns-server,$IP_GW
 $v6_config
 dhcp-leasefile=$RUN_DIR/dnsmasq.leases
+no-resolv
 $dns_config
 no-hosts
 pid-file=$RUN_DIR/dnsmasq.pid
@@ -1096,28 +981,24 @@ EOF
 
     log "Starting dnsmasq..."
     : > "$DNSMASQ_LOG" 2>/dev/null
-    if ! "$DNSMASQ" -C "$RUN_DIR/dnsmasq.conf"; then
-        error "dnsmasq failed to start"
-        return 1
-    fi
-    $SLEEP 1
-    [ -f "$RUN_DIR/dnsmasq.pid" ] && $KILL -0 "$($CAT "$RUN_DIR/dnsmasq.pid")" 2>/dev/null || {
-        error "dnsmasq is not running after start"; return 1; }
+    # dnsmasq's parent only exits once the daemon has written its pid file and
+    # is serving, so a zero exit here is the liveness check.
+    "$DNSMASQ" -C "$RUN_DIR/dnsmasq.conf" || { error "dnsmasq failed to start"; return 1; }
     log "dnsmasq running (PID $($CAT "$RUN_DIR/dnsmasq.pid" 2>/dev/null))"
-
-    return 0
 }
 
-# --- Managed mode (Droidspaces container integration) ---
-
-# Bring a freshly-created link up, retrying past the transient EPERM.
-ip_up_retry() {
+# Run $@ until it succeeds, six tries 0.3s apart: a freshly created link
+# answers EPERM for a moment. The last try is loud, so the error surfaces.
+retry() {
     local i=0
-    while [ $i -lt 6 ]; do
-        "$IP" link set "$1" up 2>/dev/null && return 0
-        i=$((i + 1)); $SLEEP 0.3
-    done
-    "$IP" link set "$1" up   # final try, surface the error
+    while [ $i -lt 5 ]; do "$@" 2>/dev/null && return 0; i=$((i + 1)); $SLEEP 0.3; done
+    "$@"
+}
+
+# Host bridge and veth, busybox ip since Android's own EPERMs on these.
+del_bridge() {
+    "$BUSYBOX" ip link del "$VAP_VETH_HOST" 2>/dev/null
+    "$BUSYBOX" ip link del "$VAP_BRIDGE" 2>/dev/null
 }
 
 # OpenWrt auto-provisioning: a LAN on VAP_PORT with its own DHCP + NAT out WAN.
@@ -1181,7 +1062,7 @@ provision_openwrt() {
             fi
         fi
     elif ds_run nft list ruleset >/dev/null 2>&1; then
-        ds_run /etc/init.d/firewall reload >/dev/null 2>&1 || true
+        ds_run /etc/init.d/firewall reload >/dev/null 2>&1
         warn "OpenWrt is using nftables/fw4 - make sure '$VAP_PORT' sits in a masqueraded firewall zone."
     else
         warn "OpenWrt has no iptables-legacy and no working nftables."
@@ -1200,23 +1081,21 @@ config_network_bridged() {
 
     create_ap_iface || return 1
 
-    # Clean stale bridge/veth from a previous run (busybox ip - Android's ip EPERMs here).
-    "$BUSYBOX" ip link del "$VAP_VETH_HOST" 2>/dev/null || true
-    "$BUSYBOX" ip link del "$VAP_BRIDGE" 2>/dev/null || true
+    del_bridge   # a stale one from a previous run
 
     # Neutral host bridge (no IP - the container owns all L3).
     "$IP" link add name "$VAP_BRIDGE" type bridge || { error "Failed to create $VAP_BRIDGE"; return 1; }
     # No IP has to hold for IPv6 too: Android leaves accept_ra at 2, so the host
     # would take an address and a default route from the container's own RAs.
-    echo 1 > "/proc/sys/net/ipv6/conf/$VAP_BRIDGE/disable_ipv6" 2>/dev/null || true
-    ip_up_retry "$VAP_BRIDGE"
+    $ECHO 1 > "/proc/sys/net/ipv6/conf/$VAP_BRIDGE/disable_ipv6" 2>/dev/null
+    retry "$IP" link set "$VAP_BRIDGE" up
 
     # veth: host side joins the bridge, peer crosses into the container.
     "$IP" link add "$VAP_VETH_HOST" type veth peer name "$VAP_VETH_PEER" \
         || { error "Failed to create veth pair"; return 1; }
     "$IP" link set "$VAP_VETH_HOST" master "$VAP_BRIDGE" \
         || { error "Failed to enslave $VAP_VETH_HOST to $VAP_BRIDGE"; return 1; }
-    ip_up_retry "$VAP_VETH_HOST"
+    retry "$IP" link set "$VAP_VETH_HOST" up
 
     "$IP" link set "$VAP_VETH_PEER" netns "$pid" \
         || { error "Failed to move veth into container netns"; return 1; }
@@ -1266,20 +1145,10 @@ EOF
 
 start_services_bridged() {
     log "Starting hostapd (managed/bridged mode)..."
-    # No bridge= - we enslave ap0 ourselves below. hostapd.conf is generated
-    # inside start_hostapd.
+    # No bridge= in the conf: ap0 is enslaved here, only once hostapd is up.
     start_hostapd "" || return 1
-
-    # Enslave ap0 only after hostapd is up, retrying past the transient EPERM.
-    local i=0
-    while [ $i -lt 6 ]; do
-        "$IP" link set "$AP_IFACE" master "$VAP_BRIDGE" 2>/dev/null && break
-        i=$((i + 1)); $SLEEP 0.3
-    done
-    if ! "$IP" -o link show "$AP_IFACE" 2>/dev/null | $GREP -q "master $VAP_BRIDGE"; then
-        error "Failed to enslave $AP_IFACE to $VAP_BRIDGE."
-        return 1
-    fi
+    retry "$IP" link set "$AP_IFACE" master "$VAP_BRIDGE" \
+        || { error "Failed to enslave $AP_IFACE to $VAP_BRIDGE."; return 1; }
     log "$AP_IFACE bridged into $VAP_BRIDGE - clients now live on the container's LAN."
     return 0
 }
@@ -1287,20 +1156,15 @@ start_services_bridged() {
 teardown_bridged() {
     log "Tearing down managed (bridged) AP..."
 
-    # Stop hostapd (releases ap0 from the bridge), then delete ap0.
     stop_daemons
-    "$IW" dev "$AP_IFACE" del 2>/dev/null || "$IP" link del "$AP_IFACE" 2>/dev/null || true
-
-    # Delete host bridge + veth (busybox ip). This also removes VAP_PORT inside
-    # the container; its uci LAN config is left intact.
-    "$BUSYBOX" ip link del "$VAP_VETH_HOST" 2>/dev/null || true
-    "$BUSYBOX" ip link del "$VAP_BRIDGE" 2>/dev/null || true
+    del_ap_iface
+    # Deleting the veth also removes VAP_PORT inside the container; its uci LAN
+    # config is left intact.
+    del_bridge
 
     $RM -f "$STATE_FILE"
     log "Managed AP stopped (container '$CONTAINER' left running)."
 }
-
-# --- Subcommands ---
 
 cmd_start() {
     # One session per file: nothing reads ap.log but a person with a shell, and
@@ -1309,14 +1173,12 @@ cmd_start() {
     [ -z "$SSID" ] && { error "SSID not set (use -s or save a config first)"; exit 1; }
     # Open networks carry no passphrase; WPA modes use a WPA-PSK/SAE passphrase,
     # which the standard (and hostapd) bound to 8-63 characters.
+    local plen ttl_src ttl_src6
     if [ "$SECURITY" != "open" ]; then
         plen=$($PRINTF %s "$PASSWORD" | $WC -c)
-        if [ "$plen" -lt 8 ] || [ "$plen" -gt 63 ]; then
-            error "Password must be 8-63 characters."; exit 1
-        fi
+        [ "$plen" -ge 8 ] && [ "$plen" -le 63 ] || { error "Password must be 8-63 characters."; exit 1; }
     fi
 
-    # Validate channel compatibility with selected band
     if [ -n "$CHANNEL" ]; then
         case "$CHANNEL" in
             *[!0-9]*)
@@ -1343,18 +1205,13 @@ cmd_start() {
     # before anything can fail - a failed attempt must not lose the config.
     save_conf
 
-    # Tear down any previous AP. Static daemons reparent to init and are reaped
-    # normally, so there is no chroot/namespace to recycle anymore.
-    if [ -f "$STATE_FILE" ]; then
-        log "Existing AP state found - restarting..."
-        if $GREP -q '^mode=bridged' "$STATE_FILE"; then teardown_bridged; else teardown; fi
-    fi
+    # Tear down any previous AP, and daemons orphaned by one that left no state.
+    [ -f "$STATE_FILE" ] && { log "Existing AP state found - restarting..."; cmd_stop; }
     stop_daemons
 
     check_prerequisites || exit 1
 
     if [ -n "$CONTAINER" ]; then
-        # --- Managed mode: a Droidspaces container owns the LAN ---
         if [ -z "$(ds_container_pid "$CONTAINER")" ]; then
             error "Container '$CONTAINER' is not running - start it first."
             teardown_bridged; exit 1
@@ -1367,15 +1224,18 @@ cmd_start() {
         if ! start_services_bridged; then teardown_bridged; exit 1; fi
 
         log "VirtualAP is ACTIVE (managed by container '$CONTAINER')!"
-        log "  SSID     : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
-        log "  Upstream : container '$CONTAINER' via $VAP_BRIDGE -> $VAP_PORT"
-        log "  LAN      : served by the container ($IP_GW)"
+        log "  SSID    : $SSID (${BAND}GHz, channel $CHANNEL, ${EFFECTIVE_WIDTH}MHz)"
+        log "  Upstream: container '$CONTAINER' via $VAP_BRIDGE -> $VAP_PORT"
+        log "  LAN     : served by the container ($IP_GW)"
         # The container NATs the clients, so their traffic reaches the host
         # from Droidspaces' own NAT subnets.
-        ttl_label="TTL fix  "; ttl_src="$DS_NAT_NET"; ttl_src6="$DS_NAT_NET6"
+        ttl_src="$DS_NAT_NET"; ttl_src6="$DS_NAT_NET6"
     else
-        # --- Routed mode: classic VirtualAP L3 ---
         resolve_upstream || exit 1
+        # A -d with no address in it (empty, or separators only) means the default
+        # pair; decided here so dnsmasq and the state file agree. ap.conf keeps the
+        # value as given.
+        [ -n "$(dns_lines "$DNS_SERVERS")" ] || DNS_SERVERS="$DNS_DEFAULT"
         pick_channel
         pick_width
         trap 'teardown; exit 1' INT TERM
@@ -1392,15 +1252,15 @@ cmd_start() {
         else
             log "  IPv6    : off"
         fi
-        ttl_label="TTL fix "; ttl_src="$IP_NET"
-        ttl_src6=""; [ "$IP6_ACTIVE" = "1" ] && ttl_src6="$IP6_NET"
+        ttl_src="$IP_NET"; ttl_src6=""
+        [ "$IP6_ACTIVE" = "1" ] && ttl_src6="$IP6_NET"
     fi
 
     # Clear first, so switching the option off takes effect on a restart.
     ttl_clear
     if [ "$TTL_FIX" = "1" ]; then
         if ttl_apply "$ttl_src" "$ttl_src6"; then
-            log "  $ttl_label: forwarded packets leave with TTL 64"
+            log "  TTL fix : forwarded packets leave with TTL 64"
         else
             warn "TTL fix is not available: the kernel or iptables lacks the TTL target. Continuing without it."
         fi
@@ -1417,17 +1277,13 @@ cmd_stop() {
 }
 
 cmd_status() {
-    local running=0 hostapd_state="dead" dnsmasq_state="dead" clients=0 mode="routed" width=""
-    [ -f "$STATE_FILE" ] && $GREP -q '^mode=bridged' "$STATE_FILE" && mode="bridged"
-
+    local running=0 dnsmasq_state="dead" clients=0 mode="routed" width="" conf="$RUN_DIR/hostapd.conf"
     if [ -f "$STATE_FILE" ]; then
-        [ -f "$RUN_DIR/hostapd.pid" ] && $KILL -0 "$($CAT "$RUN_DIR/hostapd.pid")" 2>/dev/null && hostapd_state="running"
-        if [ "$mode" = "bridged" ]; then
-            dnsmasq_state="container"   # DHCP/DNS served by the container, not us
-        else
-            [ -f "$RUN_DIR/dnsmasq.pid" ] && $KILL -0 "$($CAT "$RUN_DIR/dnsmasq.pid")" 2>/dev/null && dnsmasq_state="running"
-        fi
-        [ "$hostapd_state" = "running" ] && running=1
+        $GREP -q '^mode=bridged' "$STATE_FILE" && mode="bridged"
+        pid_alive "$RUN_DIR/hostapd.pid" && running=1
+        # DHCP/DNS are the container's in bridged mode, not ours.
+        if [ "$mode" = "bridged" ]; then dnsmasq_state="container"
+        elif pid_alive "$RUN_DIR/dnsmasq.pid"; then dnsmasq_state="running"; fi
         # hostapd's own list, not the driver's: MediaTek's gen4m has no
         # dump_station, so `iw station dump` is always empty there.
         clients=$(hostapd_cli -p "$RUN_DIR/hostapd" -i "$AP_IFACE" list_sta 2>/dev/null | $GREP -c ':')
@@ -1435,46 +1291,33 @@ cmd_status() {
 
     $ECHO "running=$running"
     $ECHO "mode=$mode"
-    $ECHO "hostapd=$hostapd_state"
     $ECHO "dnsmasq=$dnsmasq_state"
     $ECHO "clients=$clients"
-    # Actual channel width, read live from the radio (iw) so it reflects any
-    # firmware downgrade - FullMAC same-channel concurrency can force 20MHz
-    # regardless of what hostapd.conf requested. Fall back to the conf only when
-    # iw reports no width line.
     if [ "$running" = "1" ]; then
+        # Actual channel width, read live from the radio (iw) so it reflects any
+        # firmware downgrade - FullMAC same-channel concurrency can force 20MHz
+        # regardless of what hostapd.conf requested. Fall back to the conf only
+        # when iw reports no width line.
         width=$("$IW" dev "$AP_IFACE" info 2>/dev/null \
             | $SED -n 's/.*width: \([0-9]\{2,3\}\) MHz.*/\1/p' | $HEAD -n1)
-        if [ -n "$width" ]; then
-            $ECHO "width=$width"
-        elif [ -f "$RUN_DIR/hostapd.conf" ]; then
-            if   $GREP -q '^vht_oper_chwidth=1' "$RUN_DIR/hostapd.conf"; then $ECHO "width=80"
-            elif $GREP -q '^ht_capab=\[HT40'    "$RUN_DIR/hostapd.conf"; then $ECHO "width=40"
-            else $ECHO "width=20"; fi
-        fi
-    fi
-    # Active security mode, derived from the live conf's key-mgmt line.
-    if [ "$running" = "1" ] && [ -f "$RUN_DIR/hostapd.conf" ]; then
-        if   ! $GREP -q '^wpa=' "$RUN_DIR/hostapd.conf"; then $ECHO "security=open"
-        elif $GREP -q '^wpa_key_mgmt=WPA-PSK SAE' "$RUN_DIR/hostapd.conf"; then $ECHO "security=wpa2wpa3"
-        elif $GREP -q '^wpa_key_mgmt=SAE'         "$RUN_DIR/hostapd.conf"; then $ECHO "security=wpa3"
+        if   [ -n "$width" ]; then $ECHO "width=$width"
+        elif $GREP -q '^vht_oper_chwidth=1' "$conf"; then $ECHO "width=80"
+        elif $GREP -q '^ht_capab=\[HT40' "$conf"; then $ECHO "width=40"
+        else $ECHO "width=20"; fi
+        # Active security mode, from the live conf's key-mgmt line.
+        if   ! $GREP -q '^wpa=' "$conf"; then $ECHO "security=open"
+        elif $GREP -q '^wpa_key_mgmt=WPA-PSK SAE' "$conf"; then $ECHO "security=wpa2wpa3"
+        elif $GREP -q '^wpa_key_mgmt=SAE' "$conf"; then $ECHO "security=wpa3"
         else $ECHO "security=wpa2"; fi
     fi
     # gateway/ssid/etc. come from the state file (IP_GW in both routed + bridged)
-    if [ -f "$STATE_FILE" ]; then
-        $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started)=' "$STATE_FILE"
-    else
-        $ECHO "gateway=$IP_GW"
-    fi
-}
-
-cmd_leases() {
-    $CAT "$RUN_DIR/dnsmasq.leases" 2>/dev/null
+    $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started)=' "$STATE_FILE" 2>/dev/null \
+        || $ECHO "gateway=$IP_GW"
 }
 
 cmd_interfaces() {
     # Candidate upstreams as "name:ip" lines for the app (ap0/lo excluded).
-    local name addr
+    local name addr path
     for path in /sys/class/net/*; do
         name="${path##*/}"
         case "$name" in
@@ -1489,8 +1332,6 @@ cmd_interfaces() {
 cmd_containers() {
     # Running Droidspaces containers, one name per line. Empty = not installed or
     # nothing running; the app uses this to show/hide the container UI.
-    [ -x "/data/local/Droidspaces/bin/droidspaces" ] \
-        || command -v droidspaces >/dev/null 2>&1 || return 0
     ds_list | $SED 's/=[0-9]*$//'
 }
 
@@ -1506,53 +1347,52 @@ cmd_caps() {
     $ECHO "mac=$(wifi_mac)"
 }
 
-# --- Main ---
-
 if [ "$($ID -u)" -ne 0 ]; then
     error "This script must be run as root."; exit 1
 fi
 
 print_usage() {
-    $ECHO "Usage: $SCRIPT_NAME <start|stop|status|leases|interfaces> [options]"
-    $ECHO ""
-    $ECHO "start options:"
-    $ECHO "  -s <SSID>      AP name"
-    $ECHO "  -p <password>  AP password (min 8 chars)"
-    $ECHO "  -o <iface>     Upstream interface, or 'auto' (default: auto)"
-    $ECHO "  -b <band>      2 = 2.4GHz (default), 5 = 5GHz"
-    $ECHO "  -c <channel>   Channel (auto-picked / STA-followed when omitted)"
-    $ECHO "  -W <width>     Channel width: auto (default), 20, 40, or 80 (80 is 5GHz"
-    $ECHO "                 only; on 2.4GHz auto means 20)"
-    $ECHO "  -g <gateway>   Custom gateway IP (default: 192.168.42.1)"
-    $ECHO "  -d <dns>       Comma-separated list of upstream DNS servers"
-    $ECHO "  -w <iface>     Physical WiFi interface (default: wlan0)"
-    $ECHO "  -H <0|1>       Hide SSID (0 = visible [default], 1 = hidden)"
-    $ECHO "  -A <mode>      Security: open, wpa2 (default), wpa2wpa3, wpa3"
-    $ECHO "  -M <0|1>       Protected Management Frames for wpa2 (0=off [default],"
-    $ECHO "                 1=on); forced on for wpa2wpa3, required for wpa3"
-    $ECHO "  -K <container> Managed mode: hand the AP's LAN to a Droidspaces"
-    $ECHO "                 container (it owns DHCP/DNS/NAT). Disables -o/-g/-d."
-    $ECHO "  -m <mac>       Managed mode: MAC of the container's LAN port, the"
-    $ECHO "                 clients' gateway (empty = a new random one on every"
-    $ECHO "                 start [default])."
-    $ECHO "  -T <0|1>       TTL fix: forwarded packets leave with TTL 64, so they"
-    $ECHO "                 look like the phone's own (0=off [default], 1=on)."
-    $ECHO "                 Needs the kernel's TTL target; skipped when missing."
-    $ECHO "  -6 <0|1>       IPv6 for clients when the upstream has a global /64"
-    $ECHO "                 prefix: they get global addresses from it, routed with"
-    $ECHO "                 an NDP proxy, no NAT (0=off, 1=on [default]). Routed"
-    $ECHO "                 mode only."
-    $ECHO ""
-    $ECHO "Saved settings in $CONF_FILE are reused when flags are omitted."
+    $CAT <<EOF
+Usage: $SCRIPT_NAME <start|stop|status|interfaces|containers|caps> [options]
+
+start options:
+  -s <SSID>      AP name
+  -p <password>  AP password (8-63 chars)
+  -o <iface>     Upstream interface, or 'auto' (default: auto)
+  -b <band>      2 = 2.4GHz (default), 5 = 5GHz
+  -c <channel>   Channel (auto-picked / STA-followed when omitted)
+  -W <width>     Channel width: auto (default), 20, 40, or 80 (80 is 5GHz
+                 only; on 2.4GHz auto means 20)
+  -g <gateway>   Gateway IP (default: $GW_DEFAULT)
+  -d <dns>       Comma-separated upstream DNS servers (default: $DNS_DEFAULT)
+  -w <iface>     Physical WiFi interface (default: wlan0)
+  -H <0|1>       Hide SSID (0 = visible [default], 1 = hidden)
+  -A <mode>      Security: open, wpa2 (default), wpa2wpa3, wpa3
+  -M <0|1>       Protected Management Frames for wpa2 (0=off [default],
+                 1=on); forced on for wpa2wpa3, required for wpa3
+  -K <container> Managed mode: hand the AP's LAN to a Droidspaces
+                 container (it owns DHCP/DNS/NAT). Disables -o/-g/-d.
+  -m <mac>       Managed mode: MAC of the container's LAN port, the
+                 clients' gateway (empty = a new random one on every
+                 start [default]).
+  -T <0|1>       TTL fix: forwarded packets leave with TTL 64, so they
+                 look like the phone's own (0=off [default], 1=on).
+                 Needs the kernel's TTL target; skipped when missing.
+  -6 <0|1>       IPv6 for clients when the upstream has a global /64
+                 prefix: they get global addresses from it, routed with
+                 an NDP proxy, no NAT (0=off, 1=on [default]). Routed
+                 mode only.
+
+Saved settings in $CONF_FILE are reused when flags are omitted.
+EOF
 }
 
 COMMAND="$1"
 [ -n "$COMMAND" ] && shift
 
-# Saved config provides defaults; CLI flags override
 load_conf
 
-while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:h" opt 2>/dev/null; do
+while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:" opt 2>/dev/null; do
     case $opt in
         s) SSID="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
@@ -1561,7 +1401,7 @@ while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:h" opt 2>/dev/null; do
         c) CHANNEL="$OPTARG" ;;
         W) WIDTH="$OPTARG" ;;
         w) PHY_IFACE="$OPTARG" ;;
-        g) IP_GW="${OPTARG:-192.168.42.1}" ;;   # empty -g falls back to the default
+        g) IP_GW="${OPTARG:-$GW_DEFAULT}" ;;
         d) DNS_SERVERS="$OPTARG" ;;
         H) HIDDEN="$OPTARG" ;;
         A) SECURITY="$OPTARG" ;;
@@ -1570,7 +1410,6 @@ while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:h" opt 2>/dev/null; do
         T) TTL_FIX="$OPTARG" ;;
         m) GW_MAC="$OPTARG" ;;
         6) IPV6="$OPTARG" ;;
-        h) print_usage; exit 0 ;;
         *) print_usage; exit 1 ;;
     esac
 done
@@ -1584,7 +1423,6 @@ case "$COMMAND" in
     start)      cmd_start ;;
     stop)       cmd_stop ;;
     status)     cmd_status ;;
-    leases)     cmd_leases ;;
     interfaces) cmd_interfaces ;;
     containers) cmd_containers ;;
     caps)       cmd_caps ;;
