@@ -7,7 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -66,7 +66,7 @@ fun ColorPaletteSwatch(
             .semantics { contentDescription = palette.displayName }
             .clickable(
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = false, radius = (swatchSize / 2 + 4).dp),
+                indication = ripple(bounded = false, radius = (swatchSize / 2 + 4).dp),
                 onClick = onClick
             )
     ) {

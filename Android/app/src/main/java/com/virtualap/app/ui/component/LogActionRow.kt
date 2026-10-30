@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ripple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -109,7 +109,7 @@ private fun LogActionButton(
             .clickable(
                 enabled = enabled,
                 onClick = onClick,
-                indication = rememberRipple(bounded = true),
+                indication = ripple(bounded = true),
                 interactionSource = remember { MutableInteractionSource() }
             ),
         shape = shape,

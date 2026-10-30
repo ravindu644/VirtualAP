@@ -15,7 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class InstallStatus { Checking, NotInstalled, Installing, Installed, Error }
+enum class InstallStatus { Checking, NotInstalled, Installed }
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager.getInstance(application)
@@ -25,7 +25,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     )
         private set
 
-    var installStatus by mutableStateOf(InstallStatus.Checking)
+    // Seeded from what the last run recorded, so a returning user lands on the
+    // main screen at once; checkInstalled() corrects it when the binaries are gone.
+    var installStatus by mutableStateOf(
+        when {
+            !(prefs.hasSeenRootCheck && prefs.rootAvailable) -> InstallStatus.Checking
+            VirtualAPInstaller.payloadUpdateAvailable(application) -> InstallStatus.NotInstalled
+            else -> InstallStatus.Installed
+        }
+    )
         private set
 
     init {
@@ -86,7 +94,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun checkInstalled() {
         viewModelScope.launch {
-            installStatus = InstallStatus.Checking
             val app = getApplication<Application>()
             val installed = withContext(Dispatchers.IO) {
                 // An outdated payload (APK update shipped new binaries) counts

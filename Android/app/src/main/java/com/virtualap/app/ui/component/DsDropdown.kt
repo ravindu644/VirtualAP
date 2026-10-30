@@ -62,7 +62,7 @@ fun <T> DsDropdown(
             shape = fieldShape,
             colors = fieldColors,
             modifier = Modifier
-                .menuAnchor()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                 // The text field takes focus from a tap only after the double-tap timeout, so a
                 // tap that closes the menu would re-focus it and leave it outlined. Tying focus
                 // to the menu drops it on close and refuses that late request.

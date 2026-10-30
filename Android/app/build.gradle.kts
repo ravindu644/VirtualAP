@@ -5,6 +5,7 @@ import java.security.MessageDigest
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 val keystorePropertiesFile = rootProject.file("local.properties")
@@ -34,7 +35,7 @@ val vapVersionCodeVal = vapVersionName.split(".").let { parts ->
 
 android {
     namespace = "com.virtualap.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.virtualap.app"
@@ -149,18 +150,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-Xjvm-default=all"
-        )
     }
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
     }
 
     packaging {
@@ -240,23 +233,21 @@ tasks.configureEach {
 
 dependencies {
     // Compose BOM
-    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    // 2026.06.01 is the last BOM on the Compose 1.11 line; 1.12 wants compileSdk 37 and AGP 9.
+    implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
+    // material3 1.4.0 stable stripped every Expressive API (LoadingIndicator, MaterialShapes).
+    // 1.5.0-alpha18 is the last alpha built against Compose 1.11; alpha20 onward needs 1.12.
+    implementation("androidx.compose.material3:material3:1.5.0-alpha18")
     implementation("androidx.compose.material:material-icons-extended")
-    // Required by ui/util/LoadingIndicator.kt (Material 3 Expressive shapes)
-    implementation("androidx.graphics:graphics-shapes:1.0.1")
 
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
-
-    // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.7")
 
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")

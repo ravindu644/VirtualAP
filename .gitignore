@@ -8,6 +8,7 @@ backend/aarch64/*
 backend/armhf/*
 !backend/armhf/.gitkeep
 Android/.gradle/
+Android/build/
 Android/app/build/
 Android/app/src/main/assets/
 *.keystore

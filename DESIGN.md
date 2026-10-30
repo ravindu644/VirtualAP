@@ -308,6 +308,10 @@ misses.
 - **The QR plate is `Color.White`** in the Wi-Fi QR sheet, and `QrCodeGenerator.encode` draws
   black modules on white. A scanner needs the contrast the spec assumes; a themed plate under a
   dark palette reads as a broken code.
+- **The status card answers a tap** (`ActiveNetworkCard` in `ui/screen/MainScreen.kt`) although
+  it opens nothing. It is the card a user prods to check the app is alive, so it ripples and drops
+  field focus instead of sitting dead under a finger. The cost is that TalkBack reads it as one
+  actionable node.
 - **The Wi-Fi QR sheet and the logs sheet** in `ui/screen/MainScreen.kt` stay Material
   `ModalBottomSheet`s rather than `Dialog { Surface { } }`. Both are drag-dismiss content that
   belongs at the bottom edge, and the logs sheet blocks gesture dismissal while a command is

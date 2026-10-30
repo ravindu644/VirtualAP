@@ -240,7 +240,6 @@ dialog to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 | `CardContentPadding`, `CardHeaderHeight` | `ui/component/CardMetrics.kt` | Any card with a title-and-pill header. Keeps the dividers aligned between cards, do not retype the values |
 | `LoadingIndicator(size, color)` + `LoadingSize` | `ui/util/LoadingIndicator.kt` | Inline spinners. Pick a `LoadingSize`, never a raw `.size(n.dp)` |
 | `FullScreenLoading(message)` | `ui/util/LoadingIndicator.kt` | Whole screen loading state |
-| `ContainedLoadingIndicator`, `LoadingIndicatorDefaults`, `MaterialShapes` | `ui/util/LoadingIndicator.kt` | Determinate and morphing indicators, and their tokens |
 | `TerminalConsole(logs, isProcessing, maxHeight)` | `ui/component/TerminalConsole.kt` | Inline scrolling log view |
 | `ShimmerAnimation(enabled) { ... }` | `ui/component/TerminalConsole.kt` | Skeleton loading effect |
 
@@ -265,8 +264,7 @@ conventions: 24.dp for dialog and screen horizontal padding, 16.dp for card inne
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `Screens` | `ui/navigation/VAPNavigation.kt` | Adding a destination. Never a raw route string |
-| The `NavHost` in `MainActivity.kt` | `MainActivity.kt` | The single graph, with the root and install gating effect below it. Register new screens here |
+| `Screen` and the `when` over it | `MainActivity.kt` | The one place a top-level screen is chosen: root and install state first, then the Settings flag. Add a screen here |
 
 ### Android: shell and root execution
 

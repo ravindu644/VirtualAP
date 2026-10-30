@@ -110,7 +110,7 @@ Work down this list and stop at the first answer that holds.
 3. Does the platform already do it? busybox applets and POSIX sh on the backend, plus
    Android's own `/system/bin/ip` and `iptables`; the Kotlin and Java stdlib and the Android
    framework on the app side. Mind busybox sh and `minSdk = 26`.
-4. Does an installed dependency cover it? libsu, Compose, navigation, lifecycle, zxing on
+4. Does an installed dependency cover it? libsu, Compose, lifecycle, zxing on
    the app side. Never add a new one for what a few lines can do.
 5. Can it be one line? Then it is one line.
 6. Only then write the smallest thing that works.
@@ -174,7 +174,7 @@ These are choke points. Bypassing one is a bug, not a shortcut.
   a dynamically linked binary, never a prebuilt from elsewhere. A new tool is a new submodule
   plus a block in `scripts/build-in-container.sh`.
 - No new dependency when an installed one covers it. The app already has libsu, Compose,
-  navigation, lifecycle, and zxing.
+  lifecycle, and zxing.
 - Samsung's Broadcom FullMAC driver is the floor for wireless assumptions.
   `iw dev <iface> info` has no channel line, so the station channel comes from the `freq:`
   line of `iw dev <iface> link` (`sta_channel`). The wiphy is self-managed, so `iw reg set`

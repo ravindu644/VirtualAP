@@ -6,12 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Image
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -198,7 +194,7 @@ private fun StartStopBar(vm: APViewModel) {
         enabled = enabled
     ) {
         if (busy) {
-            LoadingIndicator(modifier = Modifier.size(20.dp), color = content)
+            LoadingIndicator(size = LoadingSize.Medium, color = content)
             Text(
                 text = stringResource(if (vm.phase == Hotspot.Phase.STARTING) R.string.starting else R.string.stopping),
                 style = MaterialTheme.typography.labelLarge,
@@ -675,6 +671,7 @@ private fun ActiveNetworkCard(vm: APViewModel) {
     val status = vm.status
     var showQr by remember { mutableStateOf(false) }
     val cardShape = RoundedCornerShape(20.dp)
+    val focusManager = LocalFocusManager.current
 
     val band = when (status.band) {
         "2", "2.4" -> stringResource(R.string.band_2ghz)
@@ -695,16 +692,11 @@ private fun ActiveNetworkCard(vm: APViewModel) {
     }
     val bridged = status.mode == "bridged"
 
+    // The card opens nothing. The tap drops field focus like the screen around it,
+    // and the ripple says the app is alive. A decided exception in DESIGN.md.
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(cardShape)
-            .clickable(
-                // The card has nothing to open; the ripple is the whole point.
-                onClick = {},
-                indication = rememberRipple(bounded = true),
-                interactionSource = remember { MutableInteractionSource() }
-            ),
+        onClick = { focusManager.clearFocus() },
+        modifier = Modifier.fillMaxWidth(),
         shape = cardShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
@@ -897,20 +889,18 @@ private fun ActionLogsSheet(
         }
     }
 
-    // Back is ours, not the sheet's. Material3 answers Back by sliding the sheet
-    // away without asking confirmValueChange, and a sheet that is hidden but
-    // still composed leaves an invisible window over the app that eats every
-    // touch. The sheet's window is made non-focusable below, so Back lands here
-    // instead: ignored while a command runs, an ordinary dismiss otherwise.
-    BackHandler(onBack = animatedDismiss)
-
     ModalBottomSheet(
-        // Only reachable when confirmValueChange allowed Hidden (not processing).
         // Read through rememberUpdatedState: the sheet holds on to callbacks from
         // its first composition.
         onDismissRequest = { currentOnDismiss() },
         sheetState = sheetState,
-        properties = ModalBottomSheetDefaults.properties(isFocusable = false),
+        // Material3 answers Back by hiding the sheet without asking
+        // confirmValueChange, so Back is switched off for as long as a command
+        // runs; afterwards it is the ordinary animated dismiss.
+        properties = ModalBottomSheetProperties(
+            shouldDismissOnBackPress = !isProcessing,
+            shouldDismissOnClickOutside = !isProcessing
+        ),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp
