@@ -31,32 +31,24 @@ data class APConfig(
     /** Everything start-ap will reject on its own, checked before we shell out. */
     fun isValid(): Boolean =
         ssid.isNotBlank() && passwordValid() &&
+            (gateway.isBlank() || isValidIpv4(gateway)) && isValidDnsList(dnsServers) &&
             (!containerMode || (containerName.isNotBlank() && macValid()))
 
     companion object {
         /** Default AP/LAN gateway when the gateway field is left blank. */
         const val DEFAULT_GATEWAY = "192.168.42.1"
 
-        fun fromPrefs(prefs: PreferencesManager) = APConfig(
-            ssid = prefs.apSsid,
-            password = prefs.apPassword,
-            band = prefs.apBand,
-            channel = validChannelForBand(prefs.apBand, prefs.apChannel),
-            width = validWidthForBand(prefs.apBand, prefs.apWidth),
-            upstream = prefs.apUpstream,
-            // Normalize a legacy stored default to blank so it shows as a hint.
-            gateway = prefs.apGateway.takeUnless { it == DEFAULT_GATEWAY } ?: "",
-            dnsServers = prefs.apDnsServers,
-            hidden = prefs.apHidden,
-            security = prefs.apSecurity,
-            pmf = prefs.apPmf,
-            ttlFix = prefs.apTtlFix,
-            ipv6 = prefs.apIpv6,
-            containerMode = prefs.apContainerMode,
-            containerName = prefs.apContainer,
-            macMode = prefs.apMacMode,
-            gatewayMac = prefs.apGatewayMac
-        )
+        /** A host address as start-ap takes it: four octets as inet_pton reads them, the last 1 to 254. */
+        fun isValidIpv4(ip: String): Boolean {
+            val octets = ip.trim().split(".")
+            return octets.size == 4 &&
+                octets.all { it.isNotEmpty() && it.all { c -> c in '0'..'9' } && it.length <= 3 && it.toInt() <= 255 && (it.length == 1 || it[0] != '0') } &&
+                octets[3].toInt() in 1..254
+        }
+
+        /** Blank means the backend's default resolvers; otherwise every comma-separated entry is an address. */
+        fun isValidDnsList(dns: String): Boolean =
+            dns.isBlank() || dns.split(",").all { isValidIpv4(it) }
 
         private val macRegex = Regex("^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
 
@@ -82,14 +74,12 @@ data class APConfig(
         fun validWidthForBand(band: String, width: String): String =
             if (width in widthsForBand(band)) width else "auto"
 
-        fun validChannelForBand(band: String, channel: String): String {
-            if (channel.isBlank()) return ""
-            val valid = if (band == "5") {
-                setOf("36", "40", "44", "48", "149", "153", "157", "161", "165")
-            } else {
-                (1..11).map { "$it" }.toSet()
-            }
-            return if (channel in valid) channel else ""
-        }
+        /** The channels the app offers per band; the backend follows the station anyway. */
+        fun channelsForBand(band: String): List<String> =
+            if (band == "5") listOf("36", "40", "44", "48", "149", "153", "157", "161", "165")
+            else (1..11).map { "$it" }
+
+        fun validChannelForBand(band: String, channel: String): String =
+            if (channel in channelsForBand(band)) channel else ""
     }
 }

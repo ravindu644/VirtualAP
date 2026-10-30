@@ -9,7 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import com.virtualap.app.util.Constants
 import com.virtualap.app.util.PreferencesManager
 
@@ -23,8 +22,7 @@ import com.virtualap.app.util.PreferencesManager
  */
 @Composable
 fun rememberThemeState(): ThemeState {
-    val context = LocalContext.current
-    val prefsManager = remember { PreferencesManager.getInstance(context) }
+    val prefsManager = PreferencesManager
 
     // Use mutableStateOf to hold theme state - this triggers recomposition when changed
     var followSystemTheme by remember { mutableStateOf(prefsManager.followSystemTheme) }

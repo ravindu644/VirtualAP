@@ -79,7 +79,6 @@
     <string name="maintainer_name">ravindu644</string>
     <string name="maintainer_role">Maintainer</string>
     <string name="source_code">Source Code</string>
-    <string name="ok">OK</string>
     <string name="unknown">Unknown</string>
 
     <!-- Hotspot Settings / Advanced -->
@@ -108,7 +107,7 @@
     <string name="gateway_ip_placeholder">192.168.42.1</string>
     <string name="gateway_ip_error">Enter a valid IPv4 address (e.g. 192.168.42.1)</string>
     <string name="dns_servers_label">DNS Servers</string>
-    <string name="dns_servers_desc">Custom upstream DNS servers (comma-separated). Leave blank for auto.</string>
+    <string name="dns_servers_desc">Upstream DNS servers (comma-separated). Blank means 1.1.1.1 and 8.8.8.8.</string>
     <string name="dns_servers_placeholder">e.g. 1.1.1.1, 8.8.8.8</string>
     <string name="dns_servers_error">Enter valid IPv4 addresses separated by commas</string>
 
@@ -140,5 +139,4 @@
     <string name="clients_label">Clients</string>
     <string name="upstream_managed_by">Managed by %1$s</string>
     <string name="dns_label">DNS</string>
-    <string name="dns_system">System resolvers</string>
 </resources>

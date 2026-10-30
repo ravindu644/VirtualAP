@@ -1,8 +1,6 @@
 package com.virtualap.app.ui.screen
 
-import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.BorderStroke
@@ -70,7 +68,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     // Writes go straight to prefs; the SharedPreferences listener behind
     // rememberThemeState() feeds them back into the theme, no restart needed.
-    val prefs = remember { PreferencesManager.getInstance(context) }
+    val prefs = PreferencesManager
     val themeState = rememberThemeState()
     var showAboutDialog by remember { mutableStateOf(false) }
 
@@ -167,7 +165,9 @@ fun SettingsScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                     },
-                    supportingContent = { Text(getAppVersion(context)) },
+                    supportingContent = {
+                        Text(context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty())
+                    },
                     modifier = Modifier.clickable { showAboutDialog = true }
                 )
             }
@@ -282,14 +282,5 @@ private fun LinkRow(icon: ImageVector, title: String, subtitle: String? = null, 
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
-    }
-}
-
-private fun getAppVersion(context: Context): String {
-    return try {
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        packageInfo.versionName ?: context.getString(R.string.unknown)
-    } catch (e: PackageManager.NameNotFoundException) {
-        context.getString(R.string.unknown)
     }
 }

@@ -6,7 +6,6 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
-import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.PreferencesManager
 import com.virtualap.app.util.VirtualAPInstaller
@@ -19,12 +18,11 @@ import kotlinx.coroutines.launch
  */
 class HotspotTileService : TileService() {
 
+    // A refresh that finds a change asks SystemUI to listen again, which lands
+    // back here with the new status, so there is nothing to render after it.
     override fun onStartListening() {
         render()
-        Hotspot.scope.launch {
-            Hotspot.refresh()
-            render()
-        }
+        Hotspot.scope.launch { Hotspot.refresh() }
     }
 
     override fun onClick() {
@@ -34,12 +32,11 @@ class HotspotTileService : TileService() {
             render()
             return
         }
-        val prefs = PreferencesManager.getInstance(this)
-        if (!prefs.rootAvailable || VirtualAPInstaller.payloadUpdateAvailable(this)) {
+        if (!PreferencesManager.rootAvailable || VirtualAPInstaller.payloadUpdateAvailable(this)) {
             openApp()
             return
         }
-        val cfg = APConfig.fromPrefs(prefs)
+        val cfg = PreferencesManager.apConfig
         if (!cfg.isValid()) {
             Toast.makeText(this, R.string.tile_configure_first, Toast.LENGTH_LONG).show()
             openApp()

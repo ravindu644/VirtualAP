@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                         when (current) {
                             Screen.ROOT_CHECK -> RootCheckScreen(
                                 rootStatus = appVm.rootStatus,
-                                onPollRoot = { appVm.pollRoot() }
+                                onPollRoot = { appVm.checkRoot() }
                             )
                             Screen.LOADING -> FullScreenLoading()
                             Screen.SETUP -> SetupScreen(onInstalled = { appVm.markInstalled() })
@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
                                 MainScreen(
                                     vm = apVm,
                                     onNavigateToSettings = { settings = true },
-                                    onRefresh = { appVm.recheckRoot() }
+                                    onRefresh = { appVm.checkRoot() }
                                 )
                             }
                             Screen.SETTINGS -> SettingsScreen(onBack = { settings = false })

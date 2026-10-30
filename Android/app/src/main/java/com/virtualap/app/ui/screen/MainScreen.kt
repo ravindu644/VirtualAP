@@ -30,6 +30,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.virtualap.app.R
 import com.virtualap.app.ui.component.CardContentPadding
@@ -53,19 +56,9 @@ import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.AnimationUtils
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.QrCodeGenerator
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val ipv4Regex = Regex(
-    "^(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)" +
-    "\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)" +
-    "\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)" +
-    "\\.(25[0-4]|2[0-4]\\d|[01]?\\d[1-9]|[01]?[1-9]\\d?|[1-9])$"
-)
-private fun isValidIpv4(ip: String): Boolean = ipv4Regex.matches(ip.trim())
-private fun isValidDnsServers(dns: String): Boolean {
-    if (dns.isBlank()) return true
-    return dns.split(",").all { isValidIpv4(it.trim()) }
-}
 
 private val fieldShape = RoundedCornerShape(16.dp)
 
@@ -78,6 +71,18 @@ fun MainScreen(
 ) {
     val status = vm.status
     val busy = vm.phase != Hotspot.Phase.IDLE
+
+    // The 3 s status poll lives with the screen: it stops when the app leaves
+    // the foreground, so nothing runs a root shell in the background.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(3000)
+                Hotspot.refresh()
+            }
+        }
+    }
 
     ClearFocusOnClickOutside {
         Scaffold(
@@ -331,7 +336,7 @@ private fun AccessPointCard(vm: APViewModel) {
             selected = vm.config.security,
             options = securityNames.keys.toList(),
             displayName = { securityNames[it] ?: it },
-            onSelect = { vm.selectSecurity(it) },
+            onSelect = { vm.config = vm.config.copy(security = it) },
             enabled = editable
         )
         // WPA3 (incl. the transition mode) can be rejected by older client
@@ -341,7 +346,7 @@ private fun AccessPointCard(vm: APViewModel) {
         }
 
         // Open networks have no passphrase, so the field goes away with them.
-        if (vm.passwordRequired()) {
+        if (vm.config.security != "open") {
             // WPA-PSK/SAE passphrase is 8-63 chars; flag an out-of-range value
             // once the user has started typing (blank stays neutral).
             val pwLen = vm.config.password.length
@@ -387,17 +392,12 @@ private fun AccessPointCard(vm: APViewModel) {
             enabled = editable
         )
 
-        val channelOptions = if (vm.config.band == "5") {
-            listOf("", "36", "40", "44", "48", "149", "153", "157", "161", "165")
-        } else {
-            listOf("") + (1..11).map { "$it" }
-        }
         DsDropdown(
             label = stringResource(R.string.channel_label),
             selected = vm.config.channel,
-            options = channelOptions,
+            options = listOf("") + APConfig.channelsForBand(vm.config.band),
             displayName = { it.ifEmpty { autoLabel } },
-            onSelect = { vm.selectChannel(it) },
+            onSelect = { vm.config = vm.config.copy(channel = it) },
             enabled = editable
         )
 
@@ -414,7 +414,7 @@ private fun AccessPointCard(vm: APViewModel) {
             selected = vm.config.width,
             options = APConfig.widthsForBand(vm.config.band),
             displayName = { widthNames[it] ?: it },
-            onSelect = { vm.selectWidth(it) },
+            onSelect = { vm.config = vm.config.copy(width = it) },
             enabled = editable
         )
     }
@@ -486,14 +486,14 @@ private fun AdvancedCard(vm: APViewModel) {
         // provisioned inside the container in managed mode, so it's shown in
         // both. Blank uses the default.
         var gatewayText by remember(vm.config.gateway) { mutableStateOf(vm.config.gateway) }
-        val gatewayError = gatewayText.isNotBlank() && !isValidIpv4(gatewayText)
+        val gatewayError = gatewayText.isNotBlank() && !APConfig.isValidIpv4(gatewayText)
         OutlinedTextField(
             value = gatewayText,
             onValueChange = { v ->
                 gatewayText = v
                 when {
                     v.isBlank() -> vm.config = vm.config.copy(gateway = "")
-                    isValidIpv4(v) -> vm.config = vm.config.copy(gateway = v.trim())
+                    APConfig.isValidIpv4(v) -> vm.config = vm.config.copy(gateway = v.trim())
                 }
             },
             label = { Text(stringResource(R.string.gateway_ip_label)) },
@@ -522,12 +522,12 @@ private fun AdvancedCard(vm: APViewModel) {
         // (it runs its own resolver), so hide it in managed mode.
         if (!vm.config.containerMode) {
             var dnsText by remember(vm.config.dnsServers) { mutableStateOf(vm.config.dnsServers) }
-            val dnsError = !isValidDnsServers(dnsText)
+            val dnsError = !APConfig.isValidDnsList(dnsText)
             OutlinedTextField(
                 value = dnsText,
                 onValueChange = { v ->
                     dnsText = v
-                    if (isValidDnsServers(v)) vm.config = vm.config.copy(dnsServers = v.trim())
+                    if (APConfig.isValidDnsList(v)) vm.config = vm.config.copy(dnsServers = v.trim())
                 },
                 label = { Text(stringResource(R.string.dns_servers_label)) },
                 placeholder = { Text(stringResource(R.string.dns_servers_placeholder)) },
@@ -633,7 +633,7 @@ private fun AdvancedCard(vm: APViewModel) {
                 title = stringResource(R.string.pmf_label),
                 description = stringResource(R.string.pmf_desc),
                 checked = vm.config.pmf,
-                onCheckedChange = { vm.setPmf(it) },
+                onCheckedChange = { vm.config = vm.config.copy(pmf = it) },
                 enabled = editable,
                 icon = Icons.Default.Security
             )
@@ -765,7 +765,7 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                         Icons.Default.Dns,
                         stringResource(R.string.dns_label),
                         if (bridged) status.container ?: stringResource(R.string.unknown)
-                        else status.dnsServers?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dns_system)
+                        else status.dnsServers ?: stringResource(R.string.unknown)
                     )
                 }
             )

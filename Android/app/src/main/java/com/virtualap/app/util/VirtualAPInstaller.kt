@@ -38,12 +38,13 @@ object VirtualAPInstaller {
         }
     }
 
-    /** Payload-version hash shipped in the installed APK for this arch, or null. */
-    fun bundledPayloadVersion(context: Context): String? =
-        runCatching {
-            context.assets.open("bin/${deviceArch()}/$VERSION_MARKER")
-                .bufferedReader().use { it.readText().trim() }
-        }.getOrNull().takeUnless { it.isNullOrBlank() }
+    private var bundled: String? = null
+
+    /** Payload-version hash shipped in the installed APK for this arch, or null. Read once. */
+    fun bundledPayloadVersion(context: Context): String? = bundled ?: runCatching {
+        context.assets.open("bin/${deviceArch()}/$VERSION_MARKER")
+            .bufferedReader().use { it.readText().trim() }
+    }.getOrNull().takeUnless { it.isNullOrBlank() }.also { bundled = it }
 
     /** Binary names shipped under assets/bin/<arch> (everything except the marker). */
     private fun bundledBinaries(context: Context): List<String> =
@@ -57,7 +58,7 @@ object VirtualAPInstaller {
      */
     fun payloadUpdateAvailable(context: Context): Boolean {
         val bundled = bundledPayloadVersion(context) ?: return false
-        return PreferencesManager.getInstance(context).payloadVersion != bundled
+        return PreferencesManager.payloadVersion != bundled
     }
 
     suspend fun install(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
@@ -72,10 +73,11 @@ object VirtualAPInstaller {
             // Step 1: Create directories. Scripts are NOT deployed here - they run
             // straight from the app's files dir (see Backend) so APK updates always
             // take effect. Remove stale files from the old chroot-based versions.
+            val dir = Backend.quote(Constants.VAP_DIR)
             Shell.cmd(
-                "mkdir -p ${Constants.VAP_DIR}/bin ${Constants.VAP_DIR}/logs ${Constants.VAP_DIR}/run",
-                "rm -f ${Constants.VAP_DIR}/vap.sh ${Constants.VAP_DIR}/start-ap",
-                "rm -rf ${Constants.VAP_DIR}/rootfs"
+                "mkdir -p $dir/bin $dir/logs $dir/run",
+                "rm -f $dir/vap.sh $dir/start-ap",
+                "rm -rf $dir/rootfs"
             ).exec()
 
             // Step 2: Deploy the static binaries for this device's arch.
@@ -89,7 +91,7 @@ object VirtualAPInstaller {
                 deployAsset(context, "bin/$arch/$name", "${Constants.VAP_DIR}/bin/$name", cacheDir)
                     ?.let { return@withContext Result.failure(it) }
             }
-            Shell.cmd("chmod 755 ${Constants.VAP_DIR}/bin/*").exec()
+            Shell.cmd("chmod 755 $dir/bin/*").exec()
 
             // Step 3: Verify every binary is in place and executable.
             if (!APManager.isInstalled()) return@withContext Result.failure(
@@ -98,9 +100,7 @@ object VirtualAPInstaller {
 
             // Record which payload is now deployed so future APK updates with
             // changed binaries can trigger a re-install.
-            bundledPayloadVersion(context)?.let {
-                PreferencesManager.getInstance(context).payloadVersion = it
-            }
+            bundledPayloadVersion(context)?.let { PreferencesManager.payloadVersion = it }
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -117,7 +117,8 @@ object VirtualAPInstaller {
             // Unlink first: overwriting a binary some process still executes
             // fails with ETXTBSY, but unlink+create always succeeds (the
             // running process keeps the old inode).
-            val copyResult = Shell.cmd("rm -f $destPath && cp ${tmpFile.absolutePath} $destPath 2>&1").exec()
+            val dest = Backend.quote(destPath)
+            val copyResult = Shell.cmd("rm -f $dest && cp ${Backend.quote(tmpFile.absolutePath)} $dest 2>&1").exec()
             tmpFile.delete()
             // FLAG_REDIRECT_STDERR sends stderr to .out - .err is always empty.
             if (!copyResult.isSuccess) Exception("Failed to deploy $assetPath: ${copyResult.out.joinToString("\n")}")

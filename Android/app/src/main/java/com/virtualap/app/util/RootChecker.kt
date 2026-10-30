@@ -5,32 +5,20 @@ import com.topjohnwu.superuser.ShellUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-enum class RootStatus {
-    Checking,
-    Granted,
-    Denied
-}
+enum class RootStatus { Checking, Granted, Denied }
 
 object RootChecker {
-    /**
-     * Returns Granted only if the app holds root AND a live `id` command runs.
-     * If root isn't granted yet, runs `id` once to trigger the SU manager prompt.
-     */
+    /** Granted only if the app holds root and a live `id` runs. Denied when no shell can be had at all. */
     suspend fun checkRootAccess(): RootStatus = withContext(Dispatchers.IO) {
-        return@withContext try {
-            if (Shell.isAppGrantedRoot() == true) {
-                if (ShellUtils.fastCmdResult("id")) RootStatus.Granted else RootStatus.Denied
-            } else {
-                // Not granted yet - this triggers the SU manager dialog.
-                val result = Shell.cmd("id").exec()
-                if (result.isSuccess && Shell.isAppGrantedRoot() == true) {
-                    RootStatus.Granted
-                } else {
-                    RootStatus.Denied
-                }
+        val granted = runCatching {
+            // Not granted yet: a fresh shell is what brings up the SU manager's
+            // prompt; the cached one is the non-root fallback of the last denial.
+            if (Shell.isAppGrantedRoot() != true) {
+                Shell.getCachedShell()?.close()
+                Shell.cmd("id").exec()
             }
-        } catch (e: Exception) {
-            RootStatus.Denied
-        }
+            Shell.isAppGrantedRoot() == true && ShellUtils.fastCmdResult("id")
+        }.getOrDefault(false)
+        if (granted) RootStatus.Granted else RootStatus.Denied
     }
 }

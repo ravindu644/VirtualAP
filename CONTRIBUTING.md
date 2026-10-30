@@ -272,8 +272,8 @@ conventions: 24.dp for dialog and screen horizontal padding, 16.dp for card inne
 | `Backend.startAp`, `Backend.install(context)` | `util/Backend.kt` | The script's command prefix and its extraction from the APK |
 | `APManager.getStatus/start/stop/getContainers/getInterfaces/isInstalled` | `util/APManager.kt` | Driving `start-ap`. The only class that runs it. Do not assemble these by hand |
 | `Hotspot.start(cfg)/stop()/refresh()`, `phase`, `status`, `actionLogs` | `util/Hotspot.kt` | Starting or stopping the AP from anywhere, and reading the session state. The only caller of `APManager.start/stop`; also posts the running notification and wakes the tile |
-| `APConfig.fromPrefs(prefs)`, `isValid()`, `passwordValid()`, `validChannelForBand` | `util/APConfig.kt` | The saved hotspot config and the one start validation |
-| `BackendLogger` / `ViewModelLogger(onLog)` + `classifyLine(line)` | `util/BackendLogger.kt` | The log sink the AP calls take, and the `[ERROR]`/`[WARN]` level tagging |
+| `APConfig`, `isValid()`, `isValidIpv4`, `isValidDnsList`, `channelsForBand` | `util/APConfig.kt` | The saved hotspot config, the one start validation, and the address checks the fields and it share |
+| `BackendLogger` + `classifyLine(line)` | `util/BackendLogger.kt` | The log sink the AP calls take, and the `[ERROR]`/`[WARN]` level tagging |
 
 The global libsu configuration lives in `VirtualAPApplication.kt`. That is the only place it
 should be set.
@@ -282,7 +282,7 @@ should be set.
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `PreferencesManager.getInstance(context)`, `saveApConfig(...)` | `util/PreferencesManager.kt` | All settings persistence |
+| `PreferencesManager`, `apConfig` | `util/PreferencesManager.kt` | All settings persistence; the hotspot config is read and written whole |
 | `Constants` | `util/Constants.kt` | Every path, preference key, and default. Never re-declare a literal |
 
 ### Android: device and platform
@@ -301,7 +301,7 @@ should be set.
 | Symbol | Path | Owns |
 | --- | --- | --- |
 | `AppViewModel` | `ui/viewmodel/AppViewModel.kt` | Root status and backend install state |
-| `APViewModel` | `ui/viewmodel/APViewModel.kt` | Status polling, the editable config, interface and container lists, the tailed log. Start, stop and the session state are forwarded to `Hotspot` |
+| `APViewModel` | `ui/viewmodel/APViewModel.kt` | The editable config, interface and container lists, the tailed log. Start, stop and the session state are forwarded to `Hotspot`; the 3 s status poll lives in `MainScreen`, bound to its lifecycle |
 
 ### Backend: logging and config
 

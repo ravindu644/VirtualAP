@@ -6,9 +6,7 @@ import kotlinx.coroutines.withContext
 
 data class APStatus(
     val running: Boolean = false,
-    val hostapd: String = "dead",
-    val dnsmasq: String = "dead",
-    val gateway: String = "192.168.42.1",
+    val gateway: String = APConfig.DEFAULT_GATEWAY,
     val dnsServers: String? = null,
     val clients: Int = 0,
     val ssid: String? = null,
@@ -17,7 +15,6 @@ data class APStatus(
     val width: String? = null,          // actual channel width in MHz while running
     val security: String? = null,       // open | wpa2 | wpa2wpa3 | wpa3 while running
     val upstream: String? = null,
-    val upstreamTable: String? = null,
     val started: String? = null,
     val mode: String = "routed",        // "routed" or "bridged" (container-managed)
     val container: String? = null,      // target container name when bridged
@@ -42,9 +39,7 @@ object APManager {
         }
         return APStatus(
             running = kv["running"] == "1",
-            hostapd = kv["hostapd"] ?: "dead",
-            dnsmasq = kv["dnsmasq"] ?: "dead",
-            gateway = kv["gateway"] ?: "192.168.42.1",
+            gateway = kv["gateway"] ?: APConfig.DEFAULT_GATEWAY,
             dnsServers = kv["dns_servers"],
             clients = kv["clients"]?.toIntOrNull() ?: 0,
             ssid = kv["ssid"],
@@ -53,7 +48,6 @@ object APManager {
             width = kv["width"],
             security = kv["security"],
             upstream = kv["upstream"],
-            upstreamTable = kv["upstream_table"],
             started = kv["started"],
             mode = kv["mode"] ?: "routed",
             container = kv["container"],
@@ -61,18 +55,16 @@ object APManager {
         )
     }
 
+    private fun Boolean.flag() = if (this) "1" else "0"
+
     suspend fun start(cfg: APConfig, logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
         val sq = Backend::quote
-        val hiddenVal = if (cfg.hidden) "1" else "0"
-        val pmfVal = if (cfg.pmf) "1" else "0"
-        val ttlVal = if (cfg.ttlFix) "1" else "0"
-        val ipv6Val = if (cfg.ipv6) "1" else "0"
-        val gateway = cfg.gateway.ifBlank { APConfig.DEFAULT_GATEWAY }
         // -K and -m are always passed (empty clears them) so a stale CONTAINER
-        // or GW_MAC in ap.conf never silently comes back.
+        // or GW_MAC in ap.conf never silently comes back. An empty -g is the
+        // script's default gateway.
         val container = if (cfg.containerMode) cfg.containerName else ""
         val mac = if (cfg.macMode == "random") "" else cfg.gatewayMac
-        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(gateway)} -d ${sq(cfg.dnsServers)} -H $hiddenVal -A ${sq(cfg.security)} -M $pmfVal -K ${sq(container)} -T $ttlVal -6 $ipv6Val -m ${sq(mac)}"
+        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(cfg.gateway)} -d ${sq(cfg.dnsServers)} -H ${cfg.hidden.flag()} -A ${sq(cfg.security)} -M ${cfg.pmf.flag()} -K ${sq(container)} -T ${cfg.ttlFix.flag()} -6 ${cfg.ipv6.flag()} -m ${sq(mac)}"
 
         Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
     }
@@ -84,7 +76,7 @@ object APManager {
     /** libsu delivers each output line on the main thread, so the logger's
      *  synchronous path is the right one here. */
     private fun logSink(logger: BackendLogger) = object : com.topjohnwu.superuser.CallbackList<String>() {
-        override fun onAddElement(e: String?) { e?.let { logger.logImmediate(classifyLine(it), it) } }
+        override fun onAddElement(e: String?) { e?.let { logger.log(classifyLine(it), it) } }
     }
 
 
@@ -117,7 +109,7 @@ object APManager {
         if (!result.isSuccess) return@withContext emptyList()
         result.out.mapNotNull { line ->
             val parts = line.trim().split(":", limit = 2)
-            if (parts.isEmpty() || parts[0].isBlank()) null
+            if (parts[0].isBlank()) null
             else NetworkIface(parts[0].trim(), parts.getOrNull(1)?.takeIf { it != "no-ip" })
         }
     }

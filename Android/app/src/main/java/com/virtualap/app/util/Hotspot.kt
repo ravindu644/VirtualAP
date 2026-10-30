@@ -19,8 +19,8 @@ import com.virtualap.app.MainActivity
 import com.virtualap.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -39,7 +39,7 @@ object Hotspot {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private lateinit var app: Context
-    private val logger = ViewModelLogger { level, msg -> actionLogs.add(level to msg) }
+    private val logger = BackendLogger { level, msg -> actionLogs.add(level to msg) }
     // The default status is a guess until the first refresh lands, so that
     // first result always fans out even when it happens to equal the default.
     private var synced = false
@@ -54,27 +54,25 @@ object Hotspot {
         )
     }
 
-    /** False when nothing was started (busy, or the config cannot start). */
-    fun start(cfg: APConfig): Boolean {
-        if (phase != Phase.IDLE || !cfg.isValid()) return false
+    /** The session's job, or null when nothing was started (busy, or the config cannot start). */
+    fun start(cfg: APConfig): Job? {
+        if (phase != Phase.IDLE || !cfg.isValid()) return null
         enterPhase(Phase.STARTING)
         actionLogs.clear()
-        scope.launch {
+        return scope.launch {
             if (!APManager.start(cfg, logger)) logFailure()
             settle()
         }
-        return true
     }
 
-    fun stop(): Boolean {
-        if (phase != Phase.IDLE) return false
+    fun stop(): Job? {
+        if (phase != Phase.IDLE) return null
         enterPhase(Phase.STOPPING)
         actionLogs.clear()
-        scope.launch {
+        return scope.launch {
             if (!APManager.stop(logger)) logFailure()
             settle()
         }
-        return true
     }
 
     /** Re-read status; only a real change fans out to the tile and the
@@ -90,11 +88,11 @@ object Hotspot {
         return s
     }
 
-    // The backend needs a moment after exit before status reflects the new
-    // state. Fans out unconditionally: after a stop from the notification in a
-    // fresh process the new status equals the default and would not count as a change.
+    // start-ap only returns once hostapd answered and the state file is written,
+    // and stop removes that file before it exits, so status is current at once.
+    // Fans out unconditionally: after a stop from the notification in a fresh
+    // process the new status equals the default and would not count as a change.
     private suspend fun settle() {
-        delay(500)
         synced = true
         status = APManager.getStatus()
         enterPhase(Phase.IDLE)
@@ -147,6 +145,6 @@ object Hotspot {
     /** The script's own [ERROR] lines already explain most failures; this
      *  covers the exit code with no message (killed, missing binary). */
     private fun logFailure() {
-        logger.logImmediate(Log.ERROR, app.getString(R.string.command_failed))
+        logger.log(Log.ERROR, app.getString(R.string.command_failed))
     }
 }
