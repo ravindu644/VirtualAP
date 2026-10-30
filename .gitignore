@@ -10,6 +10,5 @@ backend/armhf/*
 Android/.gradle/
 Android/build/
 Android/app/build/
-Android/app/src/main/assets/
 *.keystore
 Android/local.properties

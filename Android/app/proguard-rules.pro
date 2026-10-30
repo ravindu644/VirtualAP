@@ -1,17 +1,11 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# R8 reads these on top of proguard-android-optimize.txt. Compose, libsu and the
+# coroutines library ship their own consumer rules, so nothing here keeps them whole;
+# the Application class, the activity, the tile service and the receiver are kept by
+# the manifest.
 
-# Keep libsu classes
--keep class com.topjohnwu.superuser.** { *; }
--dontwarn com.topjohnwu.superuser.**
-
-# Keep application entry points
--keep class com.virtualap.app.** { *; }
-
-# Kotlin coroutines
--keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
--keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
--keepclassmembernames class kotlinx.** {
-    volatile <fields>;
+# Verbose logging is dead weight in a release build.
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
 }

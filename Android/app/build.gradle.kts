@@ -1,5 +1,3 @@
-import java.util.Properties
-import java.io.FileInputStream
 import java.security.MessageDigest
 
 plugins {
@@ -8,29 +6,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val keystorePropertiesFile = rootProject.file("local.properties")
-val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
-    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
-}
-
-// Read version from the VERSION file at the repository root
-fun getVAPVersion(): String {
-    val versionFile = file("../../VERSION")
-    if (!versionFile.exists()) return "1.0.0"
-    return versionFile.readText().trim().ifEmpty { "1.0.0" }
-}
-
-val vapVersionName = getVAPVersion()
-val vapVersionCodeVal = vapVersionName.split(".").let { parts ->
-    try {
-        val major = parts.getOrNull(0)?.toInt() ?: 1
-        val minor = parts.getOrNull(1)?.toInt() ?: 0
-        val patch = parts.getOrNull(2)?.toInt() ?: 0
-        major * 1000 + minor * 100 + patch * 10
-    } catch (e: Exception) {
-        1
-    }
+// One version for the app and the backend it ships: VERSION at the repository root.
+val vapVersionName = rootProject.file("../VERSION").readText().trim()
+val vapVersionCode = vapVersionName.split(".").let { parts ->
+    require(parts.size == 3 && parts.all { it.toIntOrNull() != null }) { "VERSION must be X.Y.Z, got '$vapVersionName'" }
+    parts[0].toInt() * 10000 + parts[1].toInt() * 100 + parts[2].toInt()
 }
 
 android {
@@ -41,88 +21,34 @@ android {
         applicationId = "com.virtualap.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = vapVersionCodeVal
+        versionCode = vapVersionCode
         versionName = vapVersionName
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
-        // No native libs are bundled in the APK - the AP-stack binaries ship as
-        // assets (assets/bin/<arch>/) and are deployed at runtime for the device's
-        // arch. So no abiFilters: the same APK installs on both arm64-v8a and
-        // armeabi-v7a phones.
+        // No native libs: the static binaries ship as assets and the app deploys the
+        // device's arch, so one APK installs on arm64-v8a and armeabi-v7a alike.
     }
 
     signingConfigs {
-        val keystoreFile = file("../../virtualap.keystore")
-        val keystorePassword = keystoreProperties["KEYSTORE_PASSWORD"] as String?
-            ?: project.findProperty("KEYSTORE_PASSWORD") as String?
-            ?: ""
-        val keyAliasName = keystoreProperties["KEY_ALIAS"] as String?
-            ?: project.findProperty("KEY_ALIAS") as String?
-            ?: "virtualap"
-        val actualKeyPassword = keystoreProperties["KEY_PASSWORD"] as String?
-            ?: project.findProperty("KEY_PASSWORD") as String?
-            ?: keystorePassword
-
-        if (keystoreFile.exists() && keystorePassword.isNotEmpty()) {
+        // virtualap.keystore signs debug and release alike. The passwords come
+        // from -P, gradle.properties or ~/.gradle/gradle.properties.
+        val keystoreFile = rootProject.file("../virtualap.keystore")
+        // CI passes every -P, set or not, so an empty value counts as unset.
+        fun prop(name: String) = providers.gradleProperty(name).orNull?.takeIf { it.isNotEmpty() }
+        val keystorePassword = prop("KEYSTORE_PASSWORD")
+        if (keystoreFile.exists() && keystorePassword != null) {
             getByName("debug") {
                 storeFile = keystoreFile
                 storePassword = keystorePassword
-                keyAlias = keyAliasName
-                keyPassword = actualKeyPassword
+                keyAlias = prop("KEY_ALIAS") ?: "virtualap"
+                keyPassword = prop("KEY_PASSWORD") ?: keystorePassword
                 enableV2Signing = true
                 enableV3Signing = true
-                enableV4Signing = true
             }
-            create("release") {
-                storeFile = keystoreFile
-                storePassword = keystorePassword
-                keyAlias = keyAliasName
-                keyPassword = actualKeyPassword
-                enableV2Signing = true
-                enableV3Signing = true
-                enableV4Signing = true
-            }
-        } else {
-            var fallbackKeystore = file(System.getProperty("user.home") + "/.android/debug.keystore")
-
-            if (!keystoreFile.exists() && !fallbackKeystore.exists()) {
-                println("WARNING: No keystore found. Generating temporary CI keystore...")
-                val ciKeystore = file("../../ci-debug.keystore")
-                if (!ciKeystore.exists()) {
-                    project.exec {
-                        commandLine(
-                            "keytool", "-genkeypair",
-                            "-v",
-                            "-keystore", ciKeystore.absolutePath,
-                            "-alias", "virtualap",
-                            "-keyalg", "RSA",
-                            "-keysize", "2048",
-                            "-validity", "10000",
-                            "-storetype", "PKCS12",
-                            "-storepass", "android",
-                            "-keypass", "android",
-                            "-dname", "CN=VirtualAP, OU=Mobile, O=Anonymized, L=Earth, ST=Galaxy, C=UN",
-                            "-sigalg", "SHA256withRSA"
-                        )
-                    }
-                }
-                fallbackKeystore = ciKeystore
-            }
-
-            println("Using fallback keystore: ${fallbackKeystore.absolutePath}")
-            getByName("debug") {
-                storeFile = fallbackKeystore
-                storePassword = "android"
-                keyAlias = if (fallbackKeystore.name.contains("ci-debug")) "virtualap" else "androiddebugkey"
-                keyPassword = "android"
-            }
-            create("release") {
-                initWith(getByName("debug"))
-            }
+            create("release") { initWith(getByName("debug")) }
         }
+        // No release key (a fork, a pull request): the release build type signs with
+        // the debug config below. AGP creates ~/.android/debug.keystore when that
+        // config's file is missing, as on a fresh runner, but only for the config
+        // named "debug", not for a copy of it under another name.
     }
 
     buildTypes {
@@ -133,12 +59,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            isDebuggable = false
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
         debug {
-            isMinifyEnabled = false
-            isDebuggable = true
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -146,10 +69,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -163,106 +82,69 @@ android {
     }
 }
 
-// prepareAssets: stages the backend script and the static AP-stack binaries
-// into the assets directory. Binaries are staged per-arch under
-// assets/bin/<arch>/ (aarch64, armhf), each with its own PAYLOAD_VERSION marker
-// (a hash of that arch's binaries) so the app can detect when an APK update
-// ships new binaries. The app deploys only the arch matching the device.
-tasks.register("prepareAssets") {
-    // Declared so gradle can skip the copy when nothing under backend/ changed.
-    inputs.dir(file("../../backend"))
-    outputs.dir(file("src/main/assets/bin"))
-    outputs.file(file("src/main/assets/backend/start-ap"))
-    doLast {
-        val toolsSrc = file("../../backend")
-        val assetTools = file("src/main/assets/backend")
-        val assetBin = file("src/main/assets/bin")
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
 
-        // Drop any stale chroot-era assets (rootfs tarball, vap.sh).
-        file("src/main/assets/rootfs").deleteRecursively()
-        assetTools.mkdirs()
-        assetBin.deleteRecursively(); assetBin.mkdirs()
-        File(assetTools, "vap.sh").delete()
+// The script and the static binaries, staged into a generated assets root so
+// nothing the build writes shows up as a diff. Each arch carries PAYLOAD_VERSION,
+// a hash of its binaries; the app compares it to its last deploy to know when an
+// APK update ships new ones.
+val backendDir = rootProject.file("../backend")
+val arches = listOf("aarch64", "armhf")
+val assetsDir = layout.buildDirectory.dir("generated/assets")
+android.sourceSets["main"].assets.srcDir(assetsDir)
 
-        // Copy start-ap
-        val startAp = File(toolsSrc, "start-ap")
-        require(startAp.exists()) { "prepareAssets: start-ap not found at ${startAp.absolutePath}" }
-        startAp.copyTo(File(assetTools, "start-ap"), overwrite = true)
-        println("prepareAssets: copied start-ap")
-
-        // Copy the static binaries (busybox + hostapd/hostapd_cli/iw/dnsmasq)
-        // for each supported arch. Skip dotfiles like .gitkeep - only real
-        // binaries ship.
-        val arches = listOf("aarch64", "armhf")
-        var staged = 0
+val prepareAssets = tasks.register<Sync>("prepareAssets") {
+    from(File(backendDir, "start-ap")) { into("backend") }
+    for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); exclude(".*") }
+    into(assetsDir)
+    doFirst {
+        // Builds before 2026-10-31 staged these two under src/main; a leftover tree
+        // there would be merged alongside this one.
+        file("src/main/assets/bin").deleteRecursively()
+        file("src/main/assets/backend").deleteRecursively()
+        require(File(backendDir, "start-ap").isFile) { "prepareAssets: backend/start-ap is missing" }
         for (arch in arches) {
-            val binSrc = File(toolsSrc, arch)
-            val binaries = binSrc.listFiles()
-                ?.filter { it.isFile && !it.name.startsWith(".") }
-                ?.sortedBy { it.name } ?: emptyList()
-            if (binaries.isEmpty()) {
-                println("prepareAssets: WARNING no binaries in ${binSrc.absolutePath} - skipping $arch")
-                continue
-            }
-            val archDir = File(assetBin, arch).apply { mkdirs() }
+            val bins = File(backendDir, arch).listFiles { f -> f.isFile && !f.name.startsWith(".") }.orEmpty()
+            require(bins.isNotEmpty()) { "prepareAssets: no binaries in backend/$arch, run scripts/build-static.sh first" }
+        }
+    }
+    doLast {
+        for (arch in arches) {
+            val dir = assetsDir.get().dir("bin/$arch").asFile
             val digest = MessageDigest.getInstance("SHA-256")
-            for (bin in binaries) {
-                bin.copyTo(File(archDir, bin.name), overwrite = true)
+            for (bin in dir.listFiles()!!.sortedBy { it.name }) {
                 digest.update(bin.name.toByteArray())
                 digest.update(bin.readBytes())
-                println("prepareAssets: copied $arch/${bin.name}")
             }
-            // Marker = hash of every binary, so it changes iff the binaries change.
-            val marker = digest.digest().joinToString("") { "%02x".format(it) }
-            File(archDir, "PAYLOAD_VERSION").writeText(marker)
-            println("prepareAssets: $arch payload version $marker")
-            staged++
-        }
-        require(staged > 0) {
-            "prepareAssets: no binaries staged for any arch under ${toolsSrc.absolutePath}. " +
-                "Run scripts/build-static.sh first."
+            File(dir, "PAYLOAD_VERSION").writeText(digest.digest().joinToString("") { "%02x".format(it) })
         }
     }
 }
-
-tasks.configureEach {
-    if (name.startsWith("pre") && name.endsWith("Build")) {
-        dependsOn("prepareAssets")
-    }
-}
+tasks.named("preBuild") { dependsOn(prepareAssets) }
 
 dependencies {
-    // Compose BOM
     // 2026.06.01 is the last BOM on the Compose 1.11 line; 1.12 wants compileSdk 37 and AGP 9.
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     // material3 1.4.0 stable stripped every Expressive API (LoadingIndicator, MaterialShapes).
     // 1.5.0-alpha18 is the last alpha built against Compose 1.11; alpha20 onward needs 1.12.
     implementation("androidx.compose.material3:material3:1.5.0-alpha18")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
 
-    // ViewModel
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-
-    // Root execution - libsu
+    // Root execution
     implementation("com.github.topjohnwu.libsu:core:5.2.1")
-
-    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
     // QR encoding (Wi-Fi join code)
     implementation("com.google.zxing:core:3.5.3")
-
-    // Debug
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

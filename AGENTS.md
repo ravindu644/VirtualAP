@@ -14,8 +14,8 @@ VirtualAP turns a rooted phone into a Wi-Fi access point. Two halves:
   into `backend/aarch64/` and `backend/armhf/`, which are gitignored.
 - `Android/` is the Compose app that drives that script over a root shell.
 
-The `prepareAssets` gradle task stages the script and both arch trees into
-`Android/app/src/main/assets/` at build time, and the app deploys the matching arch to
+The `prepareAssets` gradle task stages the script and both arch trees into a generated
+assets root under `Android/app/build/` at build time, and the app deploys the matching arch to
 `/data/local/virtualap` on first run and after every APK update. There is no C backend, no
 chroot and no Magisk module.
 
