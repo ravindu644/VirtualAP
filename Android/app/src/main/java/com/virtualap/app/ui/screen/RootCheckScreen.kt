@@ -1,15 +1,11 @@
 package com.virtualap.app.ui.screen
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.virtualap.app.R
@@ -20,40 +16,43 @@ import com.virtualap.app.ui.component.SetupPage
 import com.virtualap.app.util.RootStatus
 
 /**
- * The root gate. Checking shows the loader; Denied shows why root is needed, and
- * its button asks the SU manager again. A denial leaves libsu holding a non-root
- * shell, so nothing short of that button can see a later grant. Granted is never
- * drawn: the activity moves on as soon as it lands.
+ * The root gate. Unknown asks, with the button that brings up the SU manager;
+ * Checking shows the loader; Denied says so, and its button asks the manager
+ * again. A denial leaves libsu holding a non-root shell, so nothing short of
+ * that button can see a later grant. Granted is never drawn: the activity moves
+ * on as soon as it lands.
  */
 @Composable
 fun RootCheckScreen(rootStatus: RootStatus, onCheck: () -> Unit) {
+    val checking = rootStatus == RootStatus.Checking
     val denied = rootStatus == RootStatus.Denied
     val scheme = MaterialTheme.colorScheme
-    val motion = MaterialTheme.motionScheme
 
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            // The title already says a check is running, so the button fades out
-            // for the duration. It keeps its space so the hero stays put.
-            val barAlpha by animateFloatAsState(if (denied) 1f else 0f, motion.fastEffectsSpec(), label = "root_bar")
             SetupActionBar(
-                label = stringResource(R.string.check_root_again),
+                label = stringResource(if (denied) R.string.check_root_again else R.string.grant_root),
                 icon = Icons.Default.Security,
                 onClick = onCheck,
-                modifier = Modifier.alpha(barAlpha),
-                enabled = denied
+                visible = !checking
             )
         }
     ) { innerPadding ->
         SetupPage(innerPadding = innerPadding) {
             SetupFrame(
-                title = stringResource(if (denied) R.string.root_denied else R.string.checking_root),
-                body = stringResource(R.string.root_check_body)
+                title = stringResource(
+                    when {
+                        checking -> R.string.checking_root
+                        denied -> R.string.root_denied
+                        else -> R.string.root_access_title
+                    }
+                ),
+                body = stringResource(if (denied) R.string.root_check_body else R.string.root_access_body)
             ) {
                 SetupHero(
-                    loading = !denied,
-                    glyph = Icons.Default.Close,
+                    loading = checking,
+                    glyph = if (denied) Icons.Default.Close else Icons.Default.Security,
                     container = if (denied) scheme.errorContainer else scheme.primaryContainer,
                     onContainer = if (denied) scheme.onErrorContainer else scheme.onPrimaryContainer
                 )

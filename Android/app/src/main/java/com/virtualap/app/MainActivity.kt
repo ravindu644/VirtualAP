@@ -26,6 +26,7 @@ import com.virtualap.app.ui.screen.MainScreen
 import com.virtualap.app.ui.screen.RootCheckScreen
 import com.virtualap.app.ui.screen.SettingsScreen
 import com.virtualap.app.ui.screen.SetupScreen
+import com.virtualap.app.ui.screen.WelcomeScreen
 import com.virtualap.app.ui.theme.VirtualAPTheme
 import com.virtualap.app.ui.theme.rememberThemeState
 import com.virtualap.app.ui.util.FullScreenLoading
@@ -35,7 +36,7 @@ import com.virtualap.app.ui.viewmodel.InstallStatus
 import com.virtualap.app.util.AnimationUtils
 import com.virtualap.app.util.RootStatus
 
-private enum class Screen { ROOT_CHECK, LOADING, SETUP, MAIN, SETTINGS }
+private enum class Screen { WELCOME, ROOT_CHECK, LOADING, SETUP, MAIN, SETTINGS }
 
 class MainActivity : ComponentActivity() {
     private val askNotifications =
@@ -72,6 +73,7 @@ class MainActivity : ComponentActivity() {
                     // from wherever they are.
                     var settings by rememberSaveable { mutableStateOf(false) }
                     val screen = when {
+                        !appVm.welcomeDone -> Screen.WELCOME
                         appVm.rootStatus != RootStatus.Granted -> Screen.ROOT_CHECK
                         appVm.installStatus == InstallStatus.Checking -> Screen.LOADING
                         appVm.installStatus == InstallStatus.NotInstalled -> Screen.SETUP
@@ -81,7 +83,7 @@ class MainActivity : ComponentActivity() {
                     BackHandler(enabled = screen == Screen.SETTINGS) { settings = false }
                     // Pulled off Settings by the gate: come back to Main, not Settings.
                     LaunchedEffect(screen) {
-                        if (screen == Screen.ROOT_CHECK || screen == Screen.SETUP) settings = false
+                        if (screen != Screen.MAIN && screen != Screen.SETTINGS) settings = false
                     }
 
                     val fade = AnimationUtils.mediumSpec<Float>()
@@ -91,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         label = "screen"
                     ) { current ->
                         when (current) {
+                            Screen.WELCOME -> WelcomeScreen(onDone = { appVm.finishWelcome() })
                             Screen.ROOT_CHECK -> RootCheckScreen(
                                 rootStatus = appVm.rootStatus,
                                 onCheck = { appVm.checkRoot(loud = true) }

@@ -229,14 +229,18 @@ use `MaterialTheme.motionScheme`, which the theme sets to `MotionScheme.expressi
 
 ### The setup flow
 
-The root check and the backend installer share one geometry, which lives in
-`ui/component/SetupHero.kt`. `SetupPage` is the slot under the Scaffold, which centres its
-content or scrolls when the window is too short. `SetupFrame` is the frame: a 240dp hero box,
-then the title and the copy in a fixed text block. `SetupHero` is the hero of a screen that does work, a 240dp
-`MaterialShapes.Cookie12Sided` in `primaryContainer` or `errorContainer` holding the loader or a
-96dp glyph, and only its colour and content change between states. `SetupActionBar` is the one
-button. Build a new setup screen out of these and the hero, the title and the button land on
-the same rows as the other two.
+The welcome pager, the root check and the backend installer share one geometry, which lives
+in `ui/component/SetupHero.kt`. `SetupPage` is the skeleton under the Scaffold: a 40dp row
+above (the page counter on the welcome pager, empty elsewhere), the frame slot, which centres
+its content or scrolls when the window is too short, and a 44dp row below (the page dots).
+Every screen keeps both rows so the frame and the button never move between screens.
+`SetupFrame` is the frame: a 240dp hero box, then the title and the copy in a fixed text
+block. `SetupHero` is the hero of a screen that does work, a 240dp
+`MaterialShapes.Cookie12Sided` in `primaryContainer` or `errorContainer` holding the loader or
+a 96dp glyph, and only its colour and content change between states. The welcome pager's hero
+is its own `Shape` instead, a soft burst that settles into a cookie, a clover and a sun as the
+pages slide over it. `SetupActionBar` is the one button. Build a new setup screen out of these
+and the hero, the title and the button land on the same rows as the others.
 
 ## When the rule does not fit
 

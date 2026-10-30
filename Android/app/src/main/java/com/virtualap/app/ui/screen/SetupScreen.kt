@@ -1,7 +1,6 @@
 package com.virtualap.app.ui.screen
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -15,8 +14,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -40,22 +37,17 @@ fun SetupScreen(onInstalled: () -> Unit) {
     val failed = result?.isFailure == true
     val done = result != null
     val scheme = MaterialTheme.colorScheme
-    val motion = MaterialTheme.motionScheme
 
     BackHandler(enabled = true) { if (result?.isSuccess == true) onInstalled() }
 
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            // The button keeps its space while the install runs so the frame never
-            // moves; it only fades in once there is something to do.
-            val barAlpha by animateFloatAsState(if (done) 1f else 0f, motion.fastEffectsSpec(), label = "setup_bar")
             SetupActionBar(
                 label = stringResource(if (failed) R.string.retry else R.string.done),
                 icon = if (failed) Icons.Default.Refresh else Icons.Default.Check,
                 onClick = { if (failed) attempt++ else onInstalled() },
-                modifier = Modifier.alpha(barAlpha),
-                enabled = done
+                visible = done
             )
         }
     ) { innerPadding ->

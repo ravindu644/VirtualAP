@@ -4,6 +4,18 @@
     <string name="root_check_body">VirtualAP needs root access to create virtual network interfaces and manage the AP.</string>
     <string name="root_denied">Root access denied</string>
     <string name="setup_title">Setting Up VirtualAP</string>
+
+    <!-- Welcome pager -->
+    <string name="welcome_body">A real access point on your phone\'s Wi-Fi chip, run by hostapd and dnsmasq. The same software a Linux router runs, on the phone\'s own kernel.</string>
+    <string name="get_started">Get started</string>
+    <string name="next">Next</string>
+    <string name="page_counter">%1$d of %2$d</string>
+    <string name="feat_upstream_title">Share any connection</string>
+    <string name="feat_upstream_desc">Mobile data, Wi-Fi or a VPN. Your devices leave through the upstream you pick, or follow whatever network the phone is using.</string>
+    <string name="feat_openwrt_title">OpenWrt as the router</string>
+    <string name="feat_openwrt_desc">Hand the hotspot to an OpenWrt container in Droidspaces. Firewall zones, port forwards, per-device limits and LuCI, all on the phone.</string>
+    <string name="feat_radio_title">Tune the radio</string>
+    <string name="feat_radio_desc">2.4 or 5 GHz, channel and width, WPA2 or WPA3, a hidden name and a fixed gateway, so saved addresses keep working.</string>
     <string name="done">Done</string>
     <string name="retry">Retry</string>
     <string name="copy_logs">Copy Logs</string>
@@ -68,6 +80,9 @@
 
     <!-- Root Check Screen -->
     <string name="checking_root">Checking root access…</string>
+    <string name="root_access_title">Root access</string>
+    <string name="root_access_body">VirtualAP needs root to create the virtual interface and run the access point. Your root manager will ask you to allow it.</string>
+    <string name="grant_root">Grant root access</string>
     <string name="check_root_again">Check again</string>
     <string name="auto_label">Auto</string>
 

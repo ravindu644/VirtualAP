@@ -19,7 +19,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager
     private val returning = prefs.hasSeenRootCheck && prefs.rootAvailable
 
-    var rootStatus by mutableStateOf(if (returning) RootStatus.Granted else RootStatus.Checking)
+    var rootStatus by mutableStateOf(if (returning) RootStatus.Granted else RootStatus.Unknown)
+        private set
+
+    var welcomeDone by mutableStateOf(prefs.hasSeenWelcome)
         private set
 
     // Seeded from what the last run recorded, so a returning user lands on the
@@ -35,8 +38,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         // A returning user is rechecked quietly, so a revoked root routes to the
-        // gate without a prompt; a first launch shows the gate and asks.
-        checkRoot(loud = !returning)
+        // gate without a prompt. Nothing runs su under the welcome pager: a first
+        // launch waits for the gate's button, an upgrade for finishWelcome().
+        if (returning && welcomeDone) checkRoot()
+    }
+
+    fun finishWelcome() {
+        prefs.hasSeenWelcome = true
+        welcomeDone = true
+        if (returning) checkRoot()
     }
 
     /**

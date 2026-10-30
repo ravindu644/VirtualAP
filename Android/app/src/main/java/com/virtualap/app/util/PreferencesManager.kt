@@ -21,6 +21,10 @@ object PreferencesManager {
         get() = bool(Constants.KEY_ROOT_AVAILABLE, false)
         set(value) = prefs.edit { putBoolean(Constants.KEY_ROOT_AVAILABLE, value) }
 
+    var hasSeenWelcome: Boolean
+        get() = bool(Constants.KEY_HAS_SEEN_WELCOME, false)
+        set(value) = prefs.edit { putBoolean(Constants.KEY_HAS_SEEN_WELCOME, value) }
+
     var hasSeenRootCheck: Boolean
         get() = bool(Constants.KEY_HAS_SEEN_ROOT_CHECK, false)
         set(value) = prefs.edit { putBoolean(Constants.KEY_HAS_SEEN_ROOT_CHECK, value) }

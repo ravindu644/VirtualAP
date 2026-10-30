@@ -2,6 +2,7 @@ package com.virtualap.app.ui.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -30,39 +31,59 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.ui.util.LoadingIndicator
 import com.virtualap.app.ui.util.LoadingSize
 
-/* One geometry for the root check and the installer, so the hero, the title and the copy
- * land on the same rows on both. The text block is a fixed box so the frame has one height
- * whatever the copy does. */
-private val HeroSize = 240.dp
-private val GlyphSize = 96.dp
+/* One geometry for every setup screen, so the hero, the title and the copy land on the
+ * same rows from the welcome pager through the installer. The text block is a fixed box so
+ * the frame has one height whatever the copy does. */
+val SetupHeroSize = 240.dp
+val SetupGlyphSize = 96.dp
 private val TextBlockHeight = 200.dp
+val SetupFrameHeight = SetupHeroSize + 32.dp + TextBlockHeight
 
-/** The slot under a setup screen's Scaffold: centres [content] when it fits, scrolls when not. */
+/**
+ * The skeleton of a setup screen inside its Scaffold: a 40dp row [above] the frame slot
+ * (the page counter on the welcome pager, empty elsewhere), the slot itself, which centres
+ * its [content] when it fits and scrolls when it does not, and a 44dp row [below] (the
+ * page dots). Every screen keeps both rows so the frame and the button never move between
+ * screens.
+ */
 @Composable
-fun SetupPage(innerPadding: PaddingValues, content: @Composable BoxScope.() -> Unit) {
-    BoxWithConstraints(
+fun SetupPage(
+    innerPadding: PaddingValues,
+    above: @Composable BoxScope.() -> Unit = {},
+    below: @Composable BoxScope.() -> Unit = {},
+    content: @Composable BoxScope.() -> Unit
+) {
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = maxHeight)
-                .verticalScroll(rememberScrollState()),
-            contentAlignment = Alignment.Center,
-            content = content
-        )
+        Box(modifier = Modifier.height(40.dp), contentAlignment = Alignment.Center, content = above)
+        Spacer(modifier = Modifier.height(16.dp))
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = maxHeight)
+                    .verticalScroll(rememberScrollState()),
+                contentAlignment = Alignment.Center,
+                content = content
+            )
+        }
+        Box(modifier = Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center, content = below)
     }
 }
 
@@ -76,13 +97,14 @@ fun SetupFrame(
     title: String,
     body: String,
     bodyColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    titleStyle: TextStyle = MaterialTheme.typography.headlineMedium,
     hero: @Composable BoxScope.() -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().height(HeroSize + 32.dp + TextBlockHeight),
+        modifier = Modifier.fillMaxWidth().height(SetupFrameHeight),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(modifier = Modifier.size(HeroSize), contentAlignment = Alignment.Center, content = hero)
+        Box(modifier = Modifier.size(SetupHeroSize), contentAlignment = Alignment.Center, content = hero)
         Spacer(modifier = Modifier.height(32.dp))
         val motion = MaterialTheme.motionScheme
         AnimatedContent(
@@ -102,7 +124,7 @@ fun SetupFrame(
             ) {
                 Text(
                     text = currentTitle,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = titleStyle,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
@@ -137,7 +159,7 @@ fun SetupHero(
     val tint by animateColorAsState(container, motion.fastEffectsSpec(), label = "hero_tint")
     Box(
         modifier = Modifier
-            .size(HeroSize)
+            .size(SetupHeroSize)
             .clip(MaterialShapes.Cookie12Sided.toShape())
             .background(tint),
         contentAlignment = Alignment.Center
@@ -152,14 +174,14 @@ fun SetupHero(
             contentAlignment = Alignment.Center,
             label = "setup_hero"
         ) { icon ->
-            Box(modifier = Modifier.size(HeroSize), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(SetupHeroSize), contentAlignment = Alignment.Center) {
                 if (icon == null) {
                     LoadingIndicator(size = LoadingSize.Hero, color = onContainer)
                 } else {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        modifier = Modifier.size(GlyphSize),
+                        modifier = Modifier.size(SetupGlyphSize),
                         tint = onContainer
                     )
                 }
@@ -171,24 +193,25 @@ fun SetupHero(
 /**
  * The setup flow's one button. DESIGN.md's 20dp bar button with a divider is for screens
  * with content scrolling under it; here the button sits alone on the background under a
- * hero, so it is a full pill with no bar surface. Disabled keeps the enabled colours: a
- * setup button is only disabled for the beat a check or install is in flight, and greying
- * it reads as a flicker. A decided exception, listed in DESIGN.md.
+ * hero, so it is a full pill with no bar surface. While work runs it is not [visible]: it
+ * fades out but keeps its space, so the hero stays put, and disabled keeps the enabled
+ * colours, since greying it for that beat reads as a flicker. A decided exception, listed
+ * in DESIGN.md.
  */
 @Composable
 fun SetupActionBar(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    visible: Boolean = true
 ) {
+    val alpha by animateFloatAsState(if (visible) 1f else 0f, MaterialTheme.motionScheme.fastEffectsSpec(), label = "setup_bar")
     PrimaryActionBottomBar(
         label = label,
         icon = icon,
         onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
+        modifier = Modifier.alpha(alpha),
+        enabled = visible,
         disabledContainerColor = MaterialTheme.colorScheme.primary,
         disabledContentColor = MaterialTheme.colorScheme.onPrimary,
         barColor = Color.Transparent,

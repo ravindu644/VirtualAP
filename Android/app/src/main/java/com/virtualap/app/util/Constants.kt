@@ -26,6 +26,7 @@ object Constants {
     const val KEY_AP_CONTAINER = "ap_container"
     const val KEY_AP_MAC_MODE = "ap_mac_mode"
     const val KEY_AP_GATEWAY_MAC = "ap_gateway_mac"
+    const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
     const val KEY_HAS_SEEN_ROOT_CHECK = "has_seen_root_check"
     const val KEY_PAYLOAD_VERSION = "payload_version"
 }

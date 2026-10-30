@@ -5,7 +5,8 @@ import com.topjohnwu.superuser.ShellUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-enum class RootStatus { Checking, Granted, Denied }
+/** Unknown is a first launch before the gate's button was pressed. */
+enum class RootStatus { Unknown, Checking, Granted, Denied }
 
 object RootChecker {
     /**

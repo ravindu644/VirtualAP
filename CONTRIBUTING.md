@@ -85,8 +85,8 @@ Bars, setup, feedback:
   `ui/component/PrimaryActionBottomBar.kt`: the Start and Stop bar. The overload taking a
   `content` slot is for a button that swaps its contents.
 - `SetupPage`, `SetupFrame`, `SetupHero`, `SetupActionBar` in `ui/component/SetupHero.kt`:
-  every screen of the setup flow, the root check and the installer. See DESIGN.md, "The
-  setup flow".
+  every screen of the setup flow, the welcome pager, the root check and the installer. See
+  DESIGN.md, "The setup flow".
 - `PullToRefreshWrapper(onRefresh) { }` in `ui/component/PullToRefreshWrapper.kt`: any pull to
   refresh screen body.
 - `ToggleCard` in `ui/component/ToggleCard.kt`: a switch row in its own card, the main
@@ -119,7 +119,8 @@ Theme:
 Navigation:
 
 - `Screen` and the `when` over it in `MainActivity.kt`: the one place a top-level screen is
-  chosen, root and install state first, then the Settings flag. A new screen goes there.
+  chosen, the welcome flag first, then root and install state, then the Settings flag. A new
+  screen goes there.
 
 Shell, root and the backend:
 
@@ -145,7 +146,7 @@ Shell, root and the backend:
   `util/QrCodeGenerator.kt`, the only zxing caller.
 - `HotspotTileService` and `HotspotStopReceiver`: the Quick Settings toggle and the
   notification's Stop action. Both hold no state of their own.
-- `AppViewModel` owns root status and install state; `APViewModel` owns the editable config,
+- `AppViewModel` owns the welcome flag, root status and install state; `APViewModel` owns the editable config,
   the interface and container lists and the tailed log, and forwards start and stop to
   `Hotspot`. The 3 s status poll lives in `MainScreen`, bound to its lifecycle.
 - The global libsu configuration lives in `VirtualAPApplication.kt`, and only there.
