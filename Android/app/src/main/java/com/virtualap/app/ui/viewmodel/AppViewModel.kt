@@ -40,14 +40,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Root first, then the payload. [loud] shows the Checking state first (the
-     * first launch); the quiet form (the gate's poll, pull to refresh, the
-     * returning-user recheck) only moves the screen when an answer changed.
+     * Root first, then the payload. [loud] shows the Checking state and asks the
+     * SU manager again (the first launch, the gate's button); the quiet form (pull
+     * to refresh, the returning-user recheck) only moves the screen when an answer
+     * changed.
      */
     fun checkRoot(loud: Boolean = false) {
         viewModelScope.launch {
             if (loud) rootStatus = RootStatus.Checking
-            val status = RootChecker.checkRootAccess()
+            val status = RootChecker.checkRootAccess(reprompt = loud)
             prefs.rootAvailable = status == RootStatus.Granted
             prefs.hasSeenRootCheck = true
             rootStatus = status

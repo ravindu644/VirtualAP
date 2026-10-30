@@ -1,7 +1,6 @@
 package com.virtualap.app.ui.theme
 
 import android.content.SharedPreferences
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,16 +27,7 @@ fun rememberThemeState(): ThemeState {
     var followSystemTheme by remember { mutableStateOf(prefsManager.followSystemTheme) }
     var darkTheme by remember { mutableStateOf(prefsManager.darkTheme) }
     var amoledMode by remember { mutableStateOf(prefsManager.amoledMode) }
-    var useDynamicColor by remember {
-        mutableStateOf(
-            // Only allow dynamic color on Android 12+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                prefsManager.useDynamicColor
-            } else {
-                false
-            }
-        )
-    }
+    var useDynamicColor by remember { mutableStateOf(prefsManager.useDynamicColor) }
     var themePalette by remember {
         mutableStateOf(ThemePalette.fromName(prefsManager.themePalette))
     }
@@ -50,17 +40,8 @@ fun rememberThemeState(): ThemeState {
                 Constants.KEY_FOLLOW_SYSTEM_THEME -> followSystemTheme = prefsManager.followSystemTheme
                 Constants.KEY_DARK_THEME -> darkTheme = prefsManager.darkTheme
                 Constants.KEY_AMOLED_MODE -> amoledMode = prefsManager.amoledMode
-                Constants.KEY_USE_DYNAMIC_COLOR -> {
-                    // Only allow dynamic color on Android 12+
-                    useDynamicColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        prefsManager.useDynamicColor
-                    } else {
-                        false
-                    }
-                }
-                Constants.KEY_THEME_PALETTE -> {
-                    themePalette = ThemePalette.fromName(prefsManager.themePalette)
-                }
+                Constants.KEY_USE_DYNAMIC_COLOR -> useDynamicColor = prefsManager.useDynamicColor
+                Constants.KEY_THEME_PALETTE -> themePalette = ThemePalette.fromName(prefsManager.themePalette)
             }
         }
 

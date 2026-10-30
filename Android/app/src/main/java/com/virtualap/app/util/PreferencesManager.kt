@@ -2,6 +2,7 @@ package com.virtualap.app.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.core.content.edit
 
 /** The app's SharedPreferences. [init] runs once from the Application, before anything reads it. */
@@ -41,8 +42,9 @@ object PreferencesManager {
         get() = bool(Constants.KEY_AMOLED_MODE, false)
         set(value) = prefs.edit { putBoolean(Constants.KEY_AMOLED_MODE, value) }
 
+    /** Material You needs Android 12; below it this reads false whatever is stored. */
     var useDynamicColor: Boolean
-        get() = bool(Constants.KEY_USE_DYNAMIC_COLOR, true)
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && bool(Constants.KEY_USE_DYNAMIC_COLOR, true)
         set(value) = prefs.edit { putBoolean(Constants.KEY_USE_DYNAMIC_COLOR, value) }
 
     var themePalette: String

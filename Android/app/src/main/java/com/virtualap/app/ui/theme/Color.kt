@@ -5,8 +5,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-val AMOLED_BLACK = Color(0xFF000000)
-
 /**
  * Pre-defined accent color palettes for the app, mimicking Android's
  * "Wallpaper & style" palette picker.
@@ -37,12 +35,6 @@ enum class ThemePalette(
     BROCCOLI(
         displayName = "Broccoli",
         swatch = listOf(Color(0xFF35C278), Color(0xFF7AB98E), Color(0xFF2EBAD8)),
-        primaryLight = Color(0xFF2D6A45),   // Green
-        secondaryLight = Color(0xFF4F6354), // Grey Green
-        tertiaryLight = Color(0xFF3B6470),  // Teal
-        primaryDark = Color(0xFF95D5A8),    // Light Green
-        secondaryDark = Color(0xFFB6CCB9),  // Pale Grey Green
-        tertiaryDark = Color(0xFFA3CDDA),   // Light Teal
         fixedLight = lightColorScheme(
             primary = Color(0xFF2D6A45), onPrimary = Color(0xFFFFFFFF),
             primaryContainer = Color(0xFFB0F1C2), onPrimaryContainer = Color(0xFF00210F),
@@ -85,12 +77,6 @@ enum class ThemePalette(
     SAND(
         displayName = "Sand",
         swatch = listOf(Color(0xFFEA9A00), Color(0xFFD7A157), Color(0xFF8BB85D)),
-        primaryLight = Color(0xFF805611),   // Gold
-        secondaryLight = Color(0xFF705B40), // Tan
-        tertiaryLight = Color(0xFF52643F),  // Sage
-        primaryDark = Color(0xFFF5BC6F),    // Light Gold
-        secondaryDark = Color(0xFFDEC2A1),  // Light Tan
-        tertiaryDark = Color(0xFFB9CDA0),   // Light Sage
         fixedLight = lightColorScheme(
             primary = Color(0xFF805611), onPrimary = Color(0xFFFFFFFF),
             primaryContainer = Color(0xFFFFDDB4), onPrimaryContainer = Color(0xFF291800),
@@ -133,12 +119,6 @@ enum class ThemePalette(
     ONE_UI(
         displayName = "One UI",
         swatch = listOf(Color(0xFF86A9FF), Color(0xFF96AAE4), Color(0xFFDB92DD)),
-        primaryLight = Color(0xFF2A4174),   // Navy
-        secondaryLight = Color(0xFF3C4255), // Slate
-        tertiaryLight = Color(0xFF553A55),  // Plum
-        primaryDark = Color(0xFFB7CAFF),    // Periwinkle
-        secondaryDark = Color(0xFFC4CAE1),  // Light Slate
-        tertiaryDark = Color(0xFFE4BFE2),   // Light Plum
         fixedLight = lightColorScheme(
             primary = Color(0xFF2A4174), onPrimary = Color(0xFFFFFFFF),
             primaryContainer = Color(0xFF5E73A9), onPrimaryContainer = Color(0xFFFFFFFF),
@@ -183,12 +163,6 @@ enum class ThemePalette(
     FEDORA(
         displayName = "Fedora",
         swatch = listOf(Color(0xFF75ADFF), Color(0xFF8CACE2), Color(0xFFD594E4)),
-        primaryLight = Color(0xFF005CAE),   // Blue
-        secondaryLight = Color(0xFF485F84), // Steel Blue
-        tertiaryLight = Color(0xFF863C9C),  // Purple
-        primaryDark = Color(0xFFA7C8FF),    // Light Blue
-        secondaryDark = Color(0xFFAFC8F2),  // Light Steel Blue
-        tertiaryDark = Color(0xFFF0B0FF),   // Light Purple
         fixedLight = lightColorScheme(
             primary = Color(0xFF005CAE), onPrimary = Color(0xFFFFFFFF),
             primaryContainer = Color(0xFF1C75D4), onPrimaryContainer = Color(0xFFFEFCFF),
@@ -280,6 +254,14 @@ enum class ThemePalette(
         secondaryDark = Color(0xFFF8BBD0),  // Pale Pink
         tertiaryDark = Color(0xFFB39DDB)    // Light Violet
     );
+
+    /** A palette read off a real Material You scheme: its accents are the scheme's own. */
+    constructor(displayName: String, swatch: List<Color>, fixedLight: ColorScheme, fixedDark: ColorScheme) : this(
+        displayName,
+        fixedLight.primary, fixedLight.secondary, fixedLight.tertiary,
+        fixedDark.primary, fixedDark.secondary, fixedDark.tertiary,
+        fixedLight, fixedDark, swatch
+    )
 
     companion object {
         fun fromName(name: String): ThemePalette =

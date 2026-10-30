@@ -36,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
-import com.virtualap.app.util.AnsiColorParser
 
 /**
  * The Clear / Copy row that sits above a log console. Clear only appears when
@@ -81,9 +80,8 @@ fun LogActionRow(
     }
 }
 
-/** Copies the log lines as plain text, ANSI escapes stripped. */
-fun copyLogsToClipboard(context: Context, logs: List<Pair<Int, String>>) {
-    val text = logs.joinToString("\n") { AnsiColorParser.stripAnsi(it.second) }
+private fun copyLogsToClipboard(context: Context, logs: List<Pair<Int, String>>) {
+    val text = logs.joinToString("\n") { it.second }
     val clipboard = context.getSystemService(ClipboardManager::class.java)
     clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.terminal_logs), text))
     Toast.makeText(context, R.string.logs_copied, Toast.LENGTH_SHORT).show()

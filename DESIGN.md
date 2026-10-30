@@ -12,8 +12,8 @@ The backend is a shell script with no UI, so none of this applies to `backend/`.
 
 **Components come first, values second.** The Reuse Inventory in
 [CONTRIBUTING.md](./CONTRIBUTING.md) lists what already exists. Go there first. A card is
-`SettingsCard`, a dialog footer is `DialogFooterRow`, a status chip is `StatusPill`, a setup
-screen is `SetupFrame` with a `SetupHero`. If one of those fits, use it and stop reading here.
+`ToggleCard`, a status chip is `StatusPill`, a setup screen is `SetupFrame` with a
+`SetupHero`. If one of those fits, use it and stop reading here.
 
 This file is for the case where you have checked and nothing shared covers what you need. Then
 you build it out of the values below, so the new thing looks like it belongs.
@@ -92,16 +92,14 @@ A tinted button takes its fill from the matching container role at alpha `0.4f`,
 `primaryContainer.copy(alpha = 0.4f)` for start and `errorContainer.copy(alpha = 0.4f)` for stop,
 with a 1dp border of the accent at `0.2f`.
 
-The terminal console's ANSI palette is the one documented exception. `AnsiColorParser` in
-`util/AnsiColorParser.kt` maps the sixteen ANSI codes to fixed hues, because a `[WARN]` line
-has to be the yellow the backend meant under every palette and under AMOLED. Take a log
-colour from that table, never from a literal, and never use it for anything that is not
-terminal output.
+The console colours a `[WARN]` line `tertiary` and an `[ERROR]` line `error`, from the level
+`classifyLine` reads off the tag; the backend emits plain text, no escape codes.
 
 ## Typography
 
-The scale lives in `ui/theme/Type.kt` and all fifteen slots are configured. Use the named styles;
-there is no `fontSize` override anywhere in the app.
+The scale is Material 3's own, `Typography()` in `ui/theme/Type.kt`. Use the named styles and
+pass the weight at the site: a title is `titleLarge` with `FontWeight.Bold`, a card heading
+`titleMedium` SemiBold. There is no `fontSize` override anywhere in the app.
 
 UI text is `FontFamily.Default`. Anything the machine produced, a log line, a config value, a
 path, is JetBrains Mono, imported from `ui/theme/Type.kt`. Do not declare a local font
@@ -203,60 +201,22 @@ upstream's terminal dialog.
 
 ## Dialogs
 
-Every dialog is `DsDialog`, and it owns the layout, not just the frame:
-
-```
-Surface(fillMaxWidth, padding 24, heightIn(max = screen - 48))   bounded by LocalConfiguration
-  Column(padding 24, spacedBy 16)
-    Column(weight(1f, fill = false), scrolls)   the body: shrinks, scrolls
-    footer()                                    natural height, measured first
-```
-
-The bound comes from `LocalConfiguration`, not the window, so a dialog open through a rotation
-measures against the live configuration.
-
-**Actions go in the `footer` slot, never in the content.** That is the whole point of the
-component. A `Column` measures its unweighted children in order against the space that is left,
-so actions placed below a scrolling body get measured with whatever remains: fine in portrait,
-a sliver or nothing in landscape. The footer is unweighted and declared second, so it is
-measured first and always gets its full height.
-
-Callers therefore do not set a width, their own padding, or their own scroll, and never pass
-`wrapContentHeight()`, the shell already wraps. What is genuinely per-dialog rides on the
-`modifier`: `imePadding()` for a text field, and for a dialog that should stay modest, a cap on
-the whole dialog, `heightIn(max = ...)` or a `fillMaxHeight` fraction, never on an inner list.
-A shell-level cap is safe because a squeezed body scrolls instead of eating the footer.
-Destructive dialogs pass `borderColor` to outline in `error`. A body built on a `LazyColumn`
-passes `scrollableContent = false` and weights the list, `fill = false` if the dialog should
-wrap when the list is short, because a lazy list cannot live inside a scrolling parent.
+Every dialog is `DsDialog`, and it owns the layout, not just the frame: a full-width `Surface`
+inside the 24dp gutters, bounded to the screen height minus them, and a 24dp padded column
+whose body scrolls. The bound comes from `LocalConfiguration`, not the window, so a dialog open
+through a rotation measures against the live configuration. Callers do not set a width, their
+own padding, or their own scroll, and never pass `wrapContentHeight()`; what is per-dialog rides
+on the `modifier`, `imePadding()` for a text field or a `heightIn(max = ...)` cap.
 
 The title is `titleLarge` Bold, left aligned, and is the first thing in the content.
 
 ## Dialog actions
 
-Every dialog with a choice ends with `DialogFooterRow`. It is two equal-weight buttons, a
-quiet tonal dismiss and a filled confirm:
-
-| | Value |
-| --- | --- |
-| Row | `fillMaxWidth`, `spacedBy(12.dp)` |
-| Both buttons | `weight(1f).height(48.dp)` |
-| Radius | 16 |
-| Dismiss | fill `onSurface @ 0.06f`, border `1.dp outlineVariant @ 0.35f`, label `onSurfaceVariant` |
-| Confirm | fill `primary`, label `onPrimary`, no border |
-| Confirm, destructive | fill `error`, label `onError`, via `destructive = true` |
-| Confirm, disabled | fill `onSurface @ 0.12f`, label `onSurface @ 0.38f` |
-
-Equal weight and a fixed height are the point: the two buttons are always the same size, and
-neither one changes because of the other's label.
-
-**Labels are one line and ellipsize.** If a label wraps, the label is too long. Shorten the
-string, do not grow the button. "Allow" and "Not now" beat "Grant Permission" and "I Understand"
-on a control that is half a dialog wide.
-
-A dialog with a single action uses the dismiss button on its own, full width. That is the
-only dialog this app has today (About), so `DialogFooterRow` has no call site yet; the pair is
-what the first confirm dialog uses.
+The one dialog today, About, closes from its header with `DialogCloseButton`. The first dialog
+with a choice copies `DialogFooterRow` back from Droidspaces: two equal-weight 48dp buttons at
+radius 16, a quiet tonal dismiss and a filled confirm, `error` for a destructive one, one-line
+labels that ellipsize. It goes in a `footer` slot on `DsDialog`, measured before the scrolling
+body so landscape cannot squeeze it; the slot comes back with it.
 
 ## Icons and touch targets
 
@@ -313,9 +273,6 @@ will "fix" it. A documented one is a decision, and it survives.
 Looked at, deliberately left alone. Do not re-open these without a reason the original one
 misses.
 
-- **The ANSI palette** (`util/AnsiColorParser.kt`, 32 literals, sixteen foreground and sixteen
-  background) stays literal. They are the colours the backend's escape codes name, and log
-  output must not follow the palette picker.
 - **The QR plate is `Color.White`** in the Wi-Fi QR sheet, and `QrCodeGenerator.encode` draws
   black modules on white. A scanner needs the contrast the spec assumes; a themed plate under a
   dark palette reads as a broken code.
@@ -333,6 +290,6 @@ misses.
   under a hero rather than over scrolling content. Its disabled colours stay equal to its enabled
   colours: it is disabled only while a check or an install is in flight, and greying it out for
   that moment reads as a flicker.
-- **Faint fill alphas of 0.03 and 0.06** in `DialogFooterRow` and `LogActionRow` stay unshared.
-  They are invisible in isolation, and snapping them together would mean inventing a token
-  for something nobody can see.
+- **Faint fill alphas of 0.03 and 0.06** in `LogActionRow` stay unshared. They are invisible
+  in isolation, and snapping them together would mean inventing a token for something nobody
+  can see.

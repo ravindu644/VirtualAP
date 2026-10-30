@@ -8,13 +8,16 @@ import kotlinx.coroutines.withContext
 enum class RootStatus { Checking, Granted, Denied }
 
 object RootChecker {
-    /** Granted only if the app holds root and a live `id` runs. Denied when no shell can be had at all. */
-    suspend fun checkRootAccess(): RootStatus = withContext(Dispatchers.IO) {
+    /**
+     * Granted only if the app holds root and a live `id` runs; Denied when no shell
+     * can be had at all. After a denial libsu keeps a non-root shell, so only a
+     * [reprompt] (the gate's button, the first launch) opens a fresh one, which is
+     * what brings the SU manager's prompt back; the quiet checks reuse the cached one.
+     */
+    suspend fun checkRootAccess(reprompt: Boolean = false): RootStatus = withContext(Dispatchers.IO) {
         val granted = runCatching {
-            // Not granted yet: a fresh shell is what brings up the SU manager's
-            // prompt; the cached one is the non-root fallback of the last denial.
             if (Shell.isAppGrantedRoot() != true) {
-                Shell.getCachedShell()?.close()
+                if (reprompt) Shell.getCachedShell()?.close()
                 Shell.cmd("id").exec()
             }
             Shell.isAppGrantedRoot() == true && ShellUtils.fastCmdResult("id")

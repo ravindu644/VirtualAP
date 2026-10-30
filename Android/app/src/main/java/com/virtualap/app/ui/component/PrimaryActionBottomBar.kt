@@ -35,9 +35,8 @@ import androidx.compose.ui.unit.dp
  * Surface -> Column -> HorizontalDivider -> clickable Surface -> Box -> Row block
  * that was copy-pasted across the wizard/detail screens.
  *
- * The varying bits are parameters so each screen keeps its exact look:
- * [enabled] toggles the disabled colors, and [containerColor]/[disabledContainerColor]
- * let a screen keep the button a constant color regardless of [enabled].
+ * [enabled] toggles the disabled colours; the setup flow passes its own disabled
+ * pair so its button keeps one colour through a check.
  */
 @Composable
 fun PrimaryActionBottomBar(
@@ -46,18 +45,16 @@ fun PrimaryActionBottomBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary,
     disabledContainerColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
     disabledContentColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
     barColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     dividerAlpha: Float = 0.25f,
     shape: Shape = RoundedCornerShape(20.dp),
 ) {
-    val fg = if (enabled) contentColor else disabledContentColor
+    val fg = if (enabled) MaterialTheme.colorScheme.onPrimary else disabledContentColor
     PrimaryActionBottomBar(
         onClick = onClick,
-        containerColor = if (enabled) containerColor else disabledContainerColor,
+        containerColor = if (enabled) MaterialTheme.colorScheme.primary else disabledContainerColor,
         modifier = modifier,
         enabled = enabled,
         barColor = barColor,

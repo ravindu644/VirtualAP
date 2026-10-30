@@ -139,7 +139,7 @@ fun SettingsScreen(
                         onCheckedChange = { prefs.useDynamicColor = it }
                     )
                 }
-                if (!themeState.useDynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                if (!themeState.useDynamicColor) {
                     GroupDivider()
                     AccentColorPicker(
                         selectedPalette = themeState.themePalette,

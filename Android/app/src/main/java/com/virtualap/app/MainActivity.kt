@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                         when (current) {
                             Screen.ROOT_CHECK -> RootCheckScreen(
                                 rootStatus = appVm.rootStatus,
-                                onPollRoot = { appVm.checkRoot() }
+                                onCheck = { appVm.checkRoot(loud = true) }
                             )
                             Screen.LOADING -> FullScreenLoading()
                             Screen.SETUP -> SetupScreen(onInstalled = { appVm.markInstalled() })

@@ -69,11 +69,23 @@ fun <T> DsDropdown(
                 .focusProperties { canFocus = expanded }
                 .fillMaxWidth()
         )
-        DsMenuTheme {
+        // Menus render on a translucent tinted surface by default, which turns muddy
+        // over a card: this forces an opaque one a step above the background.
+        val menuColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        }
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                surface = menuColor, surfaceContainer = menuColor, surfaceTint = Color.Transparent
+            ),
+            shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(20.dp))
+        ) {
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.dsMenuBorder()
+                modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(

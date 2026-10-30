@@ -41,8 +41,7 @@ fun ColorPaletteSwatch(
     selected: Boolean,
     isDarkTheme: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    swatchSize: Float = 52f
+    modifier: Modifier = Modifier
 ) {
     val (primary, secondary, tertiary) = palette.swatch
         ?: if (isDarkTheme) listOf(palette.primaryDark, palette.secondaryDark, palette.tertiaryDark)
@@ -62,11 +61,11 @@ fun ColorPaletteSwatch(
 
     Canvas(
         modifier = modifier
-            .size(swatchSize.dp)
+            .size(52.dp)
             .semantics { contentDescription = palette.displayName }
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(bounded = false, radius = (swatchSize / 2 + 4).dp),
+                indication = ripple(bounded = false, radius = 30.dp),
                 onClick = onClick
             )
     ) {

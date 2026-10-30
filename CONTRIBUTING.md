@@ -196,19 +196,16 @@ caller appears, copy the upstream file rather than writing a new one.
 | Symbol | Path | Use it when |
 | --- | --- | --- |
 | `DsDropdown(label, selected, options, displayName, onSelect, ...)` | `ui/component/DsDropdown.kt` | Any select field. Never hand-roll `ExposedDropdownMenuBox` |
-| `DsMenuTheme { }` + `Modifier.dsMenuBorder()` | `ui/component/DsMenuTheme.kt` | Any `DropdownMenu` that needs the opaque menu surface. `DsDropdown` already applies it |
-| `DsTextFieldDefaults.colors()` / `.surfaceColors()` | `ui/component/DsTextFieldDefaults.kt` | Every `OutlinedTextField`. `colors()` on screens, `surfaceColors()` inside dialogs |
-| `FocusUtils`, `rememberClearFocus()`, `ClearFocusOnClickOutside` | `ui/util/FocusUtils.kt` | IME actions and dismissing the keyboard on outside taps |
+| `DsTextFieldDefaults.colors()` | `ui/component/DsTextFieldDefaults.kt` | Every `OutlinedTextField` |
+| `ClearFocusOnClickOutside` | `ui/util/FocusUtils.kt` | Dismissing the keyboard on outside taps; the main screen's root |
 
 ### Android: dialogs
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `DsDialog(onDismiss, modifier, borderColor, scrollableContent, footer) { }` | `ui/component/DsDialog.kt` | Every dialog. Actions go in `footer`, never in the content, or they get squeezed off a short screen. Never set a width, padding or scroll |
-| `DialogDismissButton(label, onDismiss)` | `ui/component/DialogFooterRow.kt` | The `footer` of a dialog whose only action is close |
+| `DsDialog(onDismiss, modifier) { }` | `ui/component/DsDialog.kt` | Every dialog. Never set a width, padding or scroll |
 | `DialogCloseButton(onClick, enabled)` | `ui/component/DialogCloseButton.kt` | The 36.dp close square in a header row, for content that closes from the top (the logs sheet) |
-| `DialogFooterRow(dismissLabel, confirmLabel, onDismiss, onConfirm, confirmEnabled, destructive)` | `ui/component/DialogFooterRow.kt` | Every dialog's cancel and confirm row. Pass `destructive = true` for a delete or a wipe, never a colour |
-| `LogActionRow(logs, isBlocking, onClear)` + `copyLogsToClipboard(context, logs)` | `ui/component/LogActionRow.kt` | The Clear and Copy row above a log console. `onClear = null` gives Copy alone |
+| `LogActionRow(logs, isBlocking, onClear)` | `ui/component/LogActionRow.kt` | The Clear and Copy row above a log console. `onClear = null` gives Copy alone |
 
 The Wi-Fi QR sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, and the About
 dialog to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
@@ -225,15 +222,14 @@ dialog to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `SettingsCard(title, onClick, icon, subtitleContent, trailing, ...)` | `ui/component/SettingsCard.kt` | The base for every settings or option row. Build new variants on top of it |
-| `ToggleCard` | `ui/component/ToggleCard.kt` | A switch row inside a card. A thin wrapper over `SettingsCard` |
-| `SwitchItem` | `ui/component/SwitchItem.kt` | Flat switch row inside a grouped Surface, used on the Settings screen. See the duplicates note below |
+| `ToggleCard` | `ui/component/ToggleCard.kt` | A switch row in its own card, the main screen's options |
+| `SwitchItem` | `ui/component/SwitchItem.kt` | The flat switch row inside a grouped Surface, the Settings screen |
 
 ### Android: status and indicators
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `StatusPill(label, color, busy)` | `ui/component/StatusPill.kt` | Any small status chip or badge |
+| `StatusPill(label, color)` | `ui/component/StatusPill.kt` | Any small status chip or badge |
 | `SectionHeader(text)` | `ui/component/SectionHeader.kt` | Any heading above a group of cards. Spacing goes on the modifier |
 | `CardContentPadding`, `CardHeaderHeight` | `ui/component/CardMetrics.kt` | Any card with a title-and-pill header. Keeps the dividers aligned between cards, do not retype the values |
 | `LoadingIndicator(size, color)` + `LoadingSize` | `ui/util/LoadingIndicator.kt` | Inline spinners. Pick a `LoadingSize`, never a raw `.size(n.dp)` |
@@ -294,7 +290,6 @@ should be set.
 | `QrCodeGenerator.wifiPayload/encode` | `util/QrCodeGenerator.kt` | The Wi-Fi join code. The only zxing caller |
 | `HotspotTileService` | `HotspotTileService.kt` | The Quick Settings toggle. Optimistic state like AOSP's HotspotTile; holds no state of its own |
 | `HotspotStopReceiver` | `HotspotStopReceiver.kt` | The notification's Stop action |
-| `AnsiColorParser.parseAnsi/stripAnsi` | `util/AnsiColorParser.kt` | Rendering or cleaning ANSI output |
 
 ### Android: ViewModels
 
@@ -330,16 +325,6 @@ should be set.
 | `ds_run`, `ds_list`, `ds_container_pid`, `ds_is_openwrt`, `provision_openwrt`, `config_network_bridged`, `start_services_bridged`, `teardown_bridged` | Managed mode |
 | `pid_alive`, `kill_pidfile`, `del_ap_iface`, `del_bridge`, `del_rules`, `state`, `retry`, `wpa_block`, `follow_sta` | The pieces setup and teardown share: pid files, interface and policy-rule deletes, state-file keys, retries past a fresh link's EPERM, the WPA lines, the STA's channel |
 | `cmd_start/stop/status/interfaces/containers/caps` | Subcommands. The app calls all six |
-
-## Known duplicates: do not add a third copy
-
-These exist today. They are on the cleanup list. Extend the shared version, do not add
-another.
-
-- `ToggleCard` and `SwitchItem` are two shapes of the same switch row.
-- `VirtualAPInstaller` interpolates constant paths into shell strings without quoting
-  (`chmod 755 ${Constants.VAP_DIR}/bin/*`, the `rm -f` and `cp` line). They are constants, not
-  input, but do not copy the pattern; use `Backend.quote()`.
 
 ## Adding something new
 

@@ -1,6 +1,5 @@
 package com.virtualap.app.ui.theme
 
-import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -126,41 +125,26 @@ private fun lightColorSchemeFor(palette: ThemePalette): ColorScheme {
     )
 }
 
-/**
- * AMOLED collapses every surface to true black, so the accent has to carry the
- * hierarchy on its own. Containers are blended down hard to stay readable on it.
- */
-private fun amoledSchemeFrom(dynamicScheme: ColorScheme): ColorScheme =
-    dynamicScheme.copy(
-        background = AMOLED_BLACK,
-        surface = AMOLED_BLACK,
-        surfaceVariant = AMOLED_BLACK,
-        surfaceContainer = AMOLED_BLACK,
-        surfaceContainerLow = AMOLED_BLACK,
-        surfaceContainerLowest = AMOLED_BLACK,
-        surfaceContainerHigh = AMOLED_BLACK,
-        surfaceContainerHighest = AMOLED_BLACK,
-        primaryContainer = dynamicScheme.primaryContainer.blend(AMOLED_BLACK, 0.7f),
-        secondaryContainer = dynamicScheme.secondaryContainer.blend(AMOLED_BLACK, 0.7f),
-        tertiaryContainer = dynamicScheme.tertiaryContainer.blend(AMOLED_BLACK, 0.7f)
-    )
+/** AMOLED collapses every surface to true black, so the accent has to carry the hierarchy on its own. */
+private fun ColorScheme.onBlack(): ColorScheme = copy(
+    background = Color.Black, surface = Color.Black, surfaceVariant = Color.Black,
+    surfaceContainer = Color.Black, surfaceContainerLow = Color.Black, surfaceContainerLowest = Color.Black,
+    surfaceContainerHigh = Color.Black, surfaceContainerHighest = Color.Black
+)
 
-/**
- * Same idea for the fixed palettes, but the surfaces keep a trace of the selected
- * accent so the palette is still recognisable against the black.
- */
+/** Dynamic colours on black: the containers are blended down hard to stay readable. */
+private fun amoledSchemeFrom(dynamic: ColorScheme): ColorScheme = dynamic.onBlack().copy(
+    primaryContainer = dynamic.primaryContainer.blend(Color.Black, 0.7f),
+    secondaryContainer = dynamic.secondaryContainer.blend(Color.Black, 0.7f),
+    tertiaryContainer = dynamic.tertiaryContainer.blend(Color.Black, 0.7f)
+)
+
+/** A fixed palette on black keeps a trace of its accent, so it is still recognisable. */
 private fun staticAmoledSchemeFor(palette: ThemePalette): ColorScheme {
-    val p = palette.primaryDark
-    return darkColorSchemeFor(palette).copy(
-        background = AMOLED_BLACK,
-        surface = AMOLED_BLACK,
-        surfaceVariant = AMOLED_BLACK,
-        surfaceContainer = AMOLED_BLACK,
-        surfaceContainerLow = AMOLED_BLACK,
-        surfaceContainerLowest = AMOLED_BLACK,
-        surfaceContainerHigh = AMOLED_BLACK,
-        surfaceContainerHighest = AMOLED_BLACK,
-        outlineVariant = p.copy(alpha = 0.25f), // Keep subtle outline for hierarchy
+    val dark = darkColorSchemeFor(palette)
+    val p = dark.primary
+    return dark.onBlack().copy(
+        outlineVariant = p.copy(alpha = 0.25f),
         primaryContainer = p.copy(alpha = 0.2f),
         onPrimaryContainer = p.blend(Color.White, 0.85f)
     )
@@ -169,39 +153,39 @@ private fun staticAmoledSchemeFor(palette: ThemePalette): ColorScheme {
 @Composable
 fun VirtualAPTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     amoledMode: Boolean = false,
-    themePalette: ThemePalette = ThemePalette.CATPPUCCIN,
+    themePalette: ThemePalette = ThemePalette.BROCCOLI,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
+    // The preference is already gated on Android 12; this is the call that would crash.
+    val dynamic = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val amoled = amoledMode && darkTheme
 
-    // Memoize color scheme computation to avoid recalculation on every recomposition
-    // This eliminates color processing from the main thread during draw cycles
-    val colorScheme = remember(darkTheme, dynamicColor, amoledMode, themePalette, context) {
+    val colorScheme = remember(darkTheme, dynamic, amoled, themePalette, context) {
         when {
-        amoledMode && darkTheme && dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                // Pre-computed AMOLED scheme with dynamic colors - zero runtime cost
-            val dynamicScheme = dynamicDarkColorScheme(context)
-                amoledSchemeFrom(dynamicScheme)
-        }
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                // Memoized dynamic color scheme - computed once per theme change
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        amoledMode && darkTheme -> {
-                // Pre-computed static AMOLED scheme using selected palette
-                staticAmoledSchemeFor(themePalette)
-        }
-        darkTheme -> darkColorSchemeFor(themePalette)
-        else -> lightColorSchemeFor(themePalette)
+            dynamic && amoled -> amoledSchemeFrom(dynamicDarkColorScheme(context))
+            dynamic && darkTheme -> dynamicDarkColorScheme(context)
+            dynamic -> dynamicLightColorScheme(context)
+            amoled -> staticAmoledSchemeFor(themePalette)
+            darkTheme -> darkColorSchemeFor(themePalette)
+            else -> lightColorSchemeFor(themePalette)
         }
     }
 
-    SystemBarStyle(
-        darkMode = darkTheme
-    )
+    // Transparent bars, icons matching the theme. The navigation bar is dark() or
+    // light() rather than auto(): auto() hands the OS a MODE_NIGHT_AUTO style, and on
+    // API 29+ that turns the navigation-bar contrast scrim back on, a grey band over
+    // the app's own bar on three-button phones.
+    val activity = context as? ComponentActivity
+    SideEffect {
+        val transparent = Color.Transparent.toArgb()
+        activity?.enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(transparent, transparent) { darkTheme },
+            navigationBarStyle = if (darkTheme) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent),
+        )
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,
@@ -209,33 +193,4 @@ fun VirtualAPTheme(
         typography = Typography,
         content = content
     )
-}
-
-@Composable
-private fun SystemBarStyle(
-    darkMode: Boolean,
-    statusBarScrim: Color = Color.Transparent,
-    navigationBarScrim: Color = Color.Transparent,
-) {
-    val context = LocalContext.current
-    val activity = context as? ComponentActivity
-
-    SideEffect {
-        activity?.enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(
-                statusBarScrim.toArgb(),
-                statusBarScrim.toArgb(),
-            ) { darkMode },
-            navigationBarStyle = when {
-                darkMode -> SystemBarStyle.dark(
-                    navigationBarScrim.toArgb()
-                )
-
-                else -> SystemBarStyle.light(
-                    navigationBarScrim.toArgb(),
-                    navigationBarScrim.toArgb(),
-                )
-            }
-        )
-    }
 }

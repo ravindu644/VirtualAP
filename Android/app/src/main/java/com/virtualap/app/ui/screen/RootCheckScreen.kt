@@ -7,7 +7,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -19,22 +18,16 @@ import com.virtualap.app.ui.component.SetupFrame
 import com.virtualap.app.ui.component.SetupHero
 import com.virtualap.app.ui.component.SetupPage
 import com.virtualap.app.util.RootStatus
-import kotlinx.coroutines.delay
 
 /**
- * The root gate. Checking shows the loader; Denied shows why root is needed and
- * polls so the screen advances itself once the user grants it in their root
- * manager. Granted is never drawn: the activity moves on as soon as it lands.
+ * The root gate. Checking shows the loader; Denied shows why root is needed, and
+ * its button asks the SU manager again. A denial leaves libsu holding a non-root
+ * shell, so nothing short of that button can see a later grant. Granted is never
+ * drawn: the activity moves on as soon as it lands.
  */
 @Composable
-fun RootCheckScreen(rootStatus: RootStatus, onPollRoot: () -> Unit) {
+fun RootCheckScreen(rootStatus: RootStatus, onCheck: () -> Unit) {
     val denied = rootStatus == RootStatus.Denied
-    LaunchedEffect(denied) {
-        while (denied) {
-            delay(2500)
-            onPollRoot()
-        }
-    }
     val scheme = MaterialTheme.colorScheme
     val motion = MaterialTheme.motionScheme
 
@@ -47,7 +40,7 @@ fun RootCheckScreen(rootStatus: RootStatus, onPollRoot: () -> Unit) {
             SetupActionBar(
                 label = stringResource(R.string.check_root_again),
                 icon = Icons.Default.Security,
-                onClick = onPollRoot,
+                onClick = onCheck,
                 modifier = Modifier.alpha(barAlpha),
                 enabled = denied
             )
