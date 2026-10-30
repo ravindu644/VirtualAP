@@ -60,23 +60,18 @@ object VirtualAPInstaller {
         return PreferencesManager.getInstance(context).payloadVersion != bundled
     }
 
-    suspend fun install(
-        context: Context,
-        logger: BackendLogger
-    ): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun install(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val cacheDir = context.cacheDir
 
             // Step 0: A re-install (backend update) must not race a live backend.
             // Overwriting a binary some process still executes fails with
             // ETXTBSY, so stop the AP first (deployAsset also unlinks first).
-            logger.i("Stopping any running AP...")
             Shell.cmd("${Backend.startAp} stop").exec()
 
             // Step 1: Create directories. Scripts are NOT deployed here - they run
             // straight from the app's files dir (see Backend) so APK updates always
             // take effect. Remove stale files from the old chroot-based versions.
-            logger.i("Creating directories...")
             Shell.cmd(
                 "mkdir -p ${Constants.VAP_DIR}/bin ${Constants.VAP_DIR}/logs ${Constants.VAP_DIR}/run",
                 "rm -f ${Constants.VAP_DIR}/vap.sh ${Constants.VAP_DIR}/start-ap",
@@ -90,19 +85,14 @@ object VirtualAPInstaller {
                 return@withContext Result.failure(
                     Exception("No binaries found in assets/bin/$arch/. Run scripts/build-static.sh and rebuild the APK.")
                 )
-            logger.i("Installing $arch binaries...")
             for (name in binaries) {
-                logger.i("Installing $name...")
                 deployAsset(context, "bin/$arch/$name", "${Constants.VAP_DIR}/bin/$name", cacheDir)
                     ?.let { return@withContext Result.failure(it) }
             }
             Shell.cmd("chmod 755 ${Constants.VAP_DIR}/bin/*").exec()
 
             // Step 3: Verify every binary is in place and executable.
-            logger.i("Verifying installation...")
-            val verify = binaries.joinToString(" && ") { "test -x ${Constants.VAP_DIR}/bin/$it" }
-            val ok = Shell.cmd("$verify && echo ok").exec().out.any { it.contains("ok") }
-            if (!ok) return@withContext Result.failure(
+            if (!APManager.isInstalled()) return@withContext Result.failure(
                 Exception("Verification failed: a binary is missing or not executable after install")
             )
 
@@ -112,10 +102,8 @@ object VirtualAPInstaller {
                 PreferencesManager.getInstance(context).payloadVersion = it
             }
 
-            logger.i("Installation complete!")
             Result.success(Unit)
         } catch (e: Exception) {
-            logger.e("Installation failed: ${e.message}")
             Result.failure(e)
         }
     }

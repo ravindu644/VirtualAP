@@ -12,8 +12,8 @@ The backend is a shell script with no UI, so none of this applies to `backend/`.
 
 **Components come first, values second.** The Reuse Inventory in
 [CONTRIBUTING.md](./CONTRIBUTING.md) lists what already exists. Go there first. A card is
-`SettingsCard`, a dialog footer is `DialogFooterRow`, a status chip is `StatusPill`, an empty
-list is `EmptyState`. If one of those fits, use it and stop reading here.
+`SettingsCard`, a dialog footer is `DialogFooterRow`, a status chip is `StatusPill`, a setup
+screen is `SetupFrame` with a `SetupHero`. If one of those fits, use it and stop reading here.
 
 This file is for the case where you have checked and nothing shared covers what you need. Then
 you build it out of the values below, so the new thing looks like it belongs.
@@ -100,9 +100,8 @@ terminal output.
 
 ## Typography
 
-The scale lives in `ui/theme/Type.kt` and all fifteen slots are configured. Use the named styles.
-There is one `fontSize` override in the whole app, the `labelFontSize` parameter on
-`PrimaryActionBottomBar` that nothing here passes, and it is not a good example.
+The scale lives in `ui/theme/Type.kt` and all fifteen slots are configured. Use the named styles;
+there is no `fontSize` override anywhere in the app.
 
 UI text is `FontFamily.Default`. Anything the machine produced, a log line, a config value, a
 path, is JetBrains Mono, imported from `ui/theme/Type.kt`. Do not declare a local font
@@ -267,7 +266,7 @@ what the first confirm dialog uses.
 | Toolbar action, icon inside a button | 18 |
 | Inline with `bodySmall` text | 16 |
 | Dialog header | 24 |
-| Empty state hero | 64 |
+| Setup hero glyph | 96, inside the 240 hero |
 | Status dot | 6 |
 
 Anything tappable is at least **48dp**. That is an accessibility floor, not a style preference,
@@ -286,8 +285,20 @@ is centred inside a card, it is probably wrong.
 ## Motion and loading
 
 Spinners come from `LoadingIndicator` with a `LoadingSize`, never a raw `.size(n.dp)` on a
-progress indicator. Whole screen loading is `FullScreenLoading`. Animation timings come from
-`AnimationUtils`.
+progress indicator. Whole screen loading is `FullScreenLoading`; `LoadingSize.Hero` (144) is
+the one setup-flow hero loader. Animation timings come from `AnimationUtils`; hero state changes
+use `MaterialTheme.motionScheme`, which the theme sets to `MotionScheme.expressive()`.
+
+### The setup flow
+
+The root check and the backend installer share one geometry, which lives in
+`ui/component/SetupHero.kt`. `SetupPage` is the slot under the Scaffold, which centres its
+content or scrolls when the window is too short. `SetupFrame` is the frame: a 240dp hero box,
+then the title and the copy in a fixed text block. `SetupHero` is the hero of a screen that does work, a 240dp
+`MaterialShapes.Cookie12Sided` in `primaryContainer` or `errorContainer` holding the loader or a
+96dp glyph, and only its colour and content change between states. `SetupActionBar` is the one
+button. Build a new setup screen out of these and the hero, the title and the button land on
+the same rows as the other two.
 
 ## When the rule does not fit
 
@@ -317,6 +328,11 @@ misses.
   belongs at the bottom edge, and the logs sheet blocks gesture dismissal while a command is
   running so the sheet cannot leave a touch-eating scrim behind. Their shell is
   `surfaceContainer` with 24dp top corners, matching the shape table.
+- **The setup flow's button** (`SetupActionBar` in `ui/component/SetupHero.kt`) is a full pill
+  with no bar surface and no divider, not the 20dp bar button. It sits alone on the background
+  under a hero rather than over scrolling content. Its disabled colours stay equal to its enabled
+  colours: it is disabled only while a check or an install is in flight, and greying it out for
+  that moment reads as a flicker.
 - **Faint fill alphas of 0.03 and 0.06** in `DialogFooterRow` and `LogActionRow` stay unshared.
   They are invisible in isolation, and snapping them together would mean inventing a token
   for something nobody can see.

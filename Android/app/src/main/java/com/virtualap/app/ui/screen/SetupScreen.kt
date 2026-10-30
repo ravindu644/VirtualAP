@@ -1,121 +1,87 @@
 package com.virtualap.app.ui.screen
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
-import com.virtualap.app.ui.component.LogActionRow
-import com.virtualap.app.ui.component.PrimaryActionBottomBar
-import com.virtualap.app.ui.component.TerminalConsole
-import com.virtualap.app.util.ViewModelLogger
+import com.virtualap.app.ui.component.SetupActionBar
+import com.virtualap.app.ui.component.SetupFrame
+import com.virtualap.app.ui.component.SetupHero
+import com.virtualap.app.ui.component.SetupPage
 import com.virtualap.app.util.VirtualAPInstaller
 
-private enum class SetupState { INSTALLING, SUCCESS, ERROR }
-
-@OptIn(ExperimentalMaterial3Api::class)
+/** Deploys the binaries on first run and after an APK update. Left only through its button. */
 @Composable
-fun SetupScreen(
-    onInstalled: () -> Unit
-) {
+fun SetupScreen(onInstalled: () -> Unit) {
     val context = LocalContext.current
-    var setupState by remember { mutableStateOf(SetupState.INSTALLING) }
-    val logs = remember { mutableStateListOf<Pair<Int, String>>() }
-    val logger = remember { ViewModelLogger { level, msg -> logs.add(level to msg) } }
-    var retryKey by remember { mutableIntStateOf(0) }
-
-    // Back is a no-op while installing and after a failure; Done handles success.
-    BackHandler(enabled = true) {
-        if (setupState == SetupState.SUCCESS) onInstalled()
+    var result by remember { mutableStateOf<Result<Unit>?>(null) }
+    var attempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(attempt) {
+        result = null
+        result = VirtualAPInstaller.install(context)
     }
+    val failed = result?.isFailure == true
+    val done = result != null
+    val scheme = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
 
-    // retryKey increments on each retry to re-trigger this effect.
-    LaunchedEffect(retryKey) {
-        logs.clear()
-        logger.i("Starting VirtualAP installation...")
-        val result = VirtualAPInstaller.install(context, logger)
-        // Surface the failure reason in the terminal: the installer's own log
-        // lines do not cover every failure path (deployAsset errors are only
-        // in the Result).
-        result.exceptionOrNull()?.let { logger.e("[ERROR] ${it.message}") }
-        setupState = if (result.isSuccess) SetupState.SUCCESS else SetupState.ERROR
-    }
+    BackHandler(enabled = true) { if (result?.isSuccess == true) onInstalled() }
 
     Scaffold(
         containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = when (setupState) {
-                            SetupState.INSTALLING -> stringResource(R.string.setup_title)
-                            SetupState.SUCCESS -> stringResource(R.string.installation_complete)
-                            SetupState.ERROR -> stringResource(R.string.installation_failed)
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    if (setupState == SetupState.SUCCESS) {
-                        IconButton(onClick = onInstalled) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                        }
-                    }
-                }
-            )
-        },
         bottomBar = {
-            when (setupState) {
-                SetupState.SUCCESS -> PrimaryActionBottomBar(
-                    label = stringResource(R.string.done),
-                    icon = Icons.Default.CheckCircle,
-                    onClick = onInstalled
-                )
-                SetupState.ERROR -> PrimaryActionBottomBar(
-                    label = stringResource(R.string.retry),
-                    icon = Icons.Default.Refresh,
-                    onClick = {
-                        setupState = SetupState.INSTALLING
-                        retryKey++
-                    },
-                    secondaryAction = { LogActionRow(logs = logs, isBlocking = false, onClear = null) }
-                )
-                SetupState.INSTALLING -> Unit
-            }
+            // The button keeps its space while the install runs so the frame never
+            // moves; it only fades in once there is something to do.
+            val barAlpha by animateFloatAsState(if (done) 1f else 0f, motion.fastEffectsSpec(), label = "setup_bar")
+            SetupActionBar(
+                label = stringResource(if (failed) R.string.retry else R.string.done),
+                icon = if (failed) Icons.Default.Refresh else Icons.Default.Check,
+                onClick = { if (failed) attempt++ else onInstalled() },
+                modifier = Modifier.alpha(barAlpha),
+                enabled = done
+            )
         }
     ) { innerPadding ->
-        TerminalConsole(
-            logs = logs,
-            isProcessing = setupState == SetupState.INSTALLING,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp)
-        )
+        SetupPage(innerPadding = innerPadding) {
+            SetupFrame(
+                title = stringResource(
+                    when {
+                        !done -> R.string.setup_title
+                        failed -> R.string.installation_failed
+                        else -> R.string.installation_complete
+                    }
+                ),
+                body = when {
+                    !done -> stringResource(R.string.setup_installing_body)
+                    failed -> result?.exceptionOrNull()?.let { it.message ?: it.toString() }.orEmpty()
+                    else -> stringResource(R.string.setup_done_body)
+                },
+                bodyColor = if (failed) scheme.error else scheme.onSurfaceVariant
+            ) {
+                SetupHero(
+                    loading = !done,
+                    glyph = if (failed) Icons.Default.Close else Icons.Default.Check,
+                    container = if (failed) scheme.errorContainer else scheme.primaryContainer,
+                    onContainer = if (failed) scheme.onErrorContainer else scheme.onPrimaryContainer
+                )
+            }
+        }
     }
 }

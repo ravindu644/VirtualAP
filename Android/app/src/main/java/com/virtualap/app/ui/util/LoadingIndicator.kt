@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.dp
 enum class LoadingSize(val size: Dp) {
     Small(16.dp),
     Medium(24.dp),
-    Large(48.dp)
+    Large(48.dp),
+    /** Inside the 240dp setup hero. The indicator only fills about 80% of its box, so
+     *  this is what it takes to carry the same weight as the 96dp glyph it stands in for. */
+    Hero(144.dp)
 }
 
 /** The M3 Expressive loading indicator at one of the app's standard sizes. */

@@ -45,9 +45,12 @@ fun PullToRefreshWrapper(
             if (!isRefreshing) scope.launch {
                 isRefreshing = true
                 val start = System.currentTimeMillis()
-                onRefresh()
-                delay((600 - (System.currentTimeMillis() - start)).coerceAtLeast(0))
-                isRefreshing = false
+                try {
+                    onRefresh()
+                    delay((600 - (System.currentTimeMillis() - start)).coerceAtLeast(0))
+                } finally {
+                    isRefreshing = false
+                }
             }
         },
         state = state,

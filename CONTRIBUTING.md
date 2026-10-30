@@ -82,9 +82,7 @@ From `Android/`:
 ```
 
 The script is `./gradlew assembleDebug` or `assembleRelease` plus the APK's path; calling
-gradle directly is the same build. The build needs JDK 17; a newer JDK
-fails inside gradle 8.2's script compiler, so point `JAVA_HOME` at a 17 or build in an Ubuntu
-24.04 container with `openjdk-17-jdk`.
+gradle directly is the same build. The build needs JDK 17 or newer.
 
 The version string is `VERSION` at the repository root; `versionCode` is derived from it in
 `build.gradle.kts`.
@@ -219,7 +217,8 @@ dialog to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `PrimaryActionBottomBar(label, icon, onClick, ...)` | `ui/component/PrimaryActionBottomBar.kt` | The Start and Stop bar on the main screen and the setup flow's Done and Retry. The overload taking a `content` slot is for buttons that swap their contents |
+| `PrimaryActionBottomBar(label, icon, onClick, ...)` | `ui/component/PrimaryActionBottomBar.kt` | The Start and Stop bar on the main screen. The overload taking a `content` slot is for buttons that swap their contents |
+| `SetupPage`, `SetupFrame`, `SetupHero`, `SetupActionBar` | `ui/component/SetupHero.kt` | Every screen of the setup flow: the root check and the installer. See DESIGN.md, "The setup flow" |
 | `PullToRefreshWrapper(onRefresh) { ... }` | `ui/component/PullToRefreshWrapper.kt` | Any pull to refresh list or screen body |
 
 ### Android: cards and list items
@@ -229,7 +228,6 @@ dialog to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 | `SettingsCard(title, onClick, icon, subtitleContent, trailing, ...)` | `ui/component/SettingsCard.kt` | The base for every settings or option row. Build new variants on top of it |
 | `ToggleCard` | `ui/component/ToggleCard.kt` | A switch row inside a card. A thin wrapper over `SettingsCard` |
 | `SwitchItem` | `ui/component/SwitchItem.kt` | Flat switch row inside a grouped Surface, used on the Settings screen. See the duplicates note below |
-| `EmptyState(icon, title, description)`, `RootUnavailableState` | `ui/component/EmptyState.kt` | Any empty list or missing root state |
 
 ### Android: status and indicators
 
@@ -275,7 +273,7 @@ conventions: 24.dp for dialog and screen horizontal padding, 16.dp for card inne
 | `APManager.getStatus/start/stop/getContainers/getInterfaces/isInstalled` | `util/APManager.kt` | Driving `start-ap`. The only class that runs it. Do not assemble these by hand |
 | `Hotspot.start(cfg)/stop()/refresh()`, `phase`, `status`, `actionLogs` | `util/Hotspot.kt` | Starting or stopping the AP from anywhere, and reading the session state. The only caller of `APManager.start/stop`; also posts the running notification and wakes the tile |
 | `APConfig.fromPrefs(prefs)`, `isValid()`, `passwordValid()`, `validChannelForBand` | `util/APConfig.kt` | The saved hotspot config and the one start validation |
-| `BackendLogger` / `ViewModelLogger(onLog)` + `classifyLine(line)` | `util/BackendLogger.kt` | The log sink the installer and the AP calls take, and the `[ERROR]`/`[WARN]` level tagging |
+| `BackendLogger` / `ViewModelLogger(onLog)` + `classifyLine(line)` | `util/BackendLogger.kt` | The log sink the AP calls take, and the `[ERROR]`/`[WARN]` level tagging |
 
 The global libsu configuration lives in `VirtualAPApplication.kt`. That is the only place it
 should be set.
@@ -339,8 +337,6 @@ These exist today. They are on the cleanup list. Extend the shared version, do n
 another.
 
 - `ToggleCard` and `SwitchItem` are two shapes of the same switch row.
-- `labelFontSize` on `PrimaryActionBottomBar` has no caller here. Either the type scale
-  covers it or the parameter should go. Do not add a caller.
 - `VirtualAPInstaller` interpolates constant paths into shell strings without quoting
   (`chmod 755 ${Constants.VAP_DIR}/bin/*`, the `rm -f` and `cp` line). They are constants, not
   input, but do not copy the pattern; use `Backend.quote()`.

@@ -205,6 +205,7 @@ fun VirtualAPTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        motionScheme = MotionScheme.expressive(),
         typography = Typography,
         content = content
     )

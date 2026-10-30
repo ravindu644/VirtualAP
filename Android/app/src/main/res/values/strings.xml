@@ -63,9 +63,12 @@
     <!-- Setup Screen -->
     <string name="installation_complete">Installation Complete</string>
     <string name="installation_failed">Installation Failed</string>
+    <string name="setup_installing_body">Deploying the static binaries. This takes a moment.</string>
+    <string name="setup_done_body">The backend is in place.</string>
 
     <!-- Root Check Screen -->
     <string name="checking_root">Checking root access…</string>
+    <string name="check_root_again">Check again</string>
     <string name="auto_label">Auto</string>
 
     <!-- About Section -->
