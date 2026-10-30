@@ -1,8 +1,9 @@
 # AGENTS.md
 
 Instructions for AI coding agents working in this repository. Humans should read
-[CONTRIBUTING.md](./CONTRIBUTING.md), which carries the full inventory of what already
-exists here.
+[CONTRIBUTING.md](./CONTRIBUTING.md), which carries the inventory of what already exists
+here. How the thing works is in
+[Documentation/How-It-Works.md](./Documentation/How-It-Works.md).
 
 ## What this is
 
@@ -15,38 +16,21 @@ VirtualAP turns a rooted phone into a Wi-Fi access point. Two halves:
 - `Android/` is the Compose app that drives that script over a root shell.
 
 The `prepareAssets` gradle task stages the script and both arch trees into a generated
-assets root under `Android/app/build/` at build time, and the app deploys the matching arch to
+assets root under `Android/app/build/`, and the app deploys the matching arch to
 `/data/local/virtualap` on first run and after every APK update. There is no C backend, no
 chroot and no Magisk module.
 
 ## Build
 
-Static binaries, from the repository root:
-
 ```
-./scripts/build-static.sh    # aarch64 + armhf, Alpine 3.23 under QEMU, needs Docker
-```
-
-It initialises the `externals/` submodules, builds each arch in its own container and stages
-the result into `backend/<arch>/`. Those directories are gitignored; `prepareAssets` fails
-loudly when they are empty, so run this once before the first app build and again whenever
-`externals/` or `scripts/build-in-container.sh` change.
-
-Android app, from `Android/`:
-
-```
-./build.sh             # debug
-./build.sh release     # signed release
+./scripts/build-static.sh    # from the repository root: both arches, needs Docker
+./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
 ```
 
-The script is `./gradlew assembleDebug` or `assembleRelease` plus the APK's path. The build
-needs JDK 17 or newer and `ANDROID_HOME`. CI builds each arch with `scripts/build-static.sh <arch>` on
-an ARM runner and then runs `./gradlew assembleRelease`. The binaries never come from the
-repo: they are built from source and cached, and rebuilt whenever a submodule under
-`externals/` or one of the two build scripts changes. A pushed `v*` tag that matches `VERSION`
-publishes a release. CI does not check formatting or lint anything.
-
-The version comes from `VERSION` at the repository root. Bump it there, nowhere else.
+Run the first once before the first app build and again whenever `externals/` or the build
+scripts change; `prepareAssets` fails when `backend/<arch>/` is empty. The version comes
+from `VERSION` at the repository root. Bump it there, nowhere else. The build and CI
+details are in the Building section of How-It-Works.md.
 
 ## Commits
 
@@ -69,9 +53,7 @@ Four rules. They apply to code, comments, commit messages, and documentation.
 
 **No em-dashes.** Use a comma, a full stop, or rewrite the sentence.
 
-**No ASCII banner comments.** No rows of `-----`, no `=====`, no boxed section headers. The
-`# --- Section ---` headers in `backend/start-ap` and `scripts/build-in-container.sh` predate
-this rule and are being removed separately, do not add more.
+**No ASCII banner comments.** No rows of `-----`, no `=====`, no boxed section headers.
 
 **Comments sound like a person.** Say why the code does something, or what breaks if it
 does not. Skip comments that restate the line below them.
@@ -86,6 +68,13 @@ PRIO_FROM_AP=7010
 
 **Ten lines that work beat a hundred that do the same thing.** Delete before you add. A
 smaller diff in the right place is the goal, not a smaller diff anywhere.
+
+In the documents, every fact is stated once, on the page where a reader looks for it, and
+the other pages link to it. The split is fixed: README.md says what, for whom and the steps;
+How-It-Works.md holds every technical fact; this file holds the rules for agents;
+CONTRIBUTING.md says how a human gets a change merged and holds the inventory; DESIGN.md
+holds the UI values. DESIGN.md's tables stay, they are role maps and sizes that do not work
+as prose; elsewhere a list or a paragraph.
 
 ## UI changes
 
@@ -126,12 +115,8 @@ handling that loses state, or anything the requester asked for by name.
 
 ## Reuse before you write
 
-The app's main screen once held 1,200 lines of private copies of components its sibling
-project Droidspaces already shared: dropdowns, a status pill, a settings card, fake buttons,
-a bottom bar. The port that replaced them is why `CONTRIBUTING.md` has a Reuse Inventory.
-Grep before you write.
-
-These are choke points. Bypassing one is a bug, not a shortcut.
+Grep the inventory in CONTRIBUTING.md, then the tree. These are choke points. Bypassing one
+is a bug, not a shortcut.
 
 - `Backend.quote()` in `Android/app/src/main/java/com/virtualap/app/util/Backend.kt` wraps
   every dynamic value that reaches a root shell. `APManager` is the only class that runs
@@ -173,9 +158,6 @@ These are choke points. Bypassing one is a bug, not a shortcut.
   plus a block in `scripts/build-in-container.sh`.
 - No new dependency when an installed one covers it. The app already has libsu, Compose,
   lifecycle, and zxing.
-- Samsung's Broadcom FullMAC driver is the floor for wireless assumptions.
-  `iw dev <iface> info` has no channel line, so the station channel comes from the `freq:`
-  line of `iw dev <iface> link` (`sta_channel`). The wiphy is self-managed, so `iw reg set`
-  and hostapd's `country_code` are ignored; the only lever is the driver's private `COUNTRY`
-  command over the supplicant socket (`ensure_5g_ir`). DFS channels 52 to 144 cannot beacon.
-  A quirk fix that is not gated on runtime detection does not go in.
+- Samsung's Broadcom FullMAC driver is the floor for wireless assumptions, and MediaTek's
+  gen4m the second; what each one lacks is in "The radio" in How-It-Works.md. A quirk fix
+  that is not gated on runtime detection does not go in.

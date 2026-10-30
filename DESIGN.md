@@ -1,50 +1,34 @@
 # DESIGN.md
 
-The visual language of the VirtualAP Android app. It is the Droidspaces design language,
-adopted wholesale: every value here was read out of Droidspaces'
-`Android/app/src/main/java/com/droidspaces/app/` and carried over with the components that
-implement it, now under `Android/app/src/main/java/com/virtualap/app/`. Where this app has
-fewer sites than its sibling, the counts below say so.
+The visual language of the VirtualAP Android app, which is the Droidspaces design language
+carried over with the components that implement it. The backend is a shell script with no
+UI, so none of this applies to `backend/`.
 
-The backend is a shell script with no UI, so none of this applies to `backend/`.
-
-## How to use this file
-
-**Components come first, values second.** The Reuse Inventory in
-[CONTRIBUTING.md](./CONTRIBUTING.md) lists what already exists. Go there first. A card is
-`ToggleCard`, a status chip is `StatusPill`, a setup screen is `SetupFrame` with a
-`SetupHero`. If one of those fits, use it and stop reading here.
-
-This file is for the case where you have checked and nothing shared covers what you need. Then
-you build it out of the values below, so the new thing looks like it belongs.
-
-Never hardcode a hex colour, an sp size, or a radius you picked by eye.
+Components come first, values second: the reuse inventory in
+[CONTRIBUTING.md](./CONTRIBUTING.md) lists what exists, and this file is for the case where
+nothing there covers what you need. Never hardcode a hex colour, an sp size, or a radius you
+picked by eye.
 
 ## What the app looks like, and why
 
-**Flat, always.** Nothing in this app is elevated. `tonalElevation = 0.dp` appears at 17 sites
-and there is not one `CardDefaults.cardElevation` in the tree. Depth is expressed by stepping
-the surface colour up one level and drawing a 1dp border. If you reach for a shadow, you have
-left the design.
+Nothing in this app is elevated. Depth is expressed by stepping the surface colour up one
+level and drawing a 1dp border; if you reach for a shadow, you have left the design.
+`Surface` is the primitive: buttons are clickable Surfaces, not Material `Button`s, and
+dialogs are `Dialog { Surface { } }`, not `AlertDialog`. Material components are not banned,
+but they arrive with their own elevation and radius defaults and have to be argued for.
 
-**`Surface` is the primitive.** 19 `Surface` uses and no `Card()` at all. Buttons are
-clickable Surfaces, not Material `Button`s. Dialogs are `Dialog { Surface { } }`, not
-`AlertDialog`. Material components are not banned, but they arrive with their own elevation and
-radius defaults and have to be argued for.
+Colour is derived, never literal. `ui/theme/Theme.kt` blends a full scheme from three
+palette colours, or takes a Material You scheme whole. Dynamic colour is on by default,
+fallback palettes ship for older devices and for users who turn it off, and AMOLED collapses
+every surface to black, so a hardcoded `Color(0xFF...)` breaks all four paths at once.
 
-**Colour is derived, never literal.** `ui/theme/Theme.kt` blends a full scheme from three
-palette colours. Dynamic colour is on by default, six fallback palettes ship for older devices
-and for users who turn it off, and AMOLED collapses every surface to black. A hardcoded
-`Color(0xFF...)` breaks all four paths at once.
-
-**Borders and tint carry state. Fills stay quiet.** A running access point is not a green
-card. It is a normal card with a tinted button and an accent border. State lives in the
-accent, not in the background.
+Borders and tint carry state, fills stay quiet. A running access point is not a green card;
+it is a normal card with a tinted button and an accent border.
 
 ## Colour
 
-Roles come from `MaterialTheme.colorScheme`. The scheme itself is built in `ui/theme/Theme.kt`,
-which is the only file allowed to name a colour literally.
+Roles come from `MaterialTheme.colorScheme`. The scheme itself is built in `ui/theme/Theme.kt`
+from the palettes in `ui/theme/Color.kt`, the only two files that name a colour literally.
 
 | Surface | Role |
 | --- | --- |
@@ -61,8 +45,7 @@ which is the only file allowed to name a colour literally.
 | Disabled content | `onSurface` at alpha `0.38f` |
 | Disabled container fill | `onSurface` at alpha `0.12f` |
 
-Borders are always 1dp. The alpha is what changes, and it is the value that drifted the most
-in the sibling app, so it is worth getting right:
+Borders are always 1dp. The alpha is what changes:
 
 | Border | Colour |
 | --- | --- |
@@ -165,8 +148,6 @@ the app, which is the intended way round.
 
 ## The action pill
 
-This is the pattern that kept getting "fixed" upstream, so it gets its own section.
-
 A row of related actions sits inside a tinted wrapper:
 
 ```kotlin
@@ -186,22 +167,19 @@ Surface(
 }
 ```
 
-**The buttons are rounder than the box they sit in. That is the design.** The 4dp inset plus the
-larger inner radius makes the buttons read as sitting proud of the wrapper rather than nesting
-flush inside it. Matching the two radii flattens the effect and has been reverted twice already
-in Droidspaces.
+The buttons are rounder than the box they sit in, and that is the design: the 4dp inset plus
+the larger inner radius makes the buttons read as sitting proud of the wrapper rather than
+nesting flush inside it. Matching the two radii flattens the effect.
 
-One site uses it today, as a selector rather than a row of actions: the Interface or
-Container switch on the main screen (`SegmentedSelector` in `ui/screen/MainScreen.kt`). The
-selected segment takes the tinted fill and accent border, the other stays transparent, and
-the geometry is exactly the one above. A dialog's confirm and cancel are not that, and have
-their own rule below. The Clear and Copy row above the log console (`LogActionRow`) is not
-that either: it is a bare row of two 38dp buttons with no wrapper, ported as is from
-upstream's terminal dialog.
+The Interface or Container switch on the main screen (`SegmentedSelector` in
+`ui/screen/MainScreen.kt`) is this geometry used as a selector: the selected segment takes
+the tinted fill and accent border, the other stays transparent. The Clear and Copy row above
+the log console (`LogActionRow`) is not that: it is a bare row of two 38dp buttons with no
+wrapper.
 
 ## Dialogs
 
-Every dialog is `DsDialog`, and it owns the layout, not just the frame: a full-width `Surface`
+Every dialog is `DsDialog`, which owns the layout as well as the frame: a full-width `Surface`
 inside the 24dp gutters, bounded to the screen height minus them, and a 24dp padded column
 whose body scrolls. The bound comes from `LocalConfiguration`, not the window, so a dialog open
 through a rotation measures against the live configuration. Callers do not set a width, their
@@ -234,7 +212,7 @@ and it is the one rule in this file that a design argument does not get to overr
 
 ## Alignment
 
-Rows are `Alignment.CenterVertically`. The app does this 12 times and never deviates.
+Rows are `Alignment.CenterVertically`.
 
 Card titles and dialog titles are left aligned, always. A card row that pairs a title with a
 control uses `Arrangement.SpaceBetween`.

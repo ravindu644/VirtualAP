@@ -49,9 +49,7 @@ mobile data, Wi-Fi and VPN tunnels. Your hotspot gets that for free:
 3. Start your VPN app. Droidspaces sees `tun0` appear and moves OpenWrt onto it, so every
    device on the hotspot is behind the VPN a moment later. Nothing to restart.
 
-This is the first native OpenWrt router for an Android hotspot: OpenWrt runs in a
-container on the phone's own kernel, with no virtual machine in between, and you set it up
-from an app.
+OpenWrt runs in a container on the phone's own kernel, no virtual machine in between.
 
 Managed mode needs:
 
@@ -64,8 +62,9 @@ Managed mode needs:
 ## Interface mode
 
 The simple mode, with no container and no web interface. VirtualAP hands out addresses
-itself and sends your devices out through the interface you pick, or follows whichever
-network Android is currently using. It is all you need to share a VPN or to repeat Wi-Fi.
+itself, gives your devices IPv6 when the upstream has it, and sends them out through the
+interface you pick, or follows whichever network Android is currently using. It is all you
+need to share a VPN or to repeat Wi-Fi.
 
 ## Requirements
 
@@ -73,8 +72,7 @@ network Android is currently using. It is all you need to share a VPN or to repe
 - Android 8.0 or newer
 - An ARM phone, 64-bit or 32-bit. One APK covers both.
 - For managed mode: Droidspaces and its OpenWrt container (see above)
-- For the TTL fix: a kernel with the netfilter TTL target (`CONFIG_NETFILTER_XT_TARGET_HL`),
-  which stock kernels do not always include. The app tests for it and greys the option out
+- For the TTL fix: a kernel that supports it. The app tests for it and greys the option out
   when it is missing, and the hotspot works the same without it.
 
 ## Get started
@@ -93,8 +91,8 @@ LuCI.
 
 ## More
 
-- [How it works](Documentation/How-It-Works.md): the routing, the bridge and the files on
-  the phone
+- [How it works](Documentation/How-It-Works.md): the routing, IPv6, the bridge, the radio,
+  the files on the phone, and how the binaries and the APK are built
 - [Contributing](CONTRIBUTING.md)
 
 ## License
@@ -103,5 +101,5 @@ GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 VirtualAP grew out of the
 [`start-hotspot`](https://github.com/ravindu644/Ubuntu-Chroot/blob/main/tools/start-hotspot)
-script from [Ubuntu-Chroot](https://github.com/ravindu644/Ubuntu-Chroot). The Android app
-is developed with the help of an AI assistant.
+script from [Ubuntu-Chroot](https://github.com/ravindu644/Ubuntu-Chroot); the app is written
+with the help of an AI assistant.
