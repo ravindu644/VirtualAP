@@ -1,3 +1,4 @@
+# Leftovers of the build before 2026-10-30, root-owned; delete them with sudo and drop these two lines.
 out/
 scripts/.src-cache/
 # Binaries are built from the externals/ submodules by scripts/build-static.sh
@@ -6,7 +7,6 @@ backend/aarch64/*
 !backend/aarch64/.gitkeep
 backend/armhf/*
 !backend/armhf/.gitkeep
-.DS_Store
 Android/.gradle/
 Android/app/build/
 Android/app/src/main/assets/

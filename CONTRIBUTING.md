@@ -81,8 +81,8 @@ From `Android/`:
 ./build.sh release     # signed release APK
 ```
 
-Use the script rather than calling gradle directly. It sets up the wrapper, cleans, and
-places the APK where the rest of the tooling expects it. The build needs JDK 17; a newer JDK
+The script is `./gradlew assembleDebug` or `assembleRelease` plus the APK's path; calling
+gradle directly is the same build. The build needs JDK 17; a newer JDK
 fails inside gradle 8.2's script compiler, so point `JAVA_HOME` at a 17 or build in an Ubuntu
 24.04 container with `openjdk-17-jdk`.
 

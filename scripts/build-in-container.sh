@@ -1,8 +1,8 @@
 #!/bin/sh
 #
-# Runs INSIDE an aarch64 Alpine container (see build-static.sh).
-# Produces the static aarch64 binaries for VirtualAP:
-#   hostapd + hostapd_cli  - AP daemon (nl80211, WPA2-PSK)
+# Runs inside an Alpine container of the target arch, aarch64 or armhf (see
+# build-static.sh). Produces the static binaries for VirtualAP:
+#   hostapd + hostapd_cli  - AP daemon (nl80211, WPA2 and WPA3)
 #   iw                     - virtual interface management
 #   dnsmasq                - DHCP + DNS for AP clients
 #   busybox                - reliable coreutils (Alpine's busybox-static)
@@ -11,19 +11,10 @@
 # /externals/{hostapd,iw,dnsmasq} (our own forks - see externals/ and
 # .gitmodules). They are copied out before building so the mount stays clean.
 #
-# Output -> /work/out, build scratch -> /work/.src-cache
+# Output -> /out, build scratch -> /tmp/src.
 set -e
 
-# Arch label drives the per-arch output subdir. build-static.sh passes it via
-# $ARCH_LABEL (authoritative - it knows the requested --platform). Fall back to
-# `uname -m` only for standalone/manual runs; uname is unreliable under emulation.
-if [ -z "${ARCH_LABEL:-}" ]; then
-    case "$(uname -m)" in
-        aarch64)                 ARCH_LABEL=aarch64 ;;
-        armv7l|armv8l|armv7|armhf|arm)  ARCH_LABEL=armhf ;;
-        *) echo "unsupported build arch: $(uname -m)"; exit 1 ;;
-    esac
-fi
+: "${ARCH_LABEL:?set by build-static.sh}"
 echo "### Target arch: $ARCH_LABEL (uname -m: $(uname -m))"
 
 # Sanity-check: the image's own arch must match the requested one, so a
@@ -35,9 +26,9 @@ case "$ARCH_LABEL:$(apk --print-arch)" in
     *) echo "ERROR: ARCH_LABEL=$ARCH_LABEL but the image is $(apk --print-arch) - wrong-platform image?"; exit 1 ;;
 esac
 
-OUT="/work/out/$ARCH_LABEL"
-SRC="/work/.src-cache/$ARCH_LABEL"
-mkdir -p "$OUT" "$SRC"
+OUT="/out"
+SRC="/tmp/src"
+mkdir -p "$SRC"
 
 # Fully static, no PIE: a plain -static link on Alpine yields a static-PIE that
 # still needs /lib/ld-musl-*.so.1 at runtime (absent on Android). -no-pie gives
@@ -46,7 +37,8 @@ LDF="-static -no-pie"
 CF="-Os -fno-pie"
 
 # Copy a vendored source tree out of the read-only mount (drop the submodule
-# .git pointer - the build doesn't need it).
+# .git pointer - the build doesn't need it). The make clean after each copy is
+# for objects a host-side build left behind, which git status does not show.
 vendor() {
     rm -rf "$SRC/$1"
     cp -a "/externals/$1" "$SRC/$1"
@@ -57,14 +49,12 @@ echo "### Installing build deps"
 apk add --no-cache build-base linux-headers pkgconf \
     libnl3-dev libnl3-static openssl-dev openssl-libs-static busybox-static >/dev/null
 
-# --- busybox ---------------------------------------------------------------
 # Alpine's busybox-static is already a fully-static binary; just ship it. Used
 # by the backend scripts for reliable coreutils (Android's toybox is flaky).
 echo "### Staging static busybox"
 cp /bin/busybox.static "$OUT/busybox"
 strip "$OUT/busybox" 2>/dev/null || true
 
-# --- hostapd ---------------------------------------------------------------
 echo "### Building hostapd"
 vendor hostapd
 cd "$SRC/hostapd/hostapd"
@@ -97,7 +87,6 @@ make -j"$(nproc)" PKG_CONFIG="pkg-config --static" \
 strip hostapd hostapd_cli
 cp hostapd hostapd_cli "$OUT"/
 
-# --- iw --------------------------------------------------------------------
 echo "### Building iw"
 vendor iw
 cd "$SRC/iw"
@@ -111,23 +100,15 @@ unset LDFLAGS PKG_CONFIG
 strip iw
 cp iw "$OUT"/
 
-# --- dnsmasq ---------------------------------------------------------------
 echo "### Building dnsmasq"
 vendor dnsmasq
 cd "$SRC/dnsmasq"
-# The getpwnam("root") privilege-drop is patched out directly in our fork
-# (Droidspaces/dnsmasq-vap): Android has no root entry in /etc/passwd and static
-# musl (unlike bionic) won't synthesize one, so stock dnsmasq dies with "unknown
-# user or group: root". The in-tree patch leaves ent_pw NULL for user=root, and
-# the setuid block is guarded by it, so dnsmasq just stays root (needed for
-# :53/:67). The old build-time sed is kept here (disabled) for reference:
-#
-# sed -i \
-#     's/if (daemon->username \&\& !(ent_pw = getpwnam(daemon->username)))/if (daemon->username \&\& strcmp(daemon->username, "root") != 0 \&\& !(ent_pw = getpwnam(daemon->username)))/' \
-#     src/dnsmasq.c
-#
-# Assert the vendored source actually carries the patch (catches a submodule
-# bumped to an unpatched upstream).
+# The getpwnam("root") privilege drop is patched out in our fork: Android has
+# no root entry in /etc/passwd and static musl (unlike bionic) will not
+# synthesize one, so stock dnsmasq dies with "unknown user or group: root". The
+# patch leaves ent_pw NULL for user=root and the setuid block is guarded by it,
+# so dnsmasq stays root (needed for :53 and :67). Assert the vendored source
+# carries it, so a submodule bumped to an unpatched upstream fails here.
 grep -q 'strcmp(daemon->username, "root")' src/dnsmasq.c || {
     echo "dnsmasq source is missing the getpwnam(root) patch - check externals/dnsmasq"; exit 1; }
 make clean >/dev/null 2>&1 || true
@@ -136,11 +117,9 @@ make -j"$(nproc)" CFLAGS="$CF" LDFLAGS="$LDF"
 strip src/dnsmasq
 cp src/dnsmasq "$OUT"/
 
-# --- Verify ----------------------------------------------------------------
 echo "### Results"
 cd "$OUT"
 for b in busybox hostapd hostapd_cli iw dnsmasq; do
     printf '%-12s ' "$b"
     file -b "$b"
 done
-echo "### All binaries built into $OUT"
