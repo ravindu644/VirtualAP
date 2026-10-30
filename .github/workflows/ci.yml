@@ -35,18 +35,18 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
-    # The binaries only depend on the three source submodules and the two build
+    # The binaries only depend on the three source submodules and the build
     # scripts, so most pushes can reuse the previous build.
     - name: Hash the sources
       id: src
-      run: echo "hash=$(git ls-tree HEAD externals/ | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      run: echo "hash=$(git ls-tree HEAD externals scripts | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
     - name: Restore cached binaries
       id: cache
       uses: actions/cache@v4
       with:
         path: backend/${{ matrix.arch }}
-        key: bin-${{ matrix.arch }}-${{ steps.src.outputs.hash }}-${{ hashFiles('scripts/build-static.sh', 'scripts/build-in-container.sh') }}
+        key: bin-${{ matrix.arch }}-${{ steps.src.outputs.hash }}
 
     - name: Build static binaries from source
       if: steps.cache.outputs.cache-hit != 'true'
@@ -57,7 +57,7 @@ jobs:
     - name: Upload binaries
       uses: actions/upload-artifact@v4
       with:
-        name: bin-${{ matrix.arch }}
+        name: ${{ matrix.arch }}
         path: backend/${{ matrix.arch }}
         if-no-files-found: error
 
@@ -84,21 +84,13 @@ jobs:
         fi
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-    - name: Download aarch64 binaries
+    # Each artifact unpacks into backend/<its name>. The APK carries no file
+    # modes, so the lost executable bit does not matter; the installer sets it.
+    - name: Download the binaries
       uses: actions/download-artifact@v4
       with:
-        name: bin-aarch64
-        path: backend/aarch64
-
-    - name: Download armhf binaries
-      uses: actions/download-artifact@v4
-      with:
-        name: bin-armhf
-        path: backend/armhf
-
-    # Artifacts do not keep the executable bit.
-    - name: Restore executable bits
-      run: chmod +x backend/aarch64/* backend/armhf/*
+        pattern: '{aarch64,armhf}'
+        path: backend
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -124,6 +116,7 @@ jobs:
       run: |
         [ -n "$RELEASE_KEYSTORE" ] && [ -n "$KEYSTORE_PASSWORD" ] || { echo "Releases are signed with the release key: set RELEASE_KEYSTORE and KEYSTORE_PASSWORD"; exit 1; }
 
+    # A pull request builds unsigned, so its run never sees the passwords.
     - name: Build Android App with Gradle
       env:
         KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_PASSWORD || '' }}
@@ -131,7 +124,6 @@ jobs:
         KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEY_PASSWORD || '' }}
       run: |
         cd Android
-        chmod +x gradlew
         ./gradlew assembleRelease --no-daemon \
           -PKEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" \
           -PKEY_ALIAS="$KEY_ALIAS" \
@@ -185,5 +177,3 @@ jobs:
           dist/*.apk
           dist/SHA256SUMS
         body_path: dist/CHANGELOG.md
-        draft: false
-        prerelease: false
