@@ -48,7 +48,7 @@ object PreferencesManager {
         set(value) = prefs.edit { putBoolean(Constants.KEY_USE_DYNAMIC_COLOR, value) }
 
     var themePalette: String
-        get() = str(Constants.KEY_THEME_PALETTE, "CATPPUCCIN")
+        get() = str(Constants.KEY_THEME_PALETTE, "BROCCOLI")
         set(value) = prefs.edit { putString(Constants.KEY_THEME_PALETTE, value) }
 
     /**

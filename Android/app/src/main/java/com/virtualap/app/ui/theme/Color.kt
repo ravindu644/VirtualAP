@@ -265,6 +265,6 @@ enum class ThemePalette(
 
     companion object {
         fun fromName(name: String): ThemePalette =
-            entries.find { it.name == name } ?: CATPPUCCIN
+            entries.find { it.name == name } ?: BROCCOLI
     }
 }
