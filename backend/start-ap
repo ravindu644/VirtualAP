@@ -221,10 +221,10 @@ ds_is_openwrt() {
 
 detect_auto_table() {
     # netd's default-network rule = which network has internet now. First match
-    # wins (rules are priority-sorted); uidrange variants are per-app VPN, skip.
+    # wins (rules are priority-sorted); the first rule with iif lo is the one netd uses for upstream.
     "$IP" rule show 2>/dev/null \
         | $GREP "fwmark 0x0/0xffff iif lo" \
-        | $GREP -v uidrange \
+        | $GREP -E 'iif lo (lookup |uidrange 0-2147483647 lookup )' \
         | $HEAD -n1 \
         | $SED -n 's/.*lookup \([^ ]*\).*$/\1/p'
 }
