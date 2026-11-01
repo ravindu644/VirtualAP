@@ -1107,7 +1107,7 @@ provision_openwrt() {
 
 # Wire ap0 -> VAP_BRIDGE -> veth -> container. No L3 on our side.
 config_network_bridged() {
-    local pid gw_mac
+    local pid gw_mac max mask
     pid=$(ds_container_pid "$CONTAINER")
     [ -z "$pid" ] && { error "Container '$CONTAINER' is not running."; return 1; }
     log "Managed mode: wiring $AP_IFACE to container '$CONTAINER' (PID $pid) via $VAP_BRIDGE."
@@ -1149,6 +1149,26 @@ config_network_bridged() {
         fi
     fi
     ds_run ip link set "$VAP_PORT" up || warn "Could not bring up $VAP_PORT inside container."
+
+    # A veth queues each packet on the CPU that sent it, and one flow arrives
+    # from several: the Wi-Fi driver spreads its receive work over cores, and
+    # the container's TCP sends from whichever core took the last ACK. The
+    # far end then sees the flow out of order and TCP retransmits what was
+    # never lost. RPS hashes each flow to one CPU: every CPU but CPU0, the
+    # mask Droidspaces uses on its own veths. vaplan0 is written after the
+    # move, through the container's own /sys, because moving a link between
+    # namespaces drops its RPS map.
+    # ponytail: mksh arithmetic is 32-bit, so CPU ids above 30 get no RPS, and
+    # the kernel keeps only the CPUs online at this moment, so cores parked at
+    # start stay out until the AP restarts.
+    max=$($SED 's/.*[-,]//' /sys/devices/system/cpu/present 2>/dev/null)
+    if [ -n "$max" ] && [ "$max" -ge 1 ] && [ "$max" -le 30 ]; then
+        mask=$($PRINTF '%x' $(( (1 << (max + 1)) - 2 )))
+        if $ECHO "$mask" 2>/dev/null > "/sys/class/net/$VAP_VETH_HOST/queues/rx-0/rps_cpus" &&
+            $ECHO "$mask" 2>/dev/null > "/proc/$pid/root/sys/class/net/$VAP_PORT/queues/rx-0/rps_cpus"; then
+            log "RPS on $VAP_VETH_HOST and $VAP_PORT (CPU mask $mask)."
+        fi
+    fi
 
     # The container owns L3. Auto-provision OpenWrt; otherwise hand it over.
     if ds_is_openwrt; then

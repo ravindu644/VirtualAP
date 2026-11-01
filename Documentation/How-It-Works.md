@@ -81,6 +81,15 @@ container crawled at about 1 MB/s. The IP stack inside the container trims the M
 RA pins the clients' IPv6 MTU to 1500 with `ra_mtu`, because odhcpd otherwise advertises the
 port's 1508.
 
+Both ends of the veth get RPS, on every CPU but CPU0. A veth queues each packet on the CPU
+that sent it, and one flow arrives from several, because the Wi-Fi driver spreads its
+receive work over cores and TCP sends from whichever core took the last ACK. Without RPS
+the far end sees the flow out of order, and TCP retransmits data that was never lost.
+`vaplan0` gets its mask through the container's own `/sys`, after the move, because moving
+a link between namespaces drops it. The kernel keeps only the CPUs online when the mask is
+written, so cores parked at that moment stay out until the AP restarts, and a phone with
+CPU ids above 30 gets no RPS, because the phone's shell does 32-bit arithmetic.
+
 A fresh veth has a new random MAC every start, and Windows keys its network profiles on the
 gateway's MAC, so the app can pin one: a random MAC kept across starts, or the phone's own
 Wi-Fi MAC.
