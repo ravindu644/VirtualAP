@@ -113,6 +113,16 @@ VAP_BRIDGE="vap-br0"      # host-side bridge
 VAP_VETH_HOST="vap-v0"    # host-side veth (bridge port)
 VAP_VETH_PEER="vap-p0"    # peer veth before it enters the container
 VAP_PORT="vaplan0"        # interface name inside the container
+# Broadcom's FullMAC firmware hands up about a quarter of received frames with
+# the 8-byte CCMP MIC still on the end, so a full-size frame from a client is
+# 1522 bytes. IP trims that, but a bridge and a veth do not: both silently free
+# a frame over MTU+18, which cost managed mode ~10% of its uploads and TCP fell
+# to ~1 MB/s. The veth pair takes 1508 so the MIC fits; the clients still see
+# 1500, ap0 keeps it and provision_openwrt pins the RA to it.
+# ponytail: OpenWrt's own IPv4 datagrams of 1501-1508 bytes to a client are
+# dropped at ap0. Nothing it sends is that size in practice (dnsmasq caps UDP
+# at 1232); an OpenWrt-side bridge at 1500 is the fix if that changes.
+VAP_MTU=1508
 # The LAN provisioned inside the container reuses the configured gateway/subnet
 # (IP_GW / IP_NET, default 192.168.42.1) - the same one routed mode uses, so a
 # custom -g gateway applies in both modes.
@@ -1055,6 +1065,8 @@ provision_openwrt() {
     ds_run uci set dhcp.vaplan.ra=server
     ds_run uci set dhcp.vaplan.dhcpv6=server
     ds_run uci set dhcp.vaplan.ra_default=1
+    # odhcpd advertises the port's MTU, VAP_MTU, and clients would send 1508.
+    ds_run uci set dhcp.vaplan.ra_mtu=1500
     ds_run uci commit dhcp
 
     ds_run /etc/init.d/network reload >/dev/null 2>&1
@@ -1112,7 +1124,8 @@ config_network_bridged() {
     retry "$IP" link set "$VAP_BRIDGE" up || { error "Failed to bring up $VAP_BRIDGE"; return 1; }
 
     # veth: host side joins the bridge, peer crosses into the container.
-    "$IP" link add "$VAP_VETH_HOST" type veth peer name "$VAP_VETH_PEER" \
+    "$IP" link add "$VAP_VETH_HOST" mtu "$VAP_MTU" type veth \
+        peer name "$VAP_VETH_PEER" mtu "$VAP_MTU" \
         || { error "Failed to create veth pair"; return 1; }
     "$IP" link set "$VAP_VETH_HOST" master "$VAP_BRIDGE" \
         || { error "Failed to enslave $VAP_VETH_HOST to $VAP_BRIDGE"; return 1; }

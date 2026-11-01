@@ -73,6 +73,14 @@ the IPv4 subnet's number so netifd cannot renumber it, a DHCP pool with router
 advertisements, and a reload of the iptables firewall, or a MASQUERADE rule when the image
 has no firewall package. Any other container receives `vaplan0` and configures it itself.
 
+The veth pair runs at MTU 1508 while `ap0` and the clients stay at 1500. Samsung's Broadcom
+firmware hands up about a quarter of received frames with the 8-byte CCMP MIC still on the
+end, and a bridge or a veth silently frees any frame longer than its MTU plus 18 bytes, so
+at 1500 a full-size frame from a client was lost one time in four and uploads into the
+container crawled at about 1 MB/s. The IP stack inside the container trims the MIC, and the
+RA pins the clients' IPv6 MTU to 1500 with `ra_mtu`, because odhcpd otherwise advertises the
+port's 1508.
+
 A fresh veth has a new random MAC every start, and Windows keys its network profiles on the
 gateway's MAC, so the app can pin one: a random MAC kept across starts, or the phone's own
 Wi-Fi MAC.
