@@ -1,14 +1,286 @@
-/* start-ap's teardown_bridged and del_bridge.
- * Copyright (c) 2026 ravindu644
+/* start-ap's config_network_bridged, start_services_bridged,
+ * teardown_bridged and del_bridge; the veth born in the container and its
+ * re-plug after a restart are Droidspaces' and USB-Arsenal's gateway mode.
+ * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/managed.h"
 
+#include <errno.h>
+#include <net/if.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
+#include "cli/state.h"
+#include "core/fsutil.h"
+#include "core/ipaddr.h"
 #include "core/log.h"
 #include "mode/ap.h"
+#include "mode/droidspaces.h"
+#include "mode/ipv6.h"
+#include "mode/openwrt.h"
+#include "mode/rps.h"
 #include "net/link.h"
+#include "net/netns.h"
+#include "net/ttl.h"
+#include "radio/wifi_mac.h"
+#include "services/hostapd.h"
 #include "virtualap.h"
+
+/* A link just created answers EPERM for a moment; six tries, 0.3 s apart. */
+static int retry(int (*fn)(struct nl *, const char *, const char *),
+                 struct nl *nl, const char *a, const char *b) {
+  struct timespec wait = {0, 300 * 1000 * 1000};
+  int ret = 0;
+  for (int i = 0; i < 6; i++) {
+    if ((ret = fn(nl, a, b)) == 0)
+      return 0;
+    nanosleep(&wait, NULL);
+  }
+  return ret;
+}
+
+static int up(struct nl *nl, const char *ifname, const char *unused) {
+  (void)unused;
+  return link_set_up(nl, ifname, true);
+}
+
+static int master(struct nl *nl, const char *ifname, const char *bridge) {
+  return link_set_master(nl, ifname, bridge);
+}
+
+/* Inside the container: its port up, and its MAC read back. */
+struct port {
+  char mac[18];
+};
+
+static int port_up(void *arg) {
+  struct port *p = arg;
+  struct nl nl;
+  if (nl_open(&nl) < 0)
+    return -1;
+  int ret = link_set_up(&nl, VAP_PORT, true);
+  nl_close(&nl);
+  struct ifreq ifr = {0};
+  snprintf(ifr.ifr_name, IFNAMSIZ, "%s", VAP_PORT);
+  int s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  if (s >= 0 && ioctl(s, SIOCGIFHWADDR, &ifr) == 0) {
+    const unsigned char *m = (const unsigned char *)ifr.ifr_hwaddr.sa_data;
+    snprintf(p->mac, sizeof(p->mac), "%02x:%02x:%02x:%02x:%02x:%02x", m[0],
+             m[1], m[2], m[3], m[4], m[5]);
+  }
+  if (s >= 0)
+    close(s);
+  return ret;
+}
+
+/* The fixed gateway MAC (-m) as six bytes, NULL to keep a random one. ap0 is
+ * a port on the same bridge, and a bridge keeps frames for its ports' own
+ * MACs, so a gateway sharing ap0's would never see a client. */
+static const uint8_t *gw_mac(const char *want, uint8_t out[6]) {
+  char mac[18], ap[32];
+  if (!*want)
+    return NULL;
+  if (!mac_take(want, mac) ||
+      sscanf(mac, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &out[0], &out[1], &out[2],
+             &out[3], &out[4], &out[5]) != 6 ||
+      (out[0] & 1)) {
+    vap_warn("Could not set the gateway MAC to %s, keeping a random one.",
+             want);
+    return NULL;
+  }
+  if (read_file("/sys/class/net/" AP_IFACE "/address", ap, sizeof(ap)) > 0 &&
+      !strcmp(ap, mac)) {
+    vap_warn("The gateway MAC %s is the hotspot radio's own, keeping a random "
+             "one.",
+             want);
+    return NULL;
+  }
+  return out;
+}
+
+/* The veth: the host end a bridge port, the container's end born inside its
+ * namespace as VAP_PORT, with the gateway MAC and the MIC-sized MTU, in one
+ * request. A link moved in and renamed afterwards shows up under its old
+ * name first on kernels before 5.x, and OpenWrt's netifd never looks again.
+ * Fills mac with the container end's MAC. */
+static int plug(const struct vap_opts *o, struct managed *m, struct nl *nl,
+                char mac[18]) {
+  int fd = netns_open(m->pid);
+  if (fd < 0) {
+    vap_error(fd == -EINVAL ? "Container '%s' shares the host's network - it has "
+                          "no LAN port to give."
+                        : "Cannot open container '%s''s network namespace.",
+              o->container);
+    return -1;
+  }
+  link_del(nl, VAP_VETH_HOST);
+  uint8_t bytes[6];
+  const uint8_t *fixed = gw_mac(o->gw_mac, bytes);
+  if (link_add_veth(nl, VAP_VETH_HOST, VAP_PORT, fd, fixed, VAP_MTU) < 0) {
+    vap_error("Failed to create the veth pair into container '%s'.",
+              o->container);
+    close(fd);
+    return -1;
+  }
+  if (fixed)
+    vap_log("Gateway MAC fixed at %s.", o->gw_mac);
+  if (retry(master, nl, VAP_VETH_HOST, VAP_BRIDGE) < 0 ||
+      retry(up, nl, VAP_VETH_HOST, NULL) < 0) {
+    vap_error("Failed to bring %s into %s.", VAP_VETH_HOST, VAP_BRIDGE);
+    close(fd);
+    return -1;
+  }
+  struct port p = {""};
+  if (in_netns(fd, port_up, &p) < 0)
+    vap_warn("Could not bring up %s inside container.", VAP_PORT);
+  snprintf(mac, 18, "%s", p.mac);
+  char mask[300];
+  rps_mask(mask, sizeof(mask));
+  if (rps_host(VAP_VETH_HOST) && rps_in_netns(fd, VAP_PORT))
+    vap_log("RPS on %s and %s (CPU mask %s).", VAP_VETH_HOST, VAP_PORT, mask);
+  close(fd);
+  return 0;
+}
+
+int managed_replug(const struct vap_opts *o, struct managed *m) {
+  struct nl nl;
+  char mac[18];
+  if (nl_open(&nl) < 0)
+    return -1;
+  int ret = plug(o, m, &nl, mac);
+  nl_close(&nl);
+  if (ret < 0)
+    return ret;
+  vap_log("Container '%s' restarted - its LAN port is back.", o->container);
+  /* Without -m the new port has a new random MAC; status shows the real one. */
+  struct state st;
+  if (state_load(VAP_STATE, &st)) {
+    state_set(&st, "gw_mac", mac);
+    state_save(VAP_STATE, &st);
+  }
+  return 0;
+}
+
+static int wire(const struct vap_opts *o, struct managed *m,
+                const struct subnet *net, const struct plan *p) {
+  vap_log("Managed mode: wiring %s to container '%s' (PID %d) via %s.",
+          AP_IFACE, o->container, (int)m->pid, VAP_BRIDGE);
+  if (ap_iface_create(o->phy_iface) < 0)
+    return -1;
+  struct nl nl;
+  if (nl_open(&nl) < 0)
+    return -1;
+  /* A stale bridge from a previous run; plug() clears a stale veth. */
+  link_del(&nl, VAP_BRIDGE);
+  int ret = -1;
+  char mac[18] = "";
+  if (link_add_bridge(&nl, VAP_BRIDGE) < 0) {
+    vap_error("Failed to create %s", VAP_BRIDGE);
+    goto out;
+  }
+  /* No IP, IPv6 included: Android leaves accept_ra at 2, so the host would
+   * take an address and a default route from the container's own RAs. */
+  conf6_set(VAP_BRIDGE, "disable_ipv6", "1");
+  if (retry(up, &nl, VAP_BRIDGE, NULL) < 0) {
+    vap_error("Failed to bring up %s", VAP_BRIDGE);
+    goto out;
+  }
+  if (plug(o, m, &nl, mac) < 0)
+    goto out;
+  /* The container owns L3: OpenWrt is provisioned, anything else gets the
+   * port and does the rest itself. */
+  if (ds_is_openwrt(o->container)) {
+    openwrt_provision(o->container, net);
+  } else {
+    vap_log("Container is not OpenWrt - delivered %s. The container must",
+            VAP_PORT);
+    vap_log("configure it (assign an IP, run DHCP + NAT) on its own.");
+  }
+  struct state st = {0};
+  char buf[32];
+  state_set(&st, "mode", "bridged");
+  state_set(&st, "container", o->container);
+  state_set(&st, "bridge", VAP_BRIDGE);
+  /* Read back rather than assumed, so status shows a random one too. */
+  state_set(&st, "gw_mac", mac);
+  snprintf(buf, sizeof(buf), "%d", p->band);
+  state_set(&st, "band", buf);
+  snprintf(buf, sizeof(buf), "%d", p->channel);
+  state_set(&st, "channel", buf);
+  state_set(&st, "ssid", o->ssid);
+  state_set(&st, "gateway", net->gw);
+  log_stamp(buf);
+  state_set(&st, "started", buf);
+  if (state_save(VAP_STATE, &st) < 0) {
+    vap_error("Cannot write %s", VAP_STATE);
+    goto out;
+  }
+  vap_log("Managed network wiring completed.");
+  ret = 0;
+out:
+  nl_close(&nl);
+  return ret;
+}
+
+int managed_start(const struct vap_opts *o, struct managed *m) {
+  struct subnet net;
+  struct plan p;
+  subnet_from_gw(o->ip_gw, &net);
+  m->pid = ds_container_pid(o->container);
+  if (!m->pid) {
+    vap_error("Container '%s' is not running - start it first.",
+              o->container);
+    return -1;
+  }
+  ap_plan_radio(o, &p);
+  ap_hold_signals();
+  int ok = wire(o, m, &net, &p) == 0 && !ap_interrupted();
+  if (ok) {
+    vap_log("Starting hostapd (managed/bridged mode)...");
+    /* ap0 joins the bridge only once hostapd has it up. */
+    struct nl nl;
+    ok = hostapd_start(o, &p) == 0 && nl_open(&nl) == 0;
+    if (ok) {
+      ok = retry(master, &nl, AP_IFACE, VAP_BRIDGE) == 0;
+      nl_close(&nl);
+      if (!ok)
+        vap_error("Failed to enslave %s to %s.", AP_IFACE, VAP_BRIDGE);
+    }
+  }
+  if (!ok || ap_interrupted()) {
+    managed_teardown(o->container);
+    return -1;
+  }
+  vap_log("%s bridged into %s - clients now live on the container's LAN.",
+          AP_IFACE, VAP_BRIDGE);
+  vap_log("VirtualAP is ACTIVE (managed by container '%s')!", o->container);
+  vap_log("  SSID    : %s (%dGHz, channel %d, %dMHz)", o->ssid, p.band,
+          p.channel, p.width);
+  vap_log("  Upstream: container '%s' via %s -> %s", o->container, VAP_BRIDGE,
+          VAP_PORT);
+  vap_log("  LAN     : served by the container (%s)", net.gw);
+  ttl_clear();
+  /* The container NATs the clients, so their traffic reaches the host from
+   * Droidspaces' own NAT subnets. */
+  if (!strcmp(o->ttl_fix, "1")) {
+    if (ttl_apply(DS_NAT_NET, DS_NAT_NET6) == 0)
+      vap_log("  TTL fix : forwarded packets leave with TTL 64");
+    else
+      vap_warn("TTL fix is not available: the kernel or iptables lacks the "
+               "TTL target. Continuing without it.");
+  }
+  /* A stop that came during the last steps is still a stop. */
+  if (ap_interrupted()) {
+    ttl_clear();
+    managed_teardown(o->container);
+    return -1;
+  }
+  return 0;
+}
 
 void managed_teardown(const char *container) {
   vap_log("Tearing down managed (bridged) AP...");

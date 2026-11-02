@@ -13,6 +13,7 @@
 #include "core/pidfile.h"
 #include "net/link.h"
 #include "radio/nl80211.h"
+#include "radio/regdom.h"
 #include "services/dnsmasq.h"
 #include "services/hostapd.h"
 #include "virtualap.h"
@@ -67,4 +68,33 @@ int ap_prerequisites(void) {
       return -1;
     }
   return 0;
+}
+
+void ap_plan_radio(const struct vap_opts *o, struct plan *p) {
+  struct phy_info phy;
+  struct sta sta;
+  int freq = nl80211_sta_freq(o->phy_iface);
+  sta_from_freq(freq > 0 ? freq : 0, &sta);
+  nl80211_phy_info(o->phy_iface, &phy);
+  plan_init(p, o->band, o->channel);
+  /* 5 GHz needs the regdomain to allow beaconing there, and ensure_5g_ir may
+   * itself fall back to 2.4 GHz, so the band follows the final channel. */
+  if (plan_channel(p, &sta))
+    ensure_5g_ir(p, o->phy_iface, &sta, &phy);
+  plan_band(p);
+  plan_width(p, o->width, &phy);
+}
+
+void ap_hold_signals(void) {
+  sigset_t hold;
+  sigemptyset(&hold);
+  sigaddset(&hold, SIGINT);
+  sigaddset(&hold, SIGTERM);
+  sigprocmask(SIG_BLOCK, &hold, NULL);
+}
+
+bool ap_interrupted(void) {
+  sigset_t pending;
+  sigpending(&pending);
+  return sigismember(&pending, SIGINT) || sigismember(&pending, SIGTERM);
 }

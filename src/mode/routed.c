@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/routed.h"
 
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -22,21 +21,11 @@
 #include "net/route.h"
 #include "net/rule.h"
 #include "net/ttl.h"
-#include "radio/regdom.h"
 #include "services/dnsmasq.h"
 #include "services/hostapd.h"
 #include "virtualap.h"
 
 #define IP_FORWARD "/proc/sys/net/ipv4/ip_forward"
-
-/* SIGINT and SIGTERM are held for the whole start and looked at between
- * steps, so a start that is told to stop always tears down (start-ap's
- * trap), never leaves half an AP. */
-static bool interrupted(void) {
-  sigset_t pending;
-  sigpending(&pending);
-  return sigismember(&pending, SIGINT) || sigismember(&pending, SIGTERM);
-}
 
 static int config_network(struct nl *nl, const struct vap_opts *o,
                           const struct upstream *up, const struct plan *p,
@@ -164,21 +153,6 @@ void routed_teardown(const struct vap_opts *o) {
   vap_log("AP stopped, cleanup completed.");
 }
 
-static void plan_radio(struct vap_opts *o, struct plan *p) {
-  struct phy_info phy;
-  struct sta sta;
-  int freq = nl80211_sta_freq(o->phy_iface);
-  sta_from_freq(freq > 0 ? freq : 0, &sta);
-  nl80211_phy_info(o->phy_iface, &phy);
-  plan_init(p, o->band, o->channel);
-  /* 5 GHz needs the regdomain to allow beaconing there, and ensure_5g_ir may
-   * itself fall back to 2.4 GHz, so the band follows the final channel. */
-  if (plan_channel(p, &sta))
-    ensure_5g_ir(p, o->phy_iface, &sta, &phy);
-  plan_band(p);
-  plan_width(p, o->width, &phy);
-}
-
 int routed_start(struct vap_opts *o, struct routed *r) {
   struct nl nl;
   struct upstream up;
@@ -198,22 +172,17 @@ int routed_start(struct vap_opts *o, struct routed *r) {
    * dnsmasq and the state file agree. ap.conf keeps the value as given. */
   if (!dns_any(o->dns_servers))
     snprintf(o->dns_servers, sizeof(o->dns_servers), "%s", DNS_DEFAULT);
-  plan_radio(o, &p);
-
-  sigset_t hold;
-  sigemptyset(&hold);
-  sigaddset(&hold, SIGINT);
-  sigaddset(&hold, SIGTERM);
-  sigprocmask(SIG_BLOCK, &hold, NULL);
-  int ok = config_network(&nl, o, &up, &p, &net, &v6) == 0 && !interrupted();
+  ap_plan_radio(o, &p);
+  ap_hold_signals();
+  int ok = config_network(&nl, o, &up, &p, &net, &v6) == 0 && !ap_interrupted();
   nl_close(&nl);
   if (ok) {
     vap_log("Generating service configs (band %dGHz, channel %d)...", p.band,
             p.channel);
     struct ra ra = {v6.prefix, v6.gw, v6.mode == V6_SHARED};
-    ok = hostapd_start(o, &p) == 0 && !interrupted() &&
+    ok = hostapd_start(o, &p) == 0 && !ap_interrupted() &&
          dnsmasq_start(&net, o->dns_servers, v6.mode ? &ra : NULL) == 0 &&
-         !interrupted();
+         !ap_interrupted();
   }
   if (!ok) {
     routed_teardown(o);
@@ -244,7 +213,7 @@ int routed_start(struct vap_opts *o, struct routed *r) {
                "TTL target. Continuing without it.");
   }
   /* A stop that came during the last steps is still a stop. */
-  if (interrupted()) {
+  if (ap_interrupted()) {
     routed_teardown(o);
     return -1;
   }

@@ -20,6 +20,7 @@
 #include "core/lock.h"
 #include "core/log.h"
 #include "core/pidfile.h"
+#include "mode/droidspaces.h"
 #include "monitor/upstream.h"
 #include "monitor/v6disc.h"
 
@@ -94,12 +95,25 @@ static int discovery(struct nl *nl, const struct vap_opts *o,
   return fd;
 }
 
-static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
-                int ready) {
-  struct nl nl;
-  if (nl_open(&nl) < 0 || pidfile_write(MONITOR_PID, getpid()) < 0)
+/* A managed AP's container stopped or restarted: its network namespace went,
+ * and the veth with it, the host end included. That end missing is the sign,
+ * and a cheap one; namespace inodes are reused and prove nothing. */
+static void watch_container(const struct vap_opts *o, struct managed *m) {
+  if (if_nametoindex(VAP_VETH_HOST))
+    return;
+  pid_t pid = ds_container_pid(o->container);
+  if (!pid)
+    return; /* stopped: nothing to plug into until it is back */
+  m->pid = pid;
+  managed_replug(o, m);
+}
+
+static void run(const struct vap_opts *o, struct routed *r, struct managed *m,
+                int ev, int sig, int ready) {
+  struct nl nl = {-1, 0};
+  if ((r && nl_open(&nl) < 0) || pidfile_write(MONITOR_PID, getpid()) < 0)
     _exit(1);
-  int v6 = discovery(&nl, o, r);
+  int v6 = r ? discovery(&nl, o, r) : -1;
   vap_log("Monitor running (PID %d).", (int)getpid());
   if (write(ready, "1", 1) < 0)
     _exit(1);
@@ -111,9 +125,10 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
     long long t = now_ms(), until = beat + BEAT_MS;
     if (due && due < until)
       until = due;
+    /* A negative fd is skipped by poll. */
     struct pollfd p[3] = {{ev, POLLIN, 0}, {sig, POLLIN, 0}, {v6, POLLIN, 0}};
     int wait = until > t ? (int)(until - t) : 0;
-    if (poll(p, v6 >= 0 ? 3 : 2, wait) < 0 && errno != EINTR)
+    if (poll(p, 3, wait) < 0 && errno != EINTR)
       break;
     if (p[1].revents)
       break; /* SIGTERM or SIGINT: stop owns the teardown. */
@@ -136,7 +151,9 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
      * to keep right, and putting rules back would only leak them. */
     if (access(VAP_STATE, F_OK) < 0 || !if_nametoindex(AP_IFACE))
       break;
-    if (reprobe(&nl, o, r)) {
+    if (m) {
+      watch_container(o, m);
+    } else if (reprobe(&nl, o, r)) {
       /* A new /64 (or none): a new discovery socket, nothing known. */
       if (v6 >= 0)
         close(v6);
@@ -156,7 +173,8 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
   _exit(0);
 }
 
-int monitor_spawn(const struct vap_opts *o, const struct routed *r) {
+int monitor_spawn(const struct vap_opts *o, struct routed *r,
+                  struct managed *m) {
   int pfd[2];
   if (pipe2(pfd, O_CLOEXEC) < 0)
     return -1;
@@ -187,11 +205,11 @@ int monitor_spawn(const struct vap_opts *o, const struct routed *r) {
     sigaddset(&set, SIGINT);
     sigprocmask(SIG_BLOCK, &set, NULL);
     int sig = signalfd(-1, &set, SFD_CLOEXEC | SFD_NONBLOCK);
-    int ev = open_events();
-    if (sig < 0 || ev < 0)
+    /* Events matter to a routed AP; a managed one only needs the beat. */
+    int ev = r ? open_events() : -1;
+    if (sig < 0 || (r && ev < 0))
       _exit(1);
-    struct routed live = *r;
-    run(o, &live, ev, sig, pfd[1]);
+    run(o, r, m, ev, sig, pfd[1]);
   }
   close(pfd[1]);
   char c;

@@ -14,6 +14,7 @@
 #include "core/lock.h"
 #include "core/log.h"
 #include "mode/ap.h"
+#include "mode/managed.h"
 #include "mode/routed.h"
 #include "monitor/monitor.h"
 #include "monitor/upstream.h"
@@ -86,11 +87,6 @@ int cmd_start(struct vap_opts *o) {
     return 1;
   }
   check_channel(o);
-  /* Refused before ap.conf is saved or a running AP is touched. */
-  if (*o->container) {
-    vap_error("Managed mode (-K) is not in the C engine yet.");
-    return 1;
-  }
 
   /* Saved now, before the channel policy rewrites band and channel and
    * before anything can fail: a failed attempt must not lose the config. */
@@ -106,12 +102,19 @@ int cmd_start(struct vap_opts *o) {
   ap_daemons_stop();
   if (ap_prerequisites() < 0)
     return 1;
+  if (*o->container) {
+    struct managed m;
+    if (managed_start(o, &m) < 0)
+      return 1;
+    monitor_spawn(o, NULL, &m);
+    return 0;
+  }
   struct routed r;
   if (routed_start(o, &r) < 0)
     return 1;
   /* A shared /64 lives on the monitor's client discovery; without the
    * monitor the prefix must not stay advertised. */
-  if (monitor_spawn(o, &r) < 0 && r.v6.mode == V6_SHARED) {
+  if (monitor_spawn(o, &r, NULL) < 0 && r.v6.mode == V6_SHARED) {
     struct nl nl;
     if (nl_open(&nl) == 0) {
       ipv6_off(&nl, o, &r, "no monitor for the client discovery");
