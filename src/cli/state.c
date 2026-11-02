@@ -30,7 +30,7 @@ const char *state_get(const struct state *s, const char *key) {
   return "";
 }
 
-static void body(FILE *f, const void *arg) {
+static void state_body(FILE *f, const void *arg) {
   const struct state *s = arg;
   for (size_t i = 0; i < s->n; i++)
     fprintf(f, "%s=%s\n", s->kv[i].key, s->kv[i].val);
@@ -40,7 +40,7 @@ int state_save(const char *path, const struct state *s) {
   /* A run.state missing a key would have the teardown guess it. */
   if (s->full)
     return -1;
-  return write_atomic(path, 0644, body, s);
+  return write_atomic(path, 0644, state_body, s);
 }
 
 bool state_load(const char *path, struct state *s) {
