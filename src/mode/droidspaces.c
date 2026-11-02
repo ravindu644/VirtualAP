@@ -3,36 +3,20 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/droidspaces.h"
 
-#include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <unistd.h>
 
-#include "core/fsutil.h"
 #include "core/proc.h"
 #include "virtualap.h"
 
 pid_t ds_container_pid(const char *name) {
-  char path[300], buf[32];
-  snprintf(path, sizeof(path), "/data/local/Droidspaces/Pids/%s.pid", name);
-  for (char *p = path + strlen("/data/local/Droidspaces/Pids/"); *p; p++)
-    if (*p == ' ')
-      *p = '-';
-  if (read_file(path, buf, sizeof(buf)) > 0) {
-    /* Only a container init carries Droidspaces' marker: the file outlives
-     * a reboot, and its pid may by now be anyone's. */
-    long pid = atol(buf);
-    char marker[64];
-    snprintf(marker, sizeof(marker), "/proc/%ld/root/run/droidspaces", pid);
-    if (pid > 1 && access(marker, F_OK) == 0)
-      return (pid_t)pid;
-  }
+  /* Droidspaces checks its own pid file against the live process; a stopped
+   * container prints NONE and exits 1. */
+  char buf[32];
   const char *const argv[] = {DROIDSPACES_BIN, "-n", name, "pid", NULL};
-  if (run_capture(argv, buf, sizeof(buf)) == 0 && atol(buf) > 1)
-    return (pid_t)atol(buf);
-  return 0;
+  long pid = run_capture(argv, buf, sizeof(buf)) == 0 ? atol(buf) : 0;
+  return pid > 1 ? (pid_t)pid : 0;
 }
 
 int ds_run_script(const char *name, const char *script,

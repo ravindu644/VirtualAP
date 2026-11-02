@@ -7,9 +7,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-/* The running container's init, 0 when it is not running: its pid file
- * (the name with spaces as '-') when that process is a container init, else
- * the CLI's `pid` answer. */
+/* The running container's init as `droidspaces -n name pid` reports it, 0
+ * when it is not running. */
 pid_t ds_container_pid(const char *name);
 /* script on sh's stdin inside the container, args as its $1..: values never
  * pass through a shell's quoting. line(text) for each line it prints. The

@@ -57,8 +57,7 @@
 #define VAP_MTU 1508
 
 /* Droidspaces is only ever run from here, never looked up in PATH. The app's
- * copy is Constants.DROIDSPACES; Droidspaces keeps its pid files in
- * /data/local/Droidspaces/Pids (mode/droidspaces.c). */
+ * copy is Constants.DROIDSPACES. */
 #define DROIDSPACES_BIN "/data/local/Droidspaces/bin/droidspaces"
 
 #endif
