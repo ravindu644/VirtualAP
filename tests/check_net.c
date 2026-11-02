@@ -212,16 +212,16 @@ static void test_netlink(void) {
   }
 
   struct upstream up;
-  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1031 &&
+  CHECK(upstream_resolve(&nl, "auto", &up, false) == 0 && up.table == 1031 &&
         !strcmp(up.iface, "vt-p"));
-  CHECK(upstream_resolve(&nl, "vt-p", &up) == 0 && up.table == 1031);
+  CHECK(upstream_resolve(&nl, "vt-p", &up, false) == 0 && up.table == 1031);
   /* No default anywhere: the table of whatever route it has. */
   struct route lan = {AF_INET, "10.9.0.0/16", "vt-p", NULL, 1040, 0,
                       RT_SCOPE_LINK};
   CHECK(route_del(&nl, &def) == 0 && route_replace(&nl, &lan) == 0);
   CHECK(route_iface_table(&nl, AF_INET, "vt-p", &table) == 0 &&
         (table == 1040 || table == RT_TABLE_MAIN));
-  CHECK(upstream_resolve(&nl, "nope0", &up) < 0);
+  CHECK(upstream_resolve(&nl, "nope0", &up, false) < 0);
   snprintf(up.iface, sizeof(up.iface), "v4-rmnet_data1");
   CHECK(!strcmp(upstream_v6_iface(&up), "rmnet_data1"));
 

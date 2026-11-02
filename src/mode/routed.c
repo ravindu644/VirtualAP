@@ -179,7 +179,7 @@ static void plan_radio(struct vap_opts *o, struct plan *p) {
   plan_width(p, o->width, &phy);
 }
 
-int routed_start(struct vap_opts *o) {
+int routed_start(struct vap_opts *o, struct routed *r) {
   struct nl nl;
   struct upstream up;
   struct subnet net;
@@ -190,7 +190,7 @@ int routed_start(struct vap_opts *o) {
     return -1;
   }
   subnet_from_gw(o->ip_gw, &net);
-  if (upstream_resolve(&nl, o->upstream, &up) < 0) {
+  if (upstream_resolve(&nl, o->upstream, &up, true) < 0) {
     nl_close(&nl);
     return -1;
   }
@@ -248,5 +248,8 @@ int routed_start(struct vap_opts *o) {
     routed_teardown(o);
     return -1;
   }
+  r->up = up;
+  r->net = net;
+  r->v6 = v6;
   return 0;
 }

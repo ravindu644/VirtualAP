@@ -37,14 +37,18 @@ static bool eui64(struct in6_addr *a) {
   return true;
 }
 
-int shared_setup(struct nl *nl, const struct upstream *up,
-                 const struct in6_addr *upaddr, struct v6 *v,
-                 const char **why) {
-  struct in6_addr pfx = *upaddr, gw;
+void shared_prefix(const struct in6_addr *upaddr, struct v6 *v) {
+  struct in6_addr pfx = *upaddr;
   memset(pfx.s6_addr + 8, 0, 8);
   inet_ntop(AF_INET6, &pfx, v->prefix, sizeof(v->prefix));
   snprintf(v->net, sizeof(v->net), "%s/64", v->prefix);
-  gw = pfx;
+}
+
+int shared_setup(struct nl *nl, const struct upstream *up,
+                 const struct in6_addr *upaddr, struct v6 *v,
+                 const char **why) {
+  struct in6_addr gw;
+  inet_pton(AF_INET6, v->prefix, &gw);
   if (!eui64(&gw)) {
     *why = "cannot read " AP_IFACE "'s MAC";
     return -1;
@@ -91,11 +95,12 @@ int shared_setup(struct nl *nl, const struct upstream *up,
   return 0;
 }
 
-int shared_add_client(struct nl *nl, const char *addr, const char *up) {
+int shared_add_client(struct nl *nl, const char *addr, const char *up,
+                      bool record) {
   struct route host = {AF_INET6, addr, AP_IFACE, NULL, RT_TABLE_MAIN, 0, 0};
   if (route_replace(nl, &host) < 0 || neigh_proxy(nl, true, addr, up) < 0)
     return -1;
-  FILE *f = fopen(V6CLIENTS, "ae");
+  FILE *f = record ? fopen(V6CLIENTS, "ae") : NULL;
   if (f) {
     fprintf(f, "%s\n", addr);
     fclose(f);

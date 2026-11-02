@@ -15,6 +15,8 @@
 #include "core/log.h"
 #include "mode/ap.h"
 #include "mode/routed.h"
+#include "monitor/monitor.h"
+#include "monitor/upstream.h"
 #include "virtualap.h"
 
 /* The first DNS entry that is no IPv4 address, into arg. */
@@ -104,5 +106,17 @@ int cmd_start(struct vap_opts *o) {
   ap_daemons_stop();
   if (ap_prerequisites() < 0)
     return 1;
-  return routed_start(o) == 0 ? 0 : 1;
+  struct routed r;
+  if (routed_start(o, &r) < 0)
+    return 1;
+  /* A shared /64 lives on the monitor's client discovery; without the
+   * monitor the prefix must not stay advertised. */
+  if (monitor_spawn(o, &r) < 0 && r.v6.mode == V6_SHARED) {
+    struct nl nl;
+    if (nl_open(&nl) == 0) {
+      ipv6_off(&nl, o, &r, "no monitor for the client discovery");
+      nl_close(&nl);
+    }
+  }
+  return 0;
 }

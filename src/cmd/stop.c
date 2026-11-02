@@ -7,10 +7,13 @@
 #include "core/lock.h"
 #include "mode/managed.h"
 #include "mode/routed.h"
+#include "monitor/monitor.h"
 #include "net/ttl.h"
 #include "virtualap.h"
 
 void stop_ap(const struct vap_opts *o) {
+  /* First, so it cannot put back what the teardown removes. */
+  monitor_stop();
   ttl_clear();
   struct state st;
   if (state_load(VAP_STATE, &st) && !strcmp(state_get(&st, "mode"), "bridged"))

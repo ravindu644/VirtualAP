@@ -242,7 +242,19 @@ int ipt_rules_present(int family, const char *iface, const char *cidr) {
   return present;
 }
 
+static bool nat_probe(int family);
+
+/* The kernel's answer does not change while a process runs, and the monitor
+ * asks every few seconds. */
 bool ipt_nat_available(int family) {
+  static int known[2] = {-1, -1};
+  int i = family == AF_INET6;
+  if (known[i] < 0)
+    known[i] = nat_probe(family);
+  return known[i];
+}
+
+static bool nat_probe(int family) {
   int fd = ipt_open(family);
   if (fd >= 0) {
     struct ipt_table t;

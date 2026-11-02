@@ -25,6 +25,12 @@ struct v6 {
   char prev_fwd[8], prev_proxy[8];
 };
 
+/* What the clients should get now, touching nothing: v->mode, v->up and the
+ * prefix filled, upaddr the upstream's global address. Returns why IPv6 is
+ * off when it is (NULL when -6 0 asked for that). */
+const char *ipv6_decide(struct nl *nl, const struct vap_opts *o,
+                        const struct upstream *up, const struct subnet *net,
+                        struct v6 *v, struct in6_addr *upaddr);
 void ipv6_setup(struct nl *nl, const struct vap_opts *o,
                 const struct upstream *up, const struct subnet *net,
                 struct v6 *v);

@@ -99,43 +99,50 @@ static void abort_v6(struct nl *nl, struct v6 *v, const char *why) {
   memset(v, 0, sizeof(*v));
 }
 
+const char *ipv6_decide(struct nl *nl, const struct vap_opts *o,
+                        const struct upstream *up, const struct subnet *net,
+                        struct v6 *v, struct in6_addr *upaddr) {
+  memset(v, 0, sizeof(*v));
+  if (strcmp(o->ipv6, "1"))
+    return NULL;
+  const char *up6 = upstream_v6_iface(up);
+  if (!*up6)
+    return "upstream interface unknown";
+  snprintf(v->up, sizeof(v->up), "%s", up6);
+  /* NAT66 needs a global address on the upstream to masquerade to; the
+   * shared /64 needs that address in a /64 of its own. */
+  static char why[96];
+  if (!v6_global_addr(nl, up6, false, upaddr)) {
+    snprintf(why, sizeof(why), "%s has no global IPv6 address", up6);
+    return why;
+  }
+  if (nat66_possible(nl, up)) {
+    v->mode = V6_NAT66;
+    nat66_prefix(net, v);
+    return NULL;
+  }
+  if (!v6_global_addr(nl, up6, true, upaddr)) {
+    snprintf(why, sizeof(why),
+             "%s has no global /64 prefix and the kernel cannot NAT66", up6);
+    return why;
+  }
+  v->mode = V6_SHARED;
+  shared_prefix(upaddr, v);
+  return NULL;
+}
+
 void ipv6_setup(struct nl *nl, const struct vap_opts *o,
                 const struct upstream *up, const struct subnet *net,
                 struct v6 *v) {
-  memset(v, 0, sizeof(*v));
-  if (strcmp(o->ipv6, "1"))
-    return;
-  const char *up6 = upstream_v6_iface(up);
-  if (!*up6) {
-    vap_log("IPv6: upstream interface unknown - IPv4 only.");
-    return;
-  }
-  snprintf(v->up, sizeof(v->up), "%s", up6);
   struct in6_addr upaddr;
-  /* NAT66 needs a global address on the upstream to masquerade to; the
-   * shared /64 needs that address in a /64 of its own. */
-  if (!v6_global_addr(nl, up6, false, &upaddr)) {
-    vap_log("IPv6: %s has no global IPv6 address - IPv4 only.", up6);
+  const char *off = ipv6_decide(nl, o, up, net, v, &upaddr);
+  if (!v->mode) {
+    if (off)
+      vap_log("IPv6: %s - IPv4 only.", off);
     memset(v, 0, sizeof(*v));
     return;
   }
-  bool nat66 = nat66_possible(nl, up);
-  /* ponytail: the shared /64 needs the monitor's client discovery (the
-   * /128 and proxy entry per client), which is not in yet; until it is,
-   * advertising the prefix would hand clients addresses nothing routes back. */
-  if (!nat66) {
-    vap_log("IPv6: the kernel cannot NAT66 - IPv4 only.");
-    memset(v, 0, sizeof(*v));
-    return;
-  }
-  if (!nat66 && !v6_global_addr(nl, up6, true, &upaddr)) {
-    vap_log("IPv6: %s has no global /64 prefix and the kernel cannot NAT66 "
-            "- IPv4 only.",
-            up6);
-    memset(v, 0, sizeof(*v));
-    return;
-  }
-  v->mode = nat66 ? V6_NAT66 : V6_SHARED;
+  const char *up6 = v->up;
 
   /* ap0 holds addresses but never configures itself from (rogue) RAs: we are
    * the router on this link. */
@@ -152,8 +159,8 @@ void ipv6_setup(struct nl *nl, const struct vap_opts *o,
   }
 
   const char *why = NULL;
-  int ret = nat66 ? nat66_setup(nl, up, net, v, &why)
-                  : shared_setup(nl, up, &upaddr, v, &why);
+  int ret = v->mode == V6_NAT66 ? nat66_setup(nl, up, v, &why)
+                                : shared_setup(nl, up, &upaddr, v, &why);
   if (ret < 0) {
     abort_v6(nl, v, why);
     return;

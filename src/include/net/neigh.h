@@ -11,5 +11,7 @@
 /* `ip -6 neigh replace|del proxy addr dev dev`. 0 or -errno; deleting one
  * that is not there is 0. */
 int neigh_proxy(struct nl *nl, bool add, const char *addr, const char *dev);
+/* Is addr in dev's neighbour table (a real, non-proxy entry)? */
+bool neigh_known(struct nl *nl, const char *addr, const char *dev);
 
 #endif

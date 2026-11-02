@@ -72,28 +72,32 @@ int netd_default_table(struct nl *nl, int family, int *table) {
   return 0;
 }
 
-int upstream_resolve(struct nl *nl, const char *want, struct upstream *up) {
+int upstream_resolve(struct nl *nl, const char *want, struct upstream *up,
+                     bool verbose) {
   memset(up, 0, sizeof(*up));
   if (!strcmp(want, "auto")) {
     /* IPv6 only when there is no IPv4 rule at all; netd writes both. */
     if (netd_default_table(nl, AF_INET, &up->table) < 0 &&
         netd_default_table(nl, AF_INET6, &up->table) < 0) {
-      vap_error("Could not auto-detect the upstream network (no netd "
-                "default-network rule).");
-      vap_error("Select an upstream interface explicitly with -o <iface>.");
+      if (verbose) {
+        vap_error("Could not auto-detect the upstream network (no netd "
+                  "default-network rule).");
+        vap_error("Select an upstream interface explicitly with -o <iface>.");
+      }
       return -1;
     }
     if (route_default_oif(nl, AF_INET, up->table, up->iface) < 0)
       route_default_oif(nl, AF_INET6, up->table, up->iface);
-    if (up->iface[0])
+    if (verbose && up->iface[0])
       vap_log("Auto upstream: table %d (%s)", up->table, up->iface);
-    else
+    else if (verbose)
       vap_log("Auto upstream: table %d", up->table);
     return 0;
   }
 
   if (strlen(want) >= IF_NAMESIZE || !if_nametoindex(want)) {
-    vap_error("Upstream interface '%s' does not exist.", want);
+    if (verbose)
+      vap_error("Upstream interface '%s' does not exist.", want);
     return -1;
   }
   snprintf(up->iface, sizeof(up->iface), "%s", want);
@@ -101,7 +105,8 @@ int upstream_resolve(struct nl *nl, const char *want, struct upstream *up) {
   if (route_iface_table(nl, AF_INET, want, &up->table) < 0 &&
       route_iface_table(nl, AF_INET6, want, &up->table) < 0)
     up->table = RT_TABLE_MAIN;
-  vap_log("Upstream: %s (table %d)", up->iface, up->table);
+  if (verbose)
+    vap_log("Upstream: %s (table %d)", up->iface, up->table);
   return 0;
 }
 
