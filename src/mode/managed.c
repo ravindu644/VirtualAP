@@ -43,13 +43,10 @@ static int retry(int (*fn)(struct nl *, const char *, const char *),
   return ret;
 }
 
+/* retry() passes two names; link_set_up takes a bool. */
 static int up(struct nl *nl, const char *ifname, const char *unused) {
   (void)unused;
   return link_set_up(nl, ifname, true);
-}
-
-static int master(struct nl *nl, const char *ifname, const char *bridge) {
-  return link_set_master(nl, ifname, bridge);
 }
 
 /* Inside the container: its port up, and its MAC read back. */
@@ -128,7 +125,7 @@ static int plug(const struct vap_opts *o, struct managed *m, struct nl *nl,
   }
   if (fixed)
     vap_log("Gateway MAC fixed at %s.", o->gw_mac);
-  if (retry(master, nl, VAP_VETH_HOST, VAP_BRIDGE) < 0 ||
+  if (retry(link_set_master, nl, VAP_VETH_HOST, VAP_BRIDGE) < 0 ||
       retry(up, nl, VAP_VETH_HOST, NULL) < 0) {
     vap_error("Failed to bring %s into %s.", VAP_VETH_HOST, VAP_BRIDGE);
     close(fd);
@@ -234,7 +231,7 @@ int managed_start(const struct vap_opts *o, struct managed *m) {
     struct nl nl;
     ok = hostapd_start(o, &p) == 0 && nl_open(&nl) == 0;
     if (ok) {
-      ok = retry(master, &nl, AP_IFACE, VAP_BRIDGE) == 0;
+      ok = retry(link_set_master, &nl, AP_IFACE, VAP_BRIDGE) == 0;
       nl_close(&nl);
       if (!ok)
         vap_error("Failed to enslave %s to %s.", AP_IFACE, VAP_BRIDGE);
