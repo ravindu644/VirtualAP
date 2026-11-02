@@ -7,6 +7,8 @@ backend/aarch64/*
 !backend/aarch64/.gitkeep
 backend/armhf/*
 !backend/armhf/.gitkeep
+# Objects and per-arch binaries of `make`, the shipped copy goes to backend/<arch>.
+output/
 Android/.gradle/
 Android/build/
 Android/app/build/

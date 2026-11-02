@@ -6,6 +6,8 @@
 #   iw                     - virtual interface management
 #   dnsmasq                - DHCP + DNS for AP clients
 #   busybox                - reliable coreutils (Alpine's busybox-static)
+#   virtualap              - the engine itself, from src/ (mounted with the
+#                            Makefile, tests/ and VERSION under /repo)
 #
 # Sources come from the vendored git submodules, bind-mounted read-only at
 # /externals/{hostapd,iw,dnsmasq} (our own forks - see externals/ and
@@ -117,9 +119,17 @@ make -j"$(nproc)" CFLAGS="$CF" LDFLAGS="$LDF"
 strip src/dnsmasq
 cp src/dnsmasq "$OUT"/
 
+echo "### Building virtualap"
+# The repo is mounted read-only, so objects go to /tmp. Alpine's gcc is musl
+# already, and pinned by the image, so warnings can fail the build here.
+# The asserts in tests/check.c run first, so a broken one fails the build.
+make -C /repo check OUT_DIR=/tmp/vap
+make -C /repo -j"$(nproc)" native CC=gcc OUT_DIR=/tmp/vap WERROR=1
+cp "/tmp/vap/virtualap-$ARCH_LABEL" "$OUT/virtualap"
+
 echo "### Results"
 cd "$OUT"
-for b in busybox hostapd hostapd_cli iw dnsmasq; do
+for b in busybox hostapd hostapd_cli iw dnsmasq virtualap; do
     printf '%-12s ' "$b"
     file -b "$b"
 done
