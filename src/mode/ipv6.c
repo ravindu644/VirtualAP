@@ -22,7 +22,10 @@
  * ip6tables MASQUERADE out of the upstream. The prefix is VirtualAP's own,
  * fd76:6170::/32 ("vap"), clear of Droidspaces' fd64:7370::/48, so a
  * container's NAT never collides with ours. */
-bool nat66_possible(struct nl *nl, const struct upstream *up) {
+
+/* ip6table_nat with MASQUERADE, and an IPv6 default route in the upstream's
+ * table to masquerade out of. */
+static bool nat66_possible(struct nl *nl, const struct upstream *up) {
   char oif[IF_NAMESIZE];
   return route_default_oif(nl, AF_INET6, up->table, oif) == 0 &&
          ipt_nat_available(AF_INET6);
@@ -36,8 +39,9 @@ void nat66_prefix(const struct subnet *net, struct v6 *v) {
   snprintf(v->gw, sizeof(v->gw), "%s1", v->prefix);
 }
 
-int nat66_setup(struct nl *nl, const struct upstream *up, struct v6 *v,
-                const char **why) {
+/* 0, or -1 with the reason in why. */
+static int nat66_setup(struct nl *nl, const struct upstream *up, struct v6 *v,
+                       const char **why) {
   vap_log("IPv6: NAT66 on %s out of %s.", v->net, v->up);
 
   if (addr_add(nl, AP_IFACE, AF_INET6, v->gw, 64, true) < 0) {
@@ -81,16 +85,18 @@ static bool eui64(struct in6_addr *a) {
   return true;
 }
 
-void shared_prefix(const struct in6_addr *upaddr, struct v6 *v) {
+/* v->prefix and net: upaddr's /64. */
+static void shared_prefix(const struct in6_addr *upaddr, struct v6 *v) {
   struct in6_addr pfx = *upaddr;
   memset(pfx.s6_addr + 8, 0, 8);
   inet_ntop(AF_INET6, &pfx, v->prefix, sizeof(v->prefix));
   snprintf(v->net, sizeof(v->net), "%s/64", v->prefix);
 }
 
-int shared_setup(struct nl *nl, const struct upstream *up,
-                 const struct in6_addr *upaddr, struct v6 *v,
-                 const char **why) {
+/* 0, or -1 with the reason in why. */
+static int shared_setup(struct nl *nl, const struct upstream *up,
+                        const struct in6_addr *upaddr, struct v6 *v,
+                        const char **why) {
   struct in6_addr gw;
   inet_pton(AF_INET6, v->prefix, &gw);
   if (!eui64(&gw)) {
@@ -129,8 +135,11 @@ int shared_setup(struct nl *nl, const struct upstream *up,
   return 0;
 }
 
-int shared_add_client(struct nl *nl, const char *addr, const char *up,
-                      bool record) {
+/* A client address found on ap0: its /128 to ap0 and its proxy entry on the
+ * upstream, recorded in run/v6clients for the teardown when record (a
+ * re-install of a known one is not). */
+static int shared_add_client(struct nl *nl, const char *addr, const char *up,
+                             bool record) {
   struct route host = {AF_INET6, addr, AP_IFACE, NULL, RT_TABLE_MAIN, 0, 0};
   if (route_replace(nl, &host) < 0 || neigh_proxy(nl, true, addr, up) < 0)
     return -1;
@@ -161,8 +170,11 @@ void conf6_get(const char *iface, const char *key, char *out, size_t size) {
     out[0] = '\0';
 }
 
-bool v6_global_addr(struct nl *nl, const char *iface, bool only64,
-                    struct in6_addr *out) {
+/* The first address on iface the internet routes back to: global scope, not
+ * ULA (fc00::/7), neither deprecated nor tentative; a /64 only when only64.
+ * Wi-Fi routers without IPv6 internet hand out ULAs alone. */
+static bool v6_global_addr(struct nl *nl, const char *iface, bool only64,
+                           struct in6_addr *out) {
   struct addr_info a[32];
   int idx = (int)if_nametoindex(iface);
   int n = idx ? addr_list(nl, AF_INET6, idx, a, 32) : 0;

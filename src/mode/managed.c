@@ -38,9 +38,13 @@ pid_t ds_container_pid(const char *name) {
   return pid > 1 ? (pid_t)pid : 0;
 }
 
-int ds_run_script(const char *name, const char *script,
-                  const char *const args[],
-                  void (*line)(const char *text, void *arg), void *arg) {
+/* script on sh's stdin inside the container, args as its $1..: values never
+ * pass through a shell's quoting. line(text) for each line it prints. The
+ * container's own namespaces, cgroup and limits apply, as droidspaces run
+ * sets them. Exit code, or -1. */
+static int ds_run_script(const char *name, const char *script,
+                         const char *const args[],
+                         void (*line)(const char *text, void *arg), void *arg) {
   const char *argv[24] = {DROIDSPACES_BIN, "-n", name, "--stdin",
                           "run",           "sh", "-s", "--"};
   int n = 8;
@@ -50,7 +54,8 @@ int ds_run_script(const char *name, const char *script,
   return run_lines(argv, script, line, arg);
 }
 
-bool ds_is_openwrt(const char *name) {
+/* Its /etc/os-release says ID=openwrt (quoted or not). */
+static bool ds_is_openwrt(const char *name) {
   /* Read inside the container: through /proc/<pid>/root an absolute
    * symlink would resolve against the host. */
   char buf[4096];
@@ -142,7 +147,10 @@ static void line(const char *text, void *arg) {
     vap_log("%s", text);
 }
 
-void openwrt_provision(const char *container, const struct subnet *net) {
+/* A LAN on the container's VAP_PORT at the gateway's address, its DHCP and
+ * router advertisements, and NAT out of its WAN. Best effort: what fails is
+ * logged as a warning. */
+static void openwrt_provision(const char *container, const struct subnet *net) {
   vap_log("Provisioning OpenWrt LAN (%s) on %s...", net->gw, VAP_PORT);
   char hint[4];
   snprintf(hint, sizeof(hint), "%u", net->third);
@@ -183,7 +191,7 @@ void rps_mask_from(const char *present, char *mask, size_t size) {
   }
 }
 
-void rps_mask(char *mask, size_t size) {
+static void rps_mask(char *mask, size_t size) {
   char buf[64];
   mask[0] = '\0';
   if (read_file("/sys/devices/system/cpu/present", buf, sizeof(buf)) >= 0)
@@ -197,11 +205,16 @@ static bool write_mask(const char *sys, const char *ifname, const char *mask) {
   return write_file(path, mask) == 0;
 }
 
-bool rps_host(const char *ifname, const char *mask) {
+/* mask on ifname in the host's namespace. */
+static bool rps_host(const char *ifname, const char *mask) {
   return write_mask("/sys", ifname, mask);
 }
 
-bool rps_in_netns(int netns_fd, const char *ifname, const char *mask) {
+/* ifname in the namespace of netns_fd. Moving a link between namespaces
+ * drops its map, and the host's /sys shows only the host's links, so a
+ * child steps in and mounts a sysfs of its own for that namespace; never
+ * the container's /proc/<pid>/root/sys, whose symlinks the container picks. */
+static bool rps_in_netns(int netns_fd, const char *ifname, const char *mask) {
   fflush(stdout);
   pid_t pid = fork();
   if (pid == 0) {
