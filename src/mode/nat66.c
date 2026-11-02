@@ -7,8 +7,6 @@
 #include "mode/nat66.h"
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "core/log.h"
 #include "mode/rules.h"
@@ -26,8 +24,7 @@ bool nat66_possible(struct nl *nl, const struct upstream *up) {
 void nat66_prefix(const struct subnet *net, struct v6 *v) {
   /* The /64 numbered after the IPv4 subnet, 192.168.42.1 gets
    * fd76:6170:42::/64, so a client sees the same number in both. */
-  int third = atoi(strchr(strchr(net->gw, '.') + 1, '.') + 1);
-  snprintf(v->prefix, sizeof(v->prefix), "fd76:6170:%d::", third);
+  snprintf(v->prefix, sizeof(v->prefix), "fd76:6170:%u::", net->third);
   snprintf(v->net, sizeof(v->net), "%s/64", v->prefix);
   snprintf(v->gw, sizeof(v->gw), "%s1", v->prefix);
 }

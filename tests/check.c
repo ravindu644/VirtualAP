@@ -14,6 +14,7 @@
 #include "core/fsutil.h"
 #include "core/ipaddr.h"
 #include "core/log.h"
+#include "mode/nat66.h"
 
 int failed;
 
@@ -37,6 +38,10 @@ static void test_ip4(void) {
   CHECK(subnet_from_gw("10.0.7.1", &s));
   CHECK(!strcmp(s.gw, "10.0.7.1") && !strcmp(s.net, "10.0.7.0/24"));
   CHECK(!strcmp(s.begin, "10.0.7.10") && !strcmp(s.end, "10.0.7.50"));
+  CHECK(s.third == 7);
+  struct v6 v;
+  nat66_prefix(&s, &v);
+  CHECK(!strcmp(v.net, "fd76:6170:7::/64") && !strcmp(v.gw, "fd76:6170:7::1"));
   CHECK(!subnet_from_gw("10.0.7.0", &s));
   CHECK(!subnet_from_gw("10.0.7.255", &s));
   CHECK(!subnet_from_gw("10.0.7", &s));

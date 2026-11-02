@@ -84,12 +84,8 @@ static void line(const char *text, void *arg) {
 
 void openwrt_provision(const char *container, const struct subnet *net) {
   vap_log("Provisioning OpenWrt LAN (%s) on %s...", net->gw, VAP_PORT);
-  /* The third octet of a gateway subnet_from_gw validated. */
-  char hint[8];
-  const char *third = strchr(strchr(net->gw, '.') + 1, '.') + 1;
-  size_t len = strcspn(third, ".");
-  memcpy(hint, third, len < 3 ? len : 3);
-  hint[len < 3 ? len : 3] = '\0';
+  char hint[4];
+  snprintf(hint, sizeof(hint), "%u", net->third);
   const char *const args[] = {net->gw, net->net, VAP_PORT, hint, NULL};
   if (ds_run_script(container, script, args, line, NULL) != 0)
     vap_warn("OpenWrt provisioning hit issues - check the container.");

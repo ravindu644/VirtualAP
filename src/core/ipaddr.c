@@ -41,5 +41,6 @@ bool subnet_from_gw(const char *gw, struct subnet *out) {
   snprintf(out->net, sizeof(out->net), "%u.%u.%u.0/24", o[0], o[1], o[2]);
   snprintf(out->begin, sizeof(out->begin), "%u.%u.%u.10", o[0], o[1], o[2]);
   snprintf(out->end, sizeof(out->end), "%u.%u.%u.50", o[0], o[1], o[2]);
+  out->third = o[2];
   return true;
 }

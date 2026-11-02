@@ -20,6 +20,7 @@ struct subnet {
   char net[20];   /* 192.168.42.0/24 */
   char begin[16]; /* .10, the DHCP pool */
   char end[16];   /* .50 */
+  unsigned char third; /* 42: the /64s are numbered after it */
 };
 /* false when gw is not a host address (.0 and .255 refused). */
 bool subnet_from_gw(const char *gw, struct subnet *out);
