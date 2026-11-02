@@ -169,7 +169,7 @@ Engine (`src/`):
   fix).
 - `radio/`: `driver` (nl80211 over genetlink: create and delete ap0, the phy, the station's
   frequency, the width; the wpa control socket; `wifi_mac`, the factory MAC), `channel`
-  (band, channel and width policy), `regdom` (`ensure_5g_ir`).
+  (band, channel and width policy, and `ensure_5g_ir`).
 - `services/`: `hostapd` (its config, start and client count), `dnsmasq`.
 - `mode/`: `ap` (ap0, the daemons, radio planning, the signal hold both modes share),
   `routed`, `ipv6` (`ipv6_decide`, setup, teardown), `nat66`, `v6shared`, `managed`, `rps`,

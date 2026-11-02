@@ -149,10 +149,10 @@ is a bug, not a shortcut.
   spawns `ip`, `iw` or `hostapd_cli`; `iptables` is spawned only for the TTL fix (`ttl_*` in
   `net/ipt_rules`).
 - `upstream_resolve` (`net/route`) is the only place the upstream table is resolved.
-  `radio/channel`, with `ensure_5g_ir` in `radio/regdom`, is the only place band and channel
-  policy lives: following the station's channel, the DFS fallback, the NO-IR country fix.
-  Do not compare a channel number anywhere else. `ipv6_decide` (`mode/ipv6`) is the only
-  place the clients' IPv6 is chosen; the start and the monitor both ask it.
+  `radio/channel`, `ensure_5g_ir` included, is the only place band and channel policy lives:
+  following the station's channel, the DFS fallback, the NO-IR country fix. Do not compare a
+  channel number anywhere else. `ipv6_decide` (`mode/ipv6`) is the only place the clients'
+  IPv6 is chosen; the start and the monitor both ask it.
 - `Constants` holds every path and preference key on the app side, the engine's
   (`Constants.ENGINE`) included. `VirtualAPInstaller` deploys the binaries; it is not
   duplicated elsewhere.
