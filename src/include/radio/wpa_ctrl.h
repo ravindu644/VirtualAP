@@ -8,7 +8,8 @@
 
 /* cmd to the daemon listening at path, its reply in reply (NUL terminated)
  * within timeout_ms. Returns the reply's length, or -errno (-ETIMEDOUT for
- * a daemon that never answers, so a hung hostapd cannot stall a status). */
+ * a daemon that never answers, so a hung hostapd cannot stall a status;
+ * -EMSGSIZE for a reply that does not fit). */
 int wpa_ctrl_request(const char *path, const char *cmd, char *reply,
                      size_t size, int timeout_ms);
 /* cmd without waiting for the reply: wpa_supplicant runs a driver command

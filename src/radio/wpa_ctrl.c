@@ -11,7 +11,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <time.h>
 #include <unistd.h>
 
 /* A datagram socket bound to an address the kernel picks, so the daemon has
@@ -51,39 +50,25 @@ int wpa_ctrl_request(const char *path, const char *cmd, char *reply,
   int fd = open_ctrl(path);
   if (fd < 0)
     return fd;
+  /* Never ATTACHed, so the daemon sends nothing unsolicited: the first
+   * datagram back is the reply. MSG_DONTWAIT because a hostapd that stopped
+   * reading lets its queue fill, and a blocking send would then wait for
+   * good. An interrupted poll counts as no answer: nothing here installs a
+   * signal handler. */
+  struct pollfd p = {fd, POLLIN, 0};
   int ret = -ETIMEDOUT;
-  if (send(fd, cmd, strlen(cmd), 0) < 0) {
+  if (send(fd, cmd, strlen(cmd), MSG_DONTWAIT) < 0) {
     ret = -errno;
-  } else {
-    struct pollfd p = {fd, POLLIN, 0};
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    long long deadline = now.tv_sec * 1000LL + now.tv_nsec / 1000000 + timeout_ms;
-    /* Unsolicited events start with '<'; only an attached client gets them,
-     * but skip them rather than take one for the reply, within the one
-     * deadline, so a chatty daemon that never answers cannot hold us. */
-    for (;;) {
-      clock_gettime(CLOCK_MONOTONIC, &now);
-      long long left =
-          deadline - (now.tv_sec * 1000LL + now.tv_nsec / 1000000);
-      if (left <= 0)
-        break;
-      int pr = poll(&p, 1, (int)left);
-      if (pr < 0 && errno == EINTR)
-        continue;
-      if (pr <= 0)
-        break;
-      ssize_t n = recv(fd, reply, size - 1, 0);
-      if (n < 0) {
-        ret = -errno;
-        break;
-      }
-      reply[n] = '\0';
-      if (n > 0 && reply[0] == '<')
-        continue;
-      ret = (int)n;
-      break;
-    }
+  } else if (poll(&p, 1, timeout_ms) > 0) {
+    /* MSG_TRUNC: the datagram's real length, so a reply cut to fit is an
+     * error rather than a shorter answer. */
+    ssize_t n = recv(fd, reply, size - 1, MSG_TRUNC);
+    if (n < 0)
+      ret = -errno;
+    else if ((size_t)n > size - 1)
+      ret = -EMSGSIZE;
+    else
+      reply[ret = (int)n] = '\0';
   }
   close(fd);
   return ret;

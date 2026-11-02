@@ -1,12 +1,19 @@
 /* The channel, width and MAC policy, pure, no radio needed.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "check.h"
 #include "radio/channel.h"
 #include "radio/regdom.h"
 #include "radio/wifi_mac.h"
+#include "radio/wpa_ctrl.h"
 
 static struct plan plan(const char *band, const char *ch, int sta_freq,
                         bool *needs_ir) {
@@ -19,7 +26,53 @@ static struct plan plan(const char *band, const char *ch, int sta_freq,
   return p;
 }
 
+/* A daemon on a socket in a temporary directory: STATUS gets a reply, BIG one
+ * too long for the caller's buffer, anything else silence. */
+static void test_wpa_ctrl(void) {
+  char dir[] = "/tmp/vap-ctrl-XXXXXX", path[64], r[256], small[8];
+  if (!mkdtemp(dir))
+    return;
+  snprintf(path, sizeof(path), "%s/ap0", dir);
+  struct sockaddr_un sa = {.sun_family = AF_UNIX};
+  snprintf(sa.sun_path, sizeof(sa.sun_path), "%s", path);
+  int srv = socket(AF_UNIX, SOCK_DGRAM, 0);
+  CHECK(bind(srv, (struct sockaddr *)&sa, sizeof(sa)) == 0);
+  fflush(NULL);
+  pid_t pid = fork();
+  if (pid == 0) {
+    for (int i = 0; i < 3; i++) {
+      char cmd[32];
+      struct sockaddr_un from;
+      socklen_t len = sizeof(from);
+      ssize_t n = recvfrom(srv, cmd, sizeof(cmd) - 1, 0,
+                           (struct sockaddr *)&from, &len);
+      if (n < 0)
+        _exit(1);
+      cmd[n] = '\0';
+      const char *ans = !strcmp(cmd, "STATUS") ? "state=ENABLED\nnum_sta[0]=2\n"
+                        : !strcmp(cmd, "BIG")  ? "a reply longer than eight"
+                                               : NULL;
+      if (ans)
+        sendto(srv, ans, strlen(ans), 0, (struct sockaddr *)&from, len);
+    }
+    _exit(0);
+  }
+  CHECK(wpa_ctrl_request(path, "STATUS", r, sizeof(r), 1000) > 0 &&
+        strstr(r, "\nnum_sta[0]=2\n"));
+  CHECK(wpa_ctrl_request(path, "BIG", small, sizeof(small), 1000) ==
+        -EMSGSIZE);
+  CHECK(wpa_ctrl_request(path, "PING", r, sizeof(r), 100) == -ETIMEDOUT);
+  CHECK(wpa_ctrl_request("/nonexistent/ap0", "PING", r, sizeof(r), 100) ==
+        -ENOENT);
+  int st;
+  CHECK(waitpid(pid, &st, 0) == pid && WIFEXITED(st) && !WEXITSTATUS(st));
+  close(srv);
+  unlink(path);
+  rmdir(dir);
+}
+
 void test_radio(void) {
+  test_wpa_ctrl();
   struct sta s;
   sta_from_freq(2437, &s);
   CHECK(s.band == 2 && s.chan == 6);
