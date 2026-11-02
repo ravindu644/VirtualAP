@@ -137,8 +137,8 @@ is a bug, not a shortcut.
   `printf` is invisible in the log, and anything on stderr is lost.
 - Programs are run by `core/proc` (`run_quiet`, `run_capture`, `run_shown`, `run_logged`,
   `run_lines`), never `popen` or `system`: Android has no `/bin/sh`, and each child gets
-  `/dev/null` for stdin and a clean signal mask. Pid files go through `core/pidfile`, which
-  signals only a process running the expected program.
+  `/dev/null` for stdin and a clean signal mask. Pid files go through its `pidfile_*`
+  functions, which signal only a process running the expected program.
 - The settings live in one table, `vap_keys` in `cli/options.c`: flag letter, `ap.conf`
   key, default, usage text. A new setting is a field in `struct vap_opts` and a row there;
   parsing, `ap.conf` and the usage text follow. Every value goes through `opt_set`, which

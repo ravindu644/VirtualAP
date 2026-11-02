@@ -157,7 +157,7 @@ Shell, root and the backend:
 Engine (`src/`):
 
 - `core/`: `log` (`vap_log`, `vap_warn`, `vap_error`, `log_stamp`), `proc` (every program
-  run), `pidfile`, `lock` (one start or stop at a time), `fsutil` (`read_file`,
+  run, and the pid files), `lock` (one start or stop at a time), `fsutil` (`read_file`,
   `write_file`, `write_atomic`), `ipaddr` (`valid_ip4`, `prefix_parse`, `subnet_from_gw`),
   `csv` (the comma lists of `-d`).
 - `cli/`: `options` (the `vap_keys` table, `opt_set`, `opts_parse`, `print_usage`), `conf`
