@@ -62,7 +62,7 @@ const struct vap_key vap_keys[] = {
 };
 const size_t vap_nkeys = sizeof(vap_keys) / sizeof(vap_keys[0]);
 
-char *opt_field(struct vap_opts *o, const struct vap_key *k) {
+static char *opt_field(struct vap_opts *o, const struct vap_key *k) {
   return (char *)o + k->off;
 }
 

@@ -15,7 +15,6 @@
 extern const struct vap_key vap_keys[];
 extern const size_t vap_nkeys;
 
-char *opt_field(struct vap_opts *o, const struct vap_key *k);
 const char *opt_cfield(const struct vap_opts *o, const struct vap_key *k);
 const struct vap_key *opt_by_conf(const char *name);
 
