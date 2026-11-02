@@ -12,8 +12,8 @@
 #include "core/log.h"
 #include "core/pidfile.h"
 #include "mode/ipv6.h"
+#include "mode/rules.h"
 #include "net/ipt_rules.h"
-#include "net/rule.h"
 #include "net/ttl.h"
 #include "services/dnsmasq.h"
 #include "virtualap.h"
@@ -38,31 +38,6 @@ static void save(const struct routed *r) {
     snprintf(v.prev_proxy, sizeof(v.prev_proxy), "%s", proxy);
   ipv6_save(&v, &st);
   state_save(VAP_STATE, &st);
-}
-
-/* The rules of r's setup, each added only if missing.
- * ponytail: one rule dump per rule, a handful every beat; a single dump
- * checked against all of them if netd's rule list ever makes that show. */
-static void ensure_rules(struct nl *nl, const struct routed *r) {
-  struct rule v4[] = {
-      {AF_INET, NULL, r->net.net, NULL, NULL, RT_TABLE_MAIN, PRIO_TO_SUBNET,
-       false},
-      {AF_INET, NULL, NULL, AP_IFACE, NULL, r->up.table, PRIO_FROM_AP, false},
-  };
-  for (int i = 0; i < 2; i++)
-    rule_add(nl, &v4[i]);
-  if (!r->v6.mode)
-    return;
-  struct rule v6[] = {
-      {AF_INET6, NULL, r->v6.net, NULL, NULL, RT_TABLE_MAIN, PRIO_TO_SUBNET,
-       false},
-      {AF_INET6, NULL, NULL, NULL, AP_IFACE, RT_TABLE_MAIN, PRIO_V6_LINK,
-       false},
-      {AF_INET6, NULL, NULL, AP_IFACE, NULL, r->up.table, PRIO_FROM_AP, false},
-      {AF_INET6, NULL, r->v6.net, r->v6.up, NULL, 0, PRIO_V6_SINK, true},
-  };
-  for (int i = 0; i < (r->v6.mode == V6_SHARED ? 4 : 3); i++)
-    rule_add(nl, &v6[i]);
 }
 
 /* netd flushes the FORWARD chain on a restart, and firewall apps rewrite
@@ -180,15 +155,17 @@ bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r) {
     vap_log("Upstream changed: %s (table %d) -> %s (table %d)",
             r->up.iface[0] ? r->up.iface : "?", r->up.table, now.iface,
             now.table);
-    rule_del_prio(nl, AF_INET, PRIO_FROM_AP);
-    if (r->v6.mode)
-      rule_del_prio(nl, AF_INET6, PRIO_FROM_AP);
+    /* Put back below with the new table. */
+    rules_del(nl, AF_INET);
+    rules_del(nl, AF_INET6);
     r->up = now;
     save(r);
   }
   /* IPv6 first, so stale IPv6 rules are not put back just to be removed. */
   bool redone = redo_ipv6(nl, o, r);
-  ensure_rules(nl, r);
+  /* ponytail: one rule dump per rule, a handful every beat; a single dump
+   * checked against all of them if netd's rule list ever makes that show. */
+  rules_add(nl, &r->up, &r->net, &r->v6, false);
   ensure_firewall(r);
   ensure_forwarding(r);
   return redone;

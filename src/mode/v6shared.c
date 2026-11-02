@@ -11,10 +11,10 @@
 
 #include "core/fsutil.h"
 #include "core/log.h"
+#include "mode/rules.h"
 #include "net/addr.h"
 #include "net/neigh.h"
 #include "net/route.h"
-#include "net/rule.h"
 #include "virtualap.h"
 
 /* ap0's address in the /64: EUI-64 from its MAC, so it cannot clash. */
@@ -76,16 +76,7 @@ int shared_setup(struct nl *nl, const struct upstream *up,
                      RT_SCOPE_LINK};
   route_del(nl, &lan);
   route_replace(nl, &ll);
-  struct rule to = {AF_INET6, NULL, v->net, NULL, NULL, RT_TABLE_MAIN,
-                    PRIO_TO_SUBNET, false};
-  struct rule sink = {AF_INET6, NULL, v->net, v->up, NULL, 0, PRIO_V6_SINK,
-                      true};
-  struct rule link = {AF_INET6, NULL, NULL, NULL, AP_IFACE, RT_TABLE_MAIN,
-                      PRIO_V6_LINK, false};
-  struct rule from = {AF_INET6, NULL, NULL, AP_IFACE, NULL, up->table,
-                      PRIO_FROM_AP, false};
-  if (rule_add(nl, &to) < 0 || rule_add(nl, &sink) < 0 ||
-      rule_add(nl, &link) < 0 || rule_add(nl, &from) < 0) {
+  if (rules_add(nl, up, NULL, v, true) < 0) {
     *why = "policy rules failed";
     return -1;
   }

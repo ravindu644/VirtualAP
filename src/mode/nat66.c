@@ -11,10 +11,10 @@
 #include <string.h>
 
 #include "core/log.h"
+#include "mode/rules.h"
 #include "net/addr.h"
 #include "net/ipt_rules.h"
 #include "net/route.h"
-#include "net/rule.h"
 #include "virtualap.h"
 
 bool nat66_possible(struct nl *nl, const struct upstream *up) {
@@ -46,15 +46,8 @@ int nat66_setup(struct nl *nl, const struct upstream *up, struct v6 *v,
                       RT_SCOPE_LINK};
   struct route ll = {AF_INET6, "fe80::/64", AP_IFACE, NULL, RT_TABLE_MAIN, 0,
                      RT_SCOPE_LINK};
-  struct rule to = {AF_INET6, NULL, v->net, NULL, NULL, RT_TABLE_MAIN,
-                    PRIO_TO_SUBNET, false};
-  struct rule link = {AF_INET6, NULL, NULL, NULL, AP_IFACE, RT_TABLE_MAIN,
-                      PRIO_V6_LINK, false};
-  struct rule from = {AF_INET6, NULL, NULL, AP_IFACE, NULL, up->table,
-                      PRIO_FROM_AP, false};
   if (route_replace(nl, &lan) < 0 || route_replace(nl, &ll) < 0 ||
-      rule_add(nl, &to) < 0 || rule_add(nl, &link) < 0 ||
-      rule_add(nl, &from) < 0) {
+      rules_add(nl, up, NULL, v, true) < 0) {
     *why = "routes or policy rules failed";
     return -1;
   }

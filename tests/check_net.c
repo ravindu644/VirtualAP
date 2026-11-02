@@ -14,7 +14,9 @@
 #include <unistd.h>
 
 #include "check.h"
+#include "core/ipaddr.h"
 #include "core/proc.h"
+#include "mode/rules.h"
 #include "net/addr.h"
 #include "net/ipt_rules.h"
 #include "net/link.h"
@@ -179,6 +181,35 @@ static void test_netlink(void) {
   CHECK(!rule_exists(&nl, &from_ap) && !rule_exists(&nl, &other_iif));
   CHECK(rule_exists(&nl, &to));
   CHECK(rule_del_prio(&nl, AF_INET, 7010) == 0);
+
+  /* A routed AP's sets: IPv4 7000 and 7010, NAT66 those and 7002, a shared
+   * /64 the 7001 sink on top; rules_del takes a family's back out. */
+  rules_del(&nl, AF_INET);
+  rules_del(&nl, AF_INET6);
+  struct upstream ups = {.table = 1031};
+  struct subnet sn;
+  CHECK(subnet_from_gw("192.168.42.1", &sn));
+  struct v6 v6 = {.mode = V6_NAT66, .net = "2001:db8:1:2::/64", .up = "vt-h"};
+  CHECK(rules_add(&nl, &ups, &sn, &v6, true) == 0);
+  struct rule want[] = {
+      {AF_INET, NULL, "192.168.42.0/24", NULL, NULL, 254, 7000, false},
+      {AF_INET, NULL, NULL, "ap0", NULL, 1031, 7010, false},
+      {AF_INET6, NULL, "2001:db8:1:2::/64", NULL, NULL, 254, 7000, false},
+      {AF_INET6, NULL, NULL, "ap0", NULL, 1031, 7010, false},
+      {AF_INET6, NULL, NULL, NULL, "ap0", 254, 7002, false},
+  };
+  for (int i = 0; i < 5; i++)
+    CHECK(rule_exists(&nl, &want[i]));
+  CHECK(!rule_exists(&nl, &sink));
+  v6.mode = V6_SHARED;
+  CHECK(rules_add(&nl, &ups, NULL, &v6, true) == 0);
+  CHECK(rule_exists(&nl, &sink));
+  rules_del(&nl, AF_INET6);
+  for (int i = 2; i < 5; i++)
+    CHECK(!rule_exists(&nl, &want[i]));
+  CHECK(!rule_exists(&nl, &sink) && rule_exists(&nl, &want[0]));
+  rules_del(&nl, AF_INET);
+  CHECK(!rule_exists(&nl, &want[0]) && !rule_exists(&nl, &want[1]));
 
   /* netd's default-network rule, bare, then behind a per-app uid range at a
    * higher precedence that must be skipped. Only uid 0 is mapped in this

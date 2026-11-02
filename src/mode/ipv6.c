@@ -11,11 +11,11 @@
 #include "core/fsutil.h"
 #include "core/log.h"
 #include "mode/nat66.h"
+#include "mode/rules.h"
 #include "mode/v6shared.h"
 #include "net/addr.h"
 #include "net/ipt_rules.h"
 #include "net/neigh.h"
-#include "net/rule.h"
 #include "virtualap.h"
 
 int conf6_set(const char *iface, const char *key, const char *val) {
@@ -61,10 +61,7 @@ void ipv6_save(const struct v6 *v, struct state *st) {
 void ipv6_teardown(struct nl *nl, const struct state *st) {
   const char *up = state_get(st, "ipv6_iface");
   const char *mode = state_get(st, "ipv6_mode");
-  static const int prios[] = {PRIO_FROM_AP, PRIO_TO_SUBNET, PRIO_V6_SINK,
-                              PRIO_V6_LINK};
-  for (int i = 0; i < 4; i++)
-    rule_del_prio(nl, AF_INET6, prios[i]);
+  rules_del(nl, AF_INET6);
   ipt_forward_accept(AF_INET6, AP_IFACE, false);
   if (!strcmp(mode, "nat66") && *state_get(st, "ipv6_net"))
     ipt_masquerade(AF_INET6, state_get(st, "ipv6_net"), false);

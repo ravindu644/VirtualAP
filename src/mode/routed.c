@@ -14,12 +14,12 @@
 #include "core/log.h"
 #include "mode/ap.h"
 #include "mode/ipv6.h"
+#include "mode/rules.h"
 #include "net/addr.h"
 #include "net/ipt_rules.h"
 #include "net/link.h"
 #include "net/netd.h"
 #include "net/route.h"
-#include "net/rule.h"
 #include "net/ttl.h"
 #include "services/dnsmasq.h"
 #include "services/hostapd.h"
@@ -65,17 +65,10 @@ static int config_network(struct nl *nl, const struct vap_opts *o,
     vap_warn("Could not add subnet route to local_network table (%d) - port "
              "forwards from containers may not work",
              ANDROID_LOCAL_NETWORK_TABLE);
-  /* Replies to the clients resolve via main, above every netd rule (VPN
-   * catch-alls included); everything from them goes to the upstream's
-   * table. */
-  struct rule to = {AF_INET, NULL, net->net, NULL, NULL, RT_TABLE_MAIN,
-                    PRIO_TO_SUBNET, false};
-  struct rule from = {AF_INET, NULL, NULL, AP_IFACE, NULL, up->table,
-                      PRIO_FROM_AP, false};
-  if (rule_add(nl, &to) < 0)
-    vap_warn("to-subnet rule failed");
-  if (rule_add(nl, &from) < 0) {
-    vap_error("Failed to add upstream steering rule (table %d)", up->table);
+  /* Each one is fatal, 7000 too: without it the replies to the clients fall
+   * to netd's rules, where a VPN's catch-all takes them. */
+  if (rules_add(nl, up, net, NULL, true) < 0) {
+    vap_error("Failed to add the policy rules (table %d)", up->table);
     return -1;
   }
   /* Scoped to ap0; the MASQUERADE names no interface, so it survives an
@@ -133,8 +126,7 @@ void routed_teardown(const struct vap_opts *o) {
   ap_daemons_stop();
   struct nl nl;
   if (nl_open(&nl) == 0) {
-    rule_del_prio(&nl, AF_INET, PRIO_FROM_AP);
-    rule_del_prio(&nl, AF_INET, PRIO_TO_SUBNET);
+    rules_del(&nl, AF_INET);
     ipv6_teardown(&nl, &st);
     struct route rt = {AF_INET,       net.net, AP_IFACE, NULL,
                        RT_TABLE_MAIN, 0,       0};
