@@ -85,11 +85,6 @@ bool ipt_target_known(int fd, int family, const char *name);
 /* ipt_rules.c: The firewall rules the AP needs, raw socket first and the
  * iptables binary for whatever the raw path cannot reach. */
 
-/* /system/bin/iptables or ip6tables -w -t table args..., args ending in
- * NULL. -w waits for netd's xtables lock instead of failing while netd holds
- * it. Its exit code. */
-int ipt_bin(int family, const char *table, const char *const args[]);
-
 /* Our rules as the kernel stores them; buf holds 256 bytes. Size or -1. */
 int ipt_build_accept(int family, const struct ipt_iface_arg *a,
                      unsigned char *buf);

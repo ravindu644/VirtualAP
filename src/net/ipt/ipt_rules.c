@@ -14,7 +14,10 @@
 
 #include "core/core.h"
 
-int ipt_bin(int family, const char *table, const char *const args[]) {
+/* /system/bin/iptables or ip6tables -w -t table args..., args ending in
+ * NULL. -w waits for netd's xtables lock instead of failing while netd holds
+ * it. Its exit code. */
+static int ipt_bin(int family, const char *table, const char *const args[]) {
   const char *argv[20] = {family == AF_INET6 ? "/system/bin/ip6tables"
                                              : "/system/bin/iptables",
                           "-w", "-t", table};
