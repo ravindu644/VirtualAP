@@ -3,6 +3,7 @@ package com.virtualap.app.util
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 data class APStatus(
     val running: Boolean = false,
@@ -81,15 +82,38 @@ object APManager {
 
 
     /**
-     * Running Droidspaces containers (names). Empty when Droidspaces isn't
-     * installed or nothing is running - the UI uses this to decide whether to
-     * show the container-integration option at all.
+     * Running Droidspaces containers (names), asked of Droidspaces itself: it is
+     * the authority on its own containers, and its JSON is something the app can
+     * parse and the engine would only scrape. Empty when Droidspaces isn't
+     * installed or nothing runs (the UI then hides the container option), null
+     * when it is installed but could not be asked, so a passing failure never
+     * clears a saved container choice.
      */
-    suspend fun getContainers(): List<String> = withContext(Dispatchers.IO) {
-        val result = Shell.cmd("${Backend.startAp} containers 2>/dev/null").exec()
-        if (!result.isSuccess) return@withContext emptyList()
-        result.out.map { it.trim() }.filter { it.isNotEmpty() }
+    suspend fun getContainers(): List<String>? = withContext(Dispatchers.IO) {
+        val ds = droidspaces() ?: return@withContext emptyList()
+        val out = Shell.cmd("$ds show --json 2>/dev/null").exec().out.joinToString("\n")
+        // A Droidspaces from before --json ignores the flag and prints its table;
+        // its JSON was --format then. Nothing at all means show failed, and
+        // --format would only fail again.
+        val json = if (out.isBlank() || out.trimStart().startsWith("{")) out
+        else Shell.cmd("$ds show --format 2>/dev/null").exec().out.joinToString("\n")
+        runCatching { parseContainers(json) }.getOrNull()
     }
+
+    /** Droidspaces' CLI at its install path, quoted for the root shell, never
+     *  looked up in PATH; null when it is not installed. The app cannot see
+     *  /data/local itself, so the root shell answers. */
+    private fun droidspaces(): String? {
+        val d = Backend.quote(Constants.DROIDSPACES)
+        return d.takeIf { Shell.cmd("[ -x $d ]").exec().isSuccess }
+    }
+
+    /** The names in show's {"running":[{"name":"...",...},...]}; an entry
+     *  without one is skipped, not fatal to the rest. */
+    fun parseContainers(json: String): List<String> =
+        JSONObject(json).optJSONArray("running")?.let { a ->
+            (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optString("name")?.takeIf(String::isNotBlank) }
+        }.orEmpty()
 
     /**
      * The backend's `caps` lines as a map. ttl=1 when this kernel and its

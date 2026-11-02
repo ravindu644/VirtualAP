@@ -88,7 +88,8 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         val cs = async { APManager.getContainers() }
         s.await()
         applyInterfaceList(ifs.await())
-        applyContainerList(cs.await())
+        // null: Droidspaces could not be asked this time; keep what we had.
+        cs.await()?.let(::applyContainerList)
     }
 
     /** Switch band: valid channels differ per band, so reset to Auto. A width
