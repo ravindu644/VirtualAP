@@ -1,5 +1,5 @@
-/* start-ap's provision_openwrt, as one script run in the container: one
- * droidspaces run instead of thirty, the values as positional parameters.
+/* The OpenWrt LAN as one script run in the container: one droidspaces run
+ * instead of thirty, the values as positional parameters.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/openwrt.h"

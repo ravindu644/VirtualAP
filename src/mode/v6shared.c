@@ -1,6 +1,4 @@
-/* start-ap's upstream_v6_addr and the shared-/64 half of setup_ipv6, and the
- * per-client step of v6_sync_loop.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/v6shared.h"
 

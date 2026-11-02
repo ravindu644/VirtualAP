@@ -40,7 +40,7 @@ static void default_cb(const struct nlmsghdr *h, void *arg) {
   /* Android 12+ per-app and work-profile preferences share the signature at
    * a higher precedence, for some uids only. Android 15+ writes the default
    * network itself as a range over every uid, 0-2147483647, which is the one
-   * to keep; start-ap dropped every uidrange rule and missed it. */
+   * to keep, so a uid range is not enough to skip a rule. */
   const struct rtattr *ur = tb[FRA_UID_RANGE];
   if (ur) {
     const struct fib_rule_uid_range *r = RTA_DATA(ur);
@@ -101,7 +101,7 @@ int upstream_resolve(struct nl *nl, const char *want, struct upstream *up,
     return -1;
   }
   snprintf(up->iface, sizeof(up->iface), "%s", want);
-  /* The table its internet routes live in, else main, like start-ap. */
+  /* The table its internet routes live in, else main. */
   if (route_iface_table(nl, AF_INET, want, &up->table) < 0 &&
       route_iface_table(nl, AF_INET6, want, &up->table) < 0)
     up->table = RT_TABLE_MAIN;

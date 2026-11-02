@@ -35,8 +35,8 @@ int ap_state_save(struct state *st, const struct vap_opts *o,
 void ap_ttl(const struct vap_opts *o, const char *src4, const char *src6);
 
 /* SIGINT and SIGTERM are held for the whole start and looked at between
- * steps, so a start told to stop always tears down (start-ap's trap) and
- * never leaves half an AP. */
+ * steps, so a start told to stop always tears down and never leaves
+ * half an AP. */
 void ap_hold_signals(void);
 bool ap_interrupted(void);
 

@@ -1,5 +1,5 @@
-/* The mask is Droidspaces' ds_net_steer_rx, which has no 30-CPU limit
- * (start-ap's sh arithmetic was 32 bit).
+/* The mask is Droidspaces' ds_net_steer_rx, built in 32-bit words for up to
+ * 1024 CPUs.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/rps.h"

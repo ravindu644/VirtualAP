@@ -158,7 +158,7 @@ static void test_netlink(void) {
   struct route r6 = {AF_INET6, "2001:db8:1:2::5/128", "vt-p", NULL, 0, 0, 0};
   CHECK(route_replace(&nl, &r6) == 0);
 
-  /* Rules in every shape start-ap writes, each idempotent. */
+  /* Rules in every shape the AP writes, each idempotent. */
   struct rule to = {AF_INET, NULL, "192.168.42.0/24", NULL, NULL, 254, 7000,
                     false};
   struct rule from_ap = {AF_INET, NULL, NULL, "vt-p", NULL, 1031, 7010, false};

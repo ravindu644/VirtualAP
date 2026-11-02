@@ -1,6 +1,5 @@
-/* start-ap's ttl_supported, ttl_clear and ttl_apply. A custom chain in the
- * raw table format is a lot of code for one optional rule, so these stay on
- * the iptables binary.
+/* A custom chain in the raw table format is a lot of code for one optional
+ * rule, so the TTL fix stays on the iptables binary.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "net/ttl.h"

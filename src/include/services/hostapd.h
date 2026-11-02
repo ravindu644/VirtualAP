@@ -12,8 +12,7 @@
 #define HOSTAPD_PID VAP_RUN "/hostapd.pid"
 #define HOSTAPD_CTRL VAP_RUN "/hostapd"
 
-/* hostapd.conf for the plan, start-ap's write_hostapd_conf line for line.
- * 0 or -1. */
+/* hostapd.conf for the plan. 0 or -1. */
 int hostapd_write_conf(const char *path, const struct vap_opts *o,
                        const struct plan *p);
 /* Write the conf, launch hostapd and confirm it is still up 2 s later. A

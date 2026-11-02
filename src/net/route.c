@@ -1,5 +1,5 @@
 /* The lookups are from Droidspaces-OSS src/net/netlink.c; replace and del
- * take the table, source and scope start-ap's routes need.
+ * take the table, source and scope the AP's routes need.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "net/route.h"

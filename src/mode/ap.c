@@ -1,6 +1,4 @@
-/* start-ap's create_ap_iface, del_ap_iface, stop_daemons and
- * check_prerequisites.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/ap.h"
 
@@ -53,9 +51,11 @@ int ap_iface_create(const char *phy_iface) {
 void ap_daemons_stop(void) {
   pidfile_kill(HOSTAPD_PID, "hostapd");
   pidfile_kill(DNSMASQ_PID, "dnsmasq");
-  /* The sh engine's IPv6 client loop (`sh start-ap v6sync ...`): killed, not
-   * only told by its pid file going, or one iteration already past that check
-   * could add a proxy entry after the teardown removed them. */
+  /* The shell engine's IPv6 client loop (`sh start-ap v6sync ...`), which
+   * only the unreleased builds after v2.1.0 ran, for an AP one of them
+   * started: killed, not only told by its
+   * pid file going, or one iteration already past that check could add a
+   * proxy entry after the teardown removed them. */
   pid_t v6sync = pidfile_cmdline(VAP_RUN "/v6sync.pid", " v6sync ");
   if (v6sync > 0)
     kill(v6sync, SIGTERM);

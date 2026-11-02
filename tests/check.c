@@ -56,7 +56,7 @@ static void test_ip4(void) {
   CHECK(!prefix_parse(AF_INET, "10.0.0.0/33", bin, &len));
 }
 
-/* Each value as the sh engine's sq() wrote it (generated with the real sq,
+/* Each value as the shell engine's sq() wrote it (generated with the real sq,
  * the sed that turns ' into '\''), so a downgrade reads our file and we read
  * its. */
 static const struct {

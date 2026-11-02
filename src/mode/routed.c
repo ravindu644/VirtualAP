@@ -1,6 +1,4 @@
-/* start-ap's config_network, start_services, teardown and the routed half
- * of cmd_start.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/routed.h"
 

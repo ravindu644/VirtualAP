@@ -1,6 +1,4 @@
-/* start-ap's write_hostapd_conf, hostapd_try and start_hostapd, and the
- * client count of cmd_status.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "services/hostapd.h"
 

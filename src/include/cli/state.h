@@ -1,6 +1,6 @@
 /* run.state: what a running AP was started with, key=value per line. stop
- * tears down from it and status prints it, so it is written by the sh engine
- * and this one alike.
+ * tears down from it and status prints it, so one that v2.1.0's shell engine
+ * wrote, under an AP it started, is read the same way.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef VAP_STATE_H

@@ -1,6 +1,4 @@
-/* start-ap's sta_channel, pick_channel, follow_sta, pick_width, vht_seg0,
- * ht40_dir and is_dfs_channel.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "radio/channel.h"
 
@@ -26,8 +24,8 @@ void sta_from_freq(int freq, struct sta *out) {
     out->band = 6;
     out->chan = 2;
   } else if (freq >= 5950 && freq <= 7125) {
-    /* 6 GHz reuses the 5 GHz numbers for other frequencies; start-ap took
-     * them for 5 GHz channels. */
+    /* 6 GHz reuses the 5 GHz numbers for other frequencies, so the band
+     * says which is meant. */
     out->band = 6;
     out->chan = (freq - 5950) / 5;
   }
@@ -80,7 +78,8 @@ bool plan_channel(struct plan *p, const struct sta *s) {
         vap_warn("STA is on 5GHz DFS channel %d - AP cannot beacon there. "
                  "Falling back to 2.4GHz.",
                  s->chan);
-        /* start-ap kept a 5 GHz -c here and so never fell back. */
+        /* A 5 GHz -c is overridden too: the station holds the radio on a
+         * DFS channel, so any 5 GHz channel fails the same way. */
         p->channel = 6;
       } else {
         follow_sta(p, s->chan);
@@ -119,8 +118,8 @@ void plan_width(struct plan *p, const char *want, const struct phy_info *phy) {
                    : 20;
   } else {
     /* The widest the chip and the channel can do, 5 GHz's own capabilities
-     * only (start-ap took a 2.4 GHz-only HT40 for a 5 GHz one). A channel in
-     * no block (165) stays at 20. */
+     * only: a chip can do HT40 on 2.4 GHz and not on 5. A channel in no
+     * block (165) stays at 20. */
     int max = 20;
     if (vht_seg0(p->channel)) {
       if (phy->band[BAND_5].ht40)

@@ -36,7 +36,8 @@ void ipv6_setup(struct nl *nl, const struct vap_opts *o,
                 struct v6 *v);
 void ipv6_save(const struct v6 *v, struct state *st);
 /* Undo whatever st says was set up, tolerant of half a setup, and of a
- * run.state the sh engine wrote. */
+ * run.state from the unreleased shell-engine builds after v2.1.0, the only
+ * ones with routed IPv6. */
 void ipv6_teardown(struct nl *nl, const struct state *st);
 
 /* The first address on iface the internet routes back to: global scope, not

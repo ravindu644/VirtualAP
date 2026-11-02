@@ -7,8 +7,8 @@
 
 #include <stddef.h>
 
-/* Every value stays a string, as in the script: start validates them, so a
- * bad value in ap.conf and a bad flag fail the same way. */
+/* Every value stays a string until start validates it, so a bad value in
+ * ap.conf and a bad flag fail the same way. */
 #define OPT_LEN 256
 
 struct vap_opts {
@@ -40,7 +40,7 @@ struct vap_key {
   int empty_is_default; /* -g '' means the default gateway */
 };
 
-/* In ap.conf order, which is save_conf's in the script. */
+/* In the order ap.conf lists them. */
 extern const struct vap_key vap_keys[];
 extern const size_t vap_nkeys;
 

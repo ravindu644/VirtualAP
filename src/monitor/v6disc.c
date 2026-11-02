@@ -1,4 +1,5 @@
-/* start-ap's v6_sync_loop, a raw socket instead of busybox ping in a shell.
+/* A raw ICMPv6 socket, its replies read in the monitor's own poll loop: no
+ * ping process to spawn and parse every beat.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "monitor/v6disc.h"

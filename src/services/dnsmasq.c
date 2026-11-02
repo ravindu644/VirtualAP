@@ -1,5 +1,4 @@
-/* start-ap's dns_lines and start_services' dnsmasq half.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "services/dnsmasq.h"
 

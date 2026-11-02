@@ -1,6 +1,5 @@
-/* start-ap's config_network_bridged, start_services_bridged,
- * teardown_bridged and del_bridge; the veth born in the container and its
- * re-plug after a restart are Droidspaces' and USB-Arsenal's gateway mode.
+/* The veth born in the container and its re-plug after a restart are
+ * Droidspaces' and USB-Arsenal's gateway mode.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/managed.h"

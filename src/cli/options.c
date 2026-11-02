@@ -106,7 +106,7 @@ void opts_defaults(struct vap_opts *o) {
 int opts_parse(struct vap_opts *o, int argc, char **argv) {
   char optstring[3 + 2 * sizeof(vap_keys) / sizeof(vap_keys[0])];
   size_t n = 0;
-  /* "+": no permuting, the script's getopts stopped at the first operand too;
+  /* "+": the first operand ends the options, the POSIX rule, on glibc too;
    * ":" so a missing value is told apart from an unknown flag. */
   optstring[n++] = '+';
   optstring[n++] = ':';

@@ -142,8 +142,8 @@ static void width_cb(const struct nlmsghdr *h, void *arg) {
   genl_parse(tb, NL80211_ATTR_MAX, h);
   if (!tb[NL80211_ATTR_CHANNEL_WIDTH])
     return;
-  /* The widths iw prints as a 2 or 3 digit number of MHz, which is what
-   * start-ap's status scraped; 80+80 and the narrow ones it never matched. */
+  /* In MHz, what the app shows. Widths with no entry here (80+80, 5 MHz,
+   * the S1G ones) read as 0 and leave status to the conf. */
   static const int mhz[] = {[NL80211_CHAN_WIDTH_20_NOHT] = 20,
                             [NL80211_CHAN_WIDTH_20] = 20,
                             [NL80211_CHAN_WIDTH_40] = 40,

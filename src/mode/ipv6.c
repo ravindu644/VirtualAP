@@ -1,5 +1,4 @@
-/* The common half of start-ap's setup_ipv6, v6_abort and teardown_ipv6.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/ipv6.h"
 

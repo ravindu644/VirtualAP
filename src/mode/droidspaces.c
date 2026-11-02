@@ -1,5 +1,4 @@
-/* start-ap's ds_run, ds_container_pid and ds_is_openwrt.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/droidspaces.h"
 
@@ -32,8 +31,8 @@ int ds_run_script(const char *name, const char *script,
 }
 
 bool ds_is_openwrt(const char *name) {
-  /* Read inside the container, as start-ap's ds_run did: through
-   * /proc/<pid>/root an absolute symlink would resolve against the host. */
+  /* Read inside the container: through /proc/<pid>/root an absolute
+   * symlink would resolve against the host. */
   char buf[4096];
   const char *const argv[] = {DROIDSPACES_BIN, "-n", name, "run", "cat",
                               "/etc/os-release", NULL};

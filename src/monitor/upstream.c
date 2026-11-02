@@ -1,5 +1,5 @@
 /* The reprobe of Droidspaces' route monitor (network.c) and USB-Arsenal's
- * tether daemon, for what start-ap set up once and never looked at again.
+ * tether daemon: netd rewrites what a start set up, on every network switch.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "monitor/upstream.h"

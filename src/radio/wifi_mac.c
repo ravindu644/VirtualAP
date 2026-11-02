@@ -1,5 +1,4 @@
-/* start-ap's wifi_mac.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include <ctype.h>
 #include <stdbool.h>
@@ -13,8 +12,8 @@
 #include "radio/wifi_mac.h"
 
 bool mac_take(const char *s, char out[18]) {
-  /* Twelve bare digits: start-ap read those as the first 17 hex characters
-   * of both efs copies run together, a MAC no driver would take. */
+  /* Samsung's efs file on MediaTek phones holds twelve bare hex digits,
+   * the colon form only on Broadcom ones; both come out as aa:bb:.. */
   bool bare = true;
   for (int i = 0; i < 12; i++)
     bare = bare && isxdigit((unsigned char)s[i]);

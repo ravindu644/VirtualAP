@@ -1,5 +1,4 @@
-/* start-ap's chan_no_ir and ensure_5g_ir.
- * Copyright (c) 2026 ravindu644
+/* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "radio/regdom.h"
 
@@ -15,8 +14,8 @@
 #define WPA_CTRL_DIR "/data/vendor/wifi/wpa/sockets"
 
 bool chan_no_ir(const struct phy_info *phy, int ch) {
-  /* By frequency: 6 GHz numbers its channels from 1 again, and start-ap's
-   * grep for "[36] ... no IR" could match a 6 GHz line. */
+  /* By frequency: 6 GHz numbers its channels from 1 again, so a channel
+   * number alone could name a 6 GHz one. */
   int freq = chan_freq5(ch);
   for (int i = 0; i < phy->nfreqs; i++)
     if (phy->freqs[i].freq == freq)
