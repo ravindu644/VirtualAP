@@ -96,7 +96,8 @@ jobs:
 
     # virtualap links nothing but libc, so it is built here with the musl-cross
     # toolchains Droidspaces publishes (x86 hosted, hence this job and not the
-    # ARM one). The release URL names a fixed set, so it is the whole cache key.
+    # ARM one). The release URL names a fixed set, so it is the whole cache key;
+    # a new URL needs the two digests below updated.
     - name: Cache the musl toolchains
       id: toolchains
       uses: actions/cache@v4
@@ -108,9 +109,16 @@ jobs:
       if: steps.toolchains.outputs.cache-hit != 'true'
       run: |
         mkdir -p ~/toolchains && cd ~/toolchains
-        for t in aarch64-linux-musl arm-linux-musleabihf; do
-          wget -q "$TOOLCHAINS_URL/$t-cross.tar.zst"
-          tar -xf "$t-cross.tar.zst" && rm "$t-cross.tar.zst"
+        # The digests GitHub lists for the release assets: the gcc that builds
+        # a root binary is checked before it runs.
+        wget -q "$TOOLCHAINS_URL/aarch64-linux-musl-cross.tar.zst" "$TOOLCHAINS_URL/arm-linux-musleabihf-cross.tar.zst"
+        sha256sum -c <<'EOF'
+        03ae51af722af0dcffea0fc9eefb872a2a4e0a59300b612b1bff8b716404a8a1  aarch64-linux-musl-cross.tar.zst
+        00d089b7917d75492b23e684774e7d56709c93a9fcbfdfdf9b64ef9eda6c9f9b  arm-linux-musleabihf-cross.tar.zst
+        EOF
+        for f in *.tar.zst; do
+          tar -xf "$f"
+          rm "$f"
         done
 
     - name: Build virtualap
