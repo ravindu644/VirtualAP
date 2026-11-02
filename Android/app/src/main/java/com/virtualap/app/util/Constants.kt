@@ -5,7 +5,7 @@ object Constants {
     /** The engine; Backend.startAp is how the app runs it. */
     const val ENGINE = "$VAP_DIR/bin/virtualap"
     /** Droidspaces' CLI, asked for its running containers; only ever run from
-     *  this path. The engine's copy is DROIDSPACES_BIN in src/include/virtualap.h. */
+     *  this path. The engine's copy is DROIDSPACES_BIN in src/mode/internal.h. */
     const val DROIDSPACES = "/data/local/Droidspaces/bin/droidspaces"
     const val PREFS_NAME = "virtualap_prefs"
     const val KEY_ROOT_AVAILABLE = "root_available"

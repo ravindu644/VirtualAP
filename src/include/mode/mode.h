@@ -17,6 +17,20 @@
 #include "radio/radio.h"
 #include "virtualap.h"
 
+/* Pinned rule priorities: above netd's range (10000+), clear of Droidspaces'
+ * 6090-6100. */
+#define PRIO_TO_SUBNET 7000 /* to <subnet> lookup main (return path) */
+#define PRIO_FROM_AP 7010   /* iif ap0 lookup <upstream table> */
+/* IPv6 shared /64 only: a packet from the upstream for an address in the
+ * shared /64 that no client holds has no /128 in main. Without this it takes
+ * the default route back out and, on cellular where the PGW routes the whole
+ * /64 to us, bounces until its hop limit dies. */
+#define PRIO_V6_SINK 7001 /* iif <upstream> to <our /64> blackhole */
+/* Android files an interface's own routes, fe80::/64 included, in table
+ * 1000+ifindex, which no rule reads. The kernel's neighbour discovery bypasses
+ * routing, dnsmasq's unicast RA to a soliciting client does not. */
+#define PRIO_V6_LINK 7002 /* oif ap0 lookup main */
+
 /* ipv6.c: IPv6 for the clients in routed mode: NAT66 on a private prefix
  * where the kernel can masquerade IPv6, else a share of the upstream's own
  * /64, else none. Never fatal: on any problem the AP stays IPv4 only. */

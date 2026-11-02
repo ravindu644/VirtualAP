@@ -7,6 +7,30 @@
 
 #include "mode/mode.h"
 
+/* Android's local_network table, constant since Android 5. The AP subnet is
+ * mirrored there so container replies (from Droidspaces' 172.28.0.0/16) hit
+ * its rule 6095 instead of leaking out the WAN via 6100. */
+#define ANDROID_LOCAL_NETWORK_TABLE 97
+
+/* Droidspaces' NAT subnets: in managed mode the clients' traffic reaches the
+ * host from the container's address in these. */
+#define DS_NAT_NET "172.28.0.0/16"
+#define DS_NAT_NET6 "fd64:7370::/48"
+
+/* Managed mode names, distinct from Droidspaces' own ds-br0/ds-lan. */
+#define VAP_BRIDGE "vap-br0"
+#define VAP_VETH_HOST "vap-v0"
+#define VAP_PORT "vaplan0"
+/* Broadcom's FullMAC firmware hands up about a quarter of received frames with
+ * the 8-byte CCMP MIC still on, so a full-size client frame is 1522 bytes. IP
+ * trims that, a bridge and a veth silently drop anything over MTU+18. The veth
+ * takes 1508 so the MIC fits; clients still see 1500. */
+#define VAP_MTU 1508
+
+/* Droidspaces is only ever run from here, never looked up in PATH. The app's
+ * copy is Constants.DROIDSPACES. */
+#define DROIDSPACES_BIN "/data/local/Droidspaces/bin/droidspaces"
+
 /* ipv6.c: IPv6 for the clients in routed mode: NAT66 on a private prefix
  * where the kernel can masquerade IPv6, else a share of the upstream's own
  * /64, else none. Never fatal: on any problem the AP stays IPv4 only. */
