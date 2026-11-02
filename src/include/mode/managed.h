@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "cli/options.h"
+#include "cli/cli.h"
 #include "core/core.h"
 
 /* The whole managed start after the settings were validated and saved, lan

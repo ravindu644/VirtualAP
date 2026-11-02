@@ -1,11 +1,11 @@
 /* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "cli/conf.h"
+#include "cli/cli.h"
+#include "internal.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#include "cli/state.h"
 #include "core/core.h"
 
 /* Enough sh to read what conf_save writes: '...' verbatim (a ' is '\''), a

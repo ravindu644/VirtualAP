@@ -6,8 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "cli/conf.h"
-#include "cli/options.h"
+#include "cli/cli.h"
 #include "cmd/cmd.h"
 #include "core/core.h"
 #include "virtualap.h"

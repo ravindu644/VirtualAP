@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "core/core.h"
 #include "net/link.h"
 #include "net/ttl.h"

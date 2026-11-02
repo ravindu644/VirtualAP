@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "core/core.h"
 #include "mode/ipv6.h"
 #include "mode/rules.h"

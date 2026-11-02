@@ -21,7 +21,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "core/core.h"
 #include "mode/ap.h"
 #include "mode/droidspaces.h"

@@ -7,8 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "cli/conf.h"
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "cmd/cmd.h"
 #include "core/core.h"
 #include "mode/ap.h"

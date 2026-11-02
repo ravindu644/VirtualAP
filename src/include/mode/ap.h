@@ -6,7 +6,7 @@
 
 #include <stdbool.h>
 
-#include "cli/options.h"
+#include "cli/cli.h"
 #include "radio/channel.h"
 
 struct state;

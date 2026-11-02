@@ -5,7 +5,7 @@
 #ifndef VAP_MONITOR_H
 #define VAP_MONITOR_H
 
-#include "cli/options.h"
+#include "cli/cli.h"
 #include "mode/routed.h"
 #include "virtualap.h"
 

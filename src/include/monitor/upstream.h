@@ -6,7 +6,7 @@
 
 #include <stdbool.h>
 
-#include "cli/options.h"
+#include "cli/cli.h"
 #include "mode/routed.h"
 
 /* Re-resolve the upstream and move rule 7010 when it changed, re-add the

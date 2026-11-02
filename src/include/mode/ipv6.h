@@ -9,8 +9,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-#include "cli/options.h"
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "core/core.h"
 #include "net/netd.h"
 

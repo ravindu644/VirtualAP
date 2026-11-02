@@ -1,7 +1,8 @@
 /* The key table is USB-Arsenal's config.c pattern.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "cli/options.h"
+#include "cli/cli.h"
+#include "internal.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -7,10 +7,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../src/cli/internal.h"
 #include "check.h"
-#include "cli/conf.h"
-#include "cli/options.h"
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "core/core.h"
 #include "mode/nat66.h"
 #include "mode/rps.h"

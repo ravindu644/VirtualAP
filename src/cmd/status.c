@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#include "cli/state.h"
+#include "cli/cli.h"
 #include "cmd/cmd.h"
 #include "core/core.h"
 #include "net/ttl.h"

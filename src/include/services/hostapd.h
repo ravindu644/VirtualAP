@@ -4,7 +4,7 @@
 #ifndef VAP_HOSTAPD_H
 #define VAP_HOSTAPD_H
 
-#include "cli/options.h"
+#include "cli/cli.h"
 #include "radio/channel.h"
 #include "virtualap.h"
 
