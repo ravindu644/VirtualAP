@@ -99,13 +99,25 @@ static int discovery(struct nl *nl, const struct vap_opts *o,
  * and the veth with it, the host end included. That end missing is the sign,
  * and a cheap one; namespace inodes are reused and prove nothing. */
 static void watch_container(const struct vap_opts *o, struct managed *m) {
-  if (if_nametoindex(VAP_VETH_HOST))
+  /* A replug that keeps failing is tried one beat later each time, up to a
+   * minute apart, so its errors do not fill ap.log. */
+  static int wait, misses;
+  if (if_nametoindex(VAP_VETH_HOST)) {
+    misses = 0;
     return;
+  }
+  if (wait > 0) {
+    wait--;
+    return;
+  }
   pid_t pid = ds_container_pid(o->container);
   if (!pid)
     return; /* stopped: nothing to plug into until it is back */
   m->pid = pid;
-  managed_replug(o, m);
+  if (managed_replug(o, m) < 0)
+    wait = misses < 20 ? ++misses : 20;
+  else
+    misses = 0;
 }
 
 static void run(const struct vap_opts *o, struct routed *r, struct managed *m,

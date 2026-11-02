@@ -59,7 +59,8 @@ static int port_up(void *arg) {
   struct nl nl;
   if (nl_open(&nl) < 0)
     return -1;
-  int ret = link_set_up(&nl, VAP_PORT, true);
+  /* Born in the same request as the host end, so just as new. */
+  int ret = retry(up, &nl, VAP_PORT, NULL);
   nl_close(&nl);
   struct ifreq ifr = {0};
   snprintf(ifr.ifr_name, IFNAMSIZ, "%s", VAP_PORT);
@@ -125,15 +126,17 @@ static int plug(const struct vap_opts *o, struct managed *m, struct nl *nl,
   }
   if (fixed)
     vap_log("Gateway MAC fixed at %s.", o->gw_mac);
+  struct port p = {""};
   if (retry(link_set_master, nl, VAP_VETH_HOST, VAP_BRIDGE) < 0 ||
       retry(up, nl, VAP_VETH_HOST, NULL) < 0) {
     vap_error("Failed to bring %s into %s.", VAP_VETH_HOST, VAP_BRIDGE);
-    close(fd);
-    return -1;
+    goto fail;
   }
-  struct port p = {""};
-  if (in_netns(fd, port_up, &p) < 0)
-    vap_warn("Could not bring up %s inside container.", VAP_PORT);
+  if (in_netns(fd, port_up, &p) < 0) {
+    vap_error("Could not bring up %s inside container '%s'.", VAP_PORT,
+              o->container);
+    goto fail;
+  }
   snprintf(mac, 18, "%s", p.mac);
   char mask[300];
   rps_mask(mask, sizeof(mask));
@@ -141,6 +144,12 @@ static int plug(const struct vap_opts *o, struct managed *m, struct nl *nl,
     vap_log("RPS on %s and %s (CPU mask %s).", VAP_VETH_HOST, VAP_PORT, mask);
   close(fd);
   return 0;
+fail:
+  /* Half a port is no port. A start then fails; a replug leaves the host end
+   * gone, so the monitor sees the container still unplugged and tries again. */
+  link_del(nl, VAP_VETH_HOST);
+  close(fd);
+  return -1;
 }
 
 int managed_replug(const struct vap_opts *o, struct managed *m) {
@@ -212,10 +221,10 @@ out:
   return ret;
 }
 
-int managed_start(const struct vap_opts *o, struct managed *m) {
-  struct subnet net;
+int managed_start(const struct vap_opts *o, const struct subnet *lan,
+                  struct managed *m) {
+  struct subnet net = *lan;
   struct plan p;
-  subnet_from_gw(o->ip_gw, &net);
   m->pid = ds_container_pid(o->container);
   if (!m->pid) {
     vap_error("Container '%s' is not running - start it first.",
@@ -228,14 +237,14 @@ int managed_start(const struct vap_opts *o, struct managed *m) {
   if (ok) {
     vap_log("Starting hostapd (managed/bridged mode)...");
     /* ap0 joins the bridge only once hostapd has it up. */
-    struct nl nl;
-    ok = hostapd_start(o, &p) == 0 && nl_open(&nl) == 0;
-    if (ok) {
-      ok = retry(link_set_master, &nl, AP_IFACE, VAP_BRIDGE) == 0;
-      nl_close(&nl);
-      if (!ok)
-        vap_error("Failed to enslave %s to %s.", AP_IFACE, VAP_BRIDGE);
+    struct nl nl = {-1, 0};
+    ok = hostapd_start(o, &p) == 0;
+    if (ok && (nl_open(&nl) < 0 ||
+               retry(link_set_master, &nl, AP_IFACE, VAP_BRIDGE) < 0)) {
+      vap_error("Failed to enslave %s to %s.", AP_IFACE, VAP_BRIDGE);
+      ok = 0;
     }
+    nl_close(&nl);
   }
   if (!ok || ap_interrupted()) {
     managed_teardown(o->container);

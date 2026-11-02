@@ -104,13 +104,13 @@ int cmd_start(struct vap_opts *o) {
     return 1;
   if (*o->container) {
     struct managed m;
-    if (managed_start(o, &m) < 0)
+    if (managed_start(o, &net, &m) < 0)
       return 1;
     monitor_spawn(o, NULL, &m);
     return 0;
   }
   struct routed r;
-  if (routed_start(o, &r) < 0)
+  if (routed_start(o, &net, &r) < 0)
     return 1;
   /* A shared /64 lives on the monitor's client discovery; without the
    * monitor the prefix must not stay advertised. */

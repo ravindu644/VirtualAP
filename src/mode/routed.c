@@ -136,17 +136,17 @@ void routed_teardown(const struct vap_opts *o) {
   vap_log("AP stopped, cleanup completed.");
 }
 
-int routed_start(struct vap_opts *o, struct routed *r) {
+int routed_start(struct vap_opts *o, const struct subnet *lan,
+                 struct routed *r) {
   struct nl nl;
   struct upstream up;
-  struct subnet net;
+  struct subnet net = *lan;
   struct plan p;
   struct v6 v6;
   if (nl_open(&nl) < 0) {
     vap_error("Cannot open a netlink socket.");
     return -1;
   }
-  subnet_from_gw(o->ip_gw, &net);
   if (upstream_resolve(&nl, o->upstream, &up, true) < 0) {
     nl_close(&nl);
     return -1;
