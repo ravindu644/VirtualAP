@@ -158,8 +158,8 @@ Engine (`src/`):
 
 - `core/`: `proc` (every program run, the pid files, and the lock that lets one start or
   stop run at a time), `io` (the log: `vap_log`, `vap_warn`, `vap_error`, `log_stamp`;
-  `read_file`, `write_file`, `write_atomic`; the address parsers `valid_ip4`,
-  `prefix_parse`, `subnet_from_gw`), `csv` (the comma lists of `-d`).
+  `read_file`, `write_file`, `write_atomic`; the parsers `valid_ip4`, `prefix_parse`,
+  `subnet_from_gw`, and `csv_each` for the comma lists of `-d`).
 - `cli/`: `options` (the `vap_keys` table, `opt_set`, `opts_parse`, `print_usage`), `conf`
   (`ap.conf`), `state` (`run.state`).
 - `net/`: `nl` (the rtnetlink transport, `nl_dump`), `link`, `addr`, `route`, `rule`,

@@ -2,10 +2,12 @@
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +15,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "core/csv.h"
 #include "core/fsutil.h"
 #include "core/ipaddr.h"
 #include "core/log.h"
@@ -183,4 +186,23 @@ bool subnet_from_gw(const char *gw, struct subnet *out) {
   snprintf(out->end, sizeof(out->end), "%u.%u.%u.50", o[0], o[1], o[2]);
   out->third = o[2];
   return true;
+}
+
+int csv_each(const char *list, int (*fn)(const char *item, void *arg),
+             void *arg) {
+  char buf[64];
+  size_t n = 0;
+  for (const char *p = list;; p++) {
+    if (*p == ',' || !*p) {
+      buf[n] = '\0';
+      int ret = n ? fn(buf, arg) : 0;
+      if (ret)
+        return ret;
+      n = 0;
+      if (!*p)
+        return 0;
+    } else if (!isspace((unsigned char)*p) && n + 1 < sizeof(buf)) {
+      buf[n++] = *p;
+    }
+  }
 }
