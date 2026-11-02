@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Build the fully static aarch64 and armhf binaries (hostapd, hostapd_cli, iw,
-# dnsmasq, busybox) for VirtualAP. virtualap itself is `make aarch64 armhf`.
+# Build the fully static aarch64 and armhf binaries virtualap drives (hostapd,
+# dnsmasq). virtualap itself is `make aarch64 armhf`.
 #
 # A static musl binary carries its own libc and libnl, so it runs on any phone
 # with no chroot. Each arch is built in an Alpine container of that arch, under
@@ -18,7 +18,7 @@ IMAGE="alpine:3.23"
 
 # Fetches the vendored sources with the https URLs in .gitmodules, no SSH keys.
 echo "[*] Initializing source submodules..."
-git -C "$REPO" submodule update --init externals/hostapd externals/iw externals/dnsmasq
+git -C "$REPO" submodule update --init externals/hostapd externals/dnsmasq
 
 [ $# -eq 0 ] && set -- aarch64 armhf
 for label in "$@"; do

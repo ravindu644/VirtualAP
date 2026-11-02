@@ -1,9 +1,6 @@
 [submodule "externals/dnsmasq"]
 	path = externals/dnsmasq
 	url = https://github.com/Droidspaces/dnsmasq-vap.git
-[submodule "externals/iw"]
-	path = externals/iw
-	url = https://github.com/Droidspaces/iw-vap.git
 [submodule "externals/hostapd"]
 	path = externals/hostapd
 	url = https://github.com/Droidspaces/hostapd-vap.git

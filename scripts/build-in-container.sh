@@ -1,17 +1,15 @@
 #!/bin/sh
 #
 # Runs inside an Alpine container of the target arch, aarch64 or armhf (see
-# build-static.sh). Produces the static binaries for VirtualAP:
-#   hostapd + hostapd_cli  - AP daemon (nl80211, WPA2 and WPA3)
-#   iw                     - virtual interface management
-#   dnsmasq                - DHCP + DNS for AP clients
-#   busybox                - reliable coreutils (Alpine's busybox-static)
+# build-static.sh). Produces the static binaries virtualap drives:
+#   hostapd  - AP daemon (nl80211, WPA2 and WPA3)
+#   dnsmasq  - DHCP + DNS + router advertisements for AP clients
 #
 # virtualap, the engine from src/, is not built here: it links nothing but
 # libc, so the root Makefile builds it with a musl-cross gcc, see `make help`.
 #
 # Sources come from the vendored git submodules, bind-mounted read-only at
-# /externals/{hostapd,iw,dnsmasq} (our own forks - see externals/ and
+# /externals/{hostapd,dnsmasq} (our own forks - see externals/ and
 # .gitmodules). They are copied out before building so the mount stays clean.
 #
 # Output -> /out, build scratch -> /tmp/src.
@@ -50,18 +48,12 @@ vendor() {
 
 echo "### Installing build deps"
 apk add --no-cache build-base linux-headers pkgconf \
-    libnl3-dev libnl3-static openssl-dev openssl-libs-static busybox-static >/dev/null
-
-# Alpine's busybox-static is already a fully-static binary; just ship it. Used
-# by the backend scripts for reliable coreutils (Android's toybox is flaky).
-echo "### Staging static busybox"
-cp /bin/busybox.static "$OUT/busybox"
-strip "$OUT/busybox" 2>/dev/null || true
+    libnl3-dev libnl3-static openssl-dev openssl-libs-static >/dev/null
 
 echo "### Building hostapd"
 vendor hostapd
 cd "$SRC/hostapd/hostapd"
-# Assert the fork wires no_pri_sec_switch into the config parser. start-ap emits
+# Assert the fork wires no_pri_sec_switch into the config parser. virtualap writes
 # no_pri_sec_switch=1 for HT40/VHT to skip the OBSS coexistence scan, which
 # FullMAC chips (Broadcom brcmfmac on the Galaxy S10) abort with -95. Stock
 # hostapd has the struct field but no parser line, so an unpatched submodule
@@ -86,22 +78,9 @@ EOF
 make clean >/dev/null 2>&1 || true
 # PKG_CONFIG --static pulls libnl-3/libnl-genl-3 + libcrypto static deps.
 make -j"$(nproc)" PKG_CONFIG="pkg-config --static" \
-    LDFLAGS="$LDF" EXTRA_CFLAGS="$CF" hostapd hostapd_cli
-strip hostapd hostapd_cli
-cp hostapd hostapd_cli "$OUT"/
-
-echo "### Building iw"
-vendor iw
-cd "$SRC/iw"
-make clean >/dev/null 2>&1 || true
-# iw's Makefile does `LDFLAGS += $(pkg-config --libs ...)`, so LDFLAGS must come
-# from the ENVIRONMENT (not a make-cmdline override, which would suppress the +=).
-export LDFLAGS="$LDF"
-export PKG_CONFIG="pkg-config --static"
-make -j"$(nproc)" V=1 CFLAGS="$CF $(pkg-config --cflags libnl-3.0)"
-unset LDFLAGS PKG_CONFIG
-strip iw
-cp iw "$OUT"/
+    LDFLAGS="$LDF" EXTRA_CFLAGS="$CF" hostapd
+strip hostapd
+cp hostapd "$OUT"/
 
 echo "### Building dnsmasq"
 vendor dnsmasq
@@ -122,7 +101,7 @@ cp src/dnsmasq "$OUT"/
 
 echo "### Results"
 cd "$OUT"
-for b in busybox hostapd hostapd_cli iw dnsmasq; do
+for b in hostapd dnsmasq; do
     printf '%-12s ' "$b"
     file -b "$b"
 done
