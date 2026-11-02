@@ -163,9 +163,9 @@ Engine (`src/`):
 - `cli/`: `options` (the `vap_keys` table, `opt_set`, `opts_parse`, `print_usage`), `conf`
   (`ap.conf` and `run.state`).
 - `net/`: `nl` (the rtnetlink transport, `nl_dump`, and the namespace helpers `netns_open`,
-  `in_netns`), `link` (links and addresses), `route`, `rule`, `neigh`, `netd` (`upstream_resolve`,
-  `upstream_v6_iface`), `ipt` (the `ip_tables` engine), `ipt_rules` (FORWARD, MASQUERADE,
-  the presence check, the NAT probe, `ipt_bin`), `ttl`.
+  `in_netns`), `link` (links, addresses and neighbours), `route`, `rule`, `netd`
+  (`upstream_resolve`, `upstream_v6_iface`), `ipt` (the `ip_tables` engine), `ipt_rules`
+  (FORWARD, MASQUERADE, the presence check, the NAT probe, `ipt_bin`), `ttl`.
 - `radio/`: `genl`, `nl80211` (create and delete ap0, the phy, the station's frequency, the
   width), `wpa_ctrl` (the control socket), `channel` (band, channel and width policy),
   `regdom` (`ensure_5g_ir`), `wifi_mac`.
