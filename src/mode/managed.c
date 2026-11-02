@@ -105,9 +105,9 @@ static const uint8_t *gw_mac(const char *want, uint8_t out[6]) {
  * request. A link moved in and renamed afterwards shows up under its old
  * name first on kernels before 5.x, and OpenWrt's netifd never looks again.
  * Fills mac with the container end's MAC. */
-static int plug(const struct vap_opts *o, struct managed *m, struct nl *nl,
+static int plug(const struct vap_opts *o, pid_t pid, struct nl *nl,
                 char mac[18]) {
-  int fd = netns_open(m->pid);
+  int fd = netns_open(pid);
   if (fd < 0) {
     vap_error(fd == -EINVAL ? "Container '%s' shares the host's network - it has "
                           "no LAN port to give."
@@ -152,12 +152,12 @@ fail:
   return -1;
 }
 
-int managed_replug(const struct vap_opts *o, struct managed *m) {
+int managed_replug(const struct vap_opts *o, pid_t pid) {
   struct nl nl;
   char mac[18];
   if (nl_open(&nl) < 0)
     return -1;
-  int ret = plug(o, m, &nl, mac);
+  int ret = plug(o, pid, &nl, mac);
   nl_close(&nl);
   if (ret < 0)
     return ret;
@@ -171,10 +171,10 @@ int managed_replug(const struct vap_opts *o, struct managed *m) {
   return 0;
 }
 
-static int wire(const struct vap_opts *o, struct managed *m,
+static int wire(const struct vap_opts *o, pid_t pid,
                 const struct subnet *net, const struct plan *p) {
   vap_log("Managed mode: wiring %s to container '%s' (PID %d) via %s.",
-          AP_IFACE, o->container, (int)m->pid, VAP_BRIDGE);
+          AP_IFACE, o->container, (int)pid, VAP_BRIDGE);
   if (ap_iface_create(o->phy_iface) < 0)
     return -1;
   struct nl nl;
@@ -195,7 +195,7 @@ static int wire(const struct vap_opts *o, struct managed *m,
     vap_error("Failed to bring up %s", VAP_BRIDGE);
     goto out;
   }
-  if (plug(o, m, &nl, mac) < 0)
+  if (plug(o, pid, &nl, mac) < 0)
     goto out;
   /* The container owns L3: OpenWrt is provisioned, anything else gets the
    * port and does the rest itself. */
@@ -221,19 +221,18 @@ out:
   return ret;
 }
 
-int managed_start(const struct vap_opts *o, const struct subnet *lan,
-                  struct managed *m) {
+int managed_start(const struct vap_opts *o, const struct subnet *lan) {
   struct subnet net = *lan;
   struct plan p;
-  m->pid = ds_container_pid(o->container);
-  if (!m->pid) {
+  pid_t pid = ds_container_pid(o->container);
+  if (!pid) {
     vap_error("Container '%s' is not running - start it first.",
               o->container);
     return -1;
   }
   ap_plan_radio(o, &p);
   ap_hold_signals();
-  int ok = wire(o, m, &net, &p) == 0 && !ap_interrupted();
+  int ok = wire(o, pid, &net, &p) == 0 && !ap_interrupted();
   if (ok) {
     vap_log("Starting hostapd (managed/bridged mode)...");
     /* ap0 joins the bridge only once hostapd has it up. */

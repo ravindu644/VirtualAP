@@ -103,10 +103,9 @@ int cmd_start(struct vap_opts *o) {
   if (ap_prerequisites() < 0)
     return 1;
   if (*o->container) {
-    struct managed m;
-    if (managed_start(o, &net, &m) < 0)
+    if (managed_start(o, &net) < 0)
       return 1;
-    monitor_spawn(o, NULL, &m);
+    monitor_spawn(o, NULL);
     return 0;
   }
   struct routed r;
@@ -114,7 +113,7 @@ int cmd_start(struct vap_opts *o) {
     return 1;
   /* A shared /64 lives on the monitor's client discovery; without the
    * monitor the prefix must not stay advertised. */
-  if (monitor_spawn(o, &r, NULL) < 0 && r.v6.mode == V6_SHARED) {
+  if (monitor_spawn(o, &r) < 0 && r.v6.mode == V6_SHARED) {
     struct nl nl;
     if (nl_open(&nl) == 0) {
       ipv6_off(&nl, o, &r, "no monitor for the client discovery");

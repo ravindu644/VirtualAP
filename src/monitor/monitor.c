@@ -21,6 +21,7 @@
 #include "core/log.h"
 #include "core/pidfile.h"
 #include "mode/droidspaces.h"
+#include "mode/managed.h"
 #include "monitor/upstream.h"
 #include "monitor/v6disc.h"
 
@@ -98,12 +99,12 @@ static int discovery(struct nl *nl, const struct vap_opts *o,
 /* A managed AP's container stopped or restarted: its network namespace went,
  * and the veth with it, the host end included. That end missing is the sign,
  * and a cheap one; namespace inodes are reused and prove nothing. */
-static void watch_container(const struct vap_opts *o, struct managed *m) {
+static void watch_container(const struct vap_opts *o) {
   /* A replug that keeps failing is tried one beat later each time, up to a
    * minute apart, so its errors do not fill ap.log. */
   static int wait, misses;
   if (if_nametoindex(VAP_VETH_HOST)) {
-    misses = 0;
+    wait = misses = 0;
     return;
   }
   if (wait > 0) {
@@ -113,14 +114,13 @@ static void watch_container(const struct vap_opts *o, struct managed *m) {
   pid_t pid = ds_container_pid(o->container);
   if (!pid)
     return; /* stopped: nothing to plug into until it is back */
-  m->pid = pid;
-  if (managed_replug(o, m) < 0)
+  if (managed_replug(o, pid) < 0)
     wait = misses < 20 ? ++misses : 20;
   else
     misses = 0;
 }
 
-static void run(const struct vap_opts *o, struct routed *r, struct managed *m,
+static void run(const struct vap_opts *o, struct routed *r,
                 int ev, int sig, int ready) {
   struct nl nl = {-1, 0};
   if ((r && nl_open(&nl) < 0) || pidfile_write(MONITOR_PID, getpid()) < 0)
@@ -163,8 +163,8 @@ static void run(const struct vap_opts *o, struct routed *r, struct managed *m,
      * to keep right, and putting rules back would only leak them. */
     if (access(VAP_STATE, F_OK) < 0 || !if_nametoindex(AP_IFACE))
       break;
-    if (m) {
-      watch_container(o, m);
+    if (!r) {
+      watch_container(o);
     } else if (reprobe(&nl, o, r)) {
       /* A new /64 (or none): a new discovery socket, nothing known. */
       if (v6 >= 0)
@@ -185,8 +185,13 @@ static void run(const struct vap_opts *o, struct routed *r, struct managed *m,
   _exit(0);
 }
 
-int monitor_spawn(const struct vap_opts *o, struct routed *r,
-                  struct managed *m) {
+static void spawn_failed(const struct routed *r) {
+  vap_warn("Could not start the monitor: %s.",
+           r ? "the AP will not follow upstream changes"
+             : "a container restart will leave the clients without a LAN");
+}
+
+int monitor_spawn(const struct vap_opts *o, struct routed *r) {
   int pfd[2];
   if (pipe2(pfd, O_CLOEXEC) < 0)
     return -1;
@@ -195,8 +200,7 @@ int monitor_spawn(const struct vap_opts *o, struct routed *r,
   if (pid < 0) {
     close(pfd[0]);
     close(pfd[1]);
-    vap_warn("Could not start the monitor: the AP will not follow upstream "
-             "changes.");
+    spawn_failed(r);
     return -1;
   }
   if (pid == 0) {
@@ -221,15 +225,14 @@ int monitor_spawn(const struct vap_opts *o, struct routed *r,
     int ev = r ? open_events() : -1;
     if (sig < 0 || (r && ev < 0))
       _exit(1);
-    run(o, r, m, ev, sig, pfd[1]);
+    run(o, r, ev, sig, pfd[1]);
   }
   close(pfd[1]);
   char c;
   ssize_t n = read(pfd[0], &c, 1);
   close(pfd[0]);
   if (n != 1) {
-    vap_warn("Could not start the monitor: the AP will not follow upstream "
-             "changes.");
+    spawn_failed(r);
     return -1;
   }
   return 0;
