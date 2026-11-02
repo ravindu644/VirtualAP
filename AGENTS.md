@@ -144,10 +144,10 @@ is a bug, not a shortcut.
   parsing, `ap.conf` and the usage text follow. Every value goes through `opt_set`, which
   refuses line breaks. `ap.conf` is written only by `conf_save`.
 - The kernel is spoken to through `net/` (rtnetlink: `link` with the addresses and the
-  neighbours, `route` with the policy rules, `netd`; the `ip_tables` engine: `ipt`,
-  `ipt_rules`) and `radio/` (`nl80211`, `wpa_ctrl`). No module spawns `ip`, `iw` or
+  neighbours, `route` with the policy rules and netd's tables; the `ip_tables` engine:
+  `ipt`, `ipt_rules`) and `radio/` (`nl80211`, `wpa_ctrl`). No module spawns `ip`, `iw` or
   `hostapd_cli`; `iptables` is spawned only for the TTL fix (`net/ttl`).
-- `upstream_resolve` (`net/netd`) is the only place the upstream table is resolved.
+- `upstream_resolve` (`net/route`) is the only place the upstream table is resolved.
   `radio/channel`, with `ensure_5g_ir` in `radio/regdom`, is the only place band and channel
   policy lives: following the station's channel, the DFS fallback, the NO-IR country fix.
   Do not compare a channel number anywhere else. `ipv6_decide` (`mode/ipv6`) is the only
