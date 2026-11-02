@@ -35,7 +35,8 @@ void sta_from_freq(int freq, struct sta *out) {
   }
 }
 
-int chan_freq5(int ch) { return 5000 + 5 * ch; }
+/* A 5 GHz channel's centre frequency. */
+static int chan_freq5(int ch) { return 5000 + 5 * ch; }
 
 void plan_init(struct plan *p, const char *band, const char *channel) {
   p->band = !strcmp(band, "5") ? 5 : 2;

@@ -22,13 +22,15 @@
 #include "net/net.h"
 #include "radio/radio.h"
 
-void genl_req(struct nl_req *r, int family_id, int cmd, int flags) {
+/* Start a request: nlmsghdr + genlmsghdr for cmd. */
+static void genl_req(struct nl_req *r, int family_id, int cmd, int flags) {
   struct genlmsghdr *g = nl_req_init(r, family_id, flags, GENL_HDRLEN);
   g->cmd = (uint8_t)cmd;
   g->version = 1;
 }
 
-void genl_parse(struct rtattr *tb[], int max, const struct nlmsghdr *h) {
+/* The attributes of a generic netlink reply. */
+static void genl_parse(struct rtattr *tb[], int max, const struct nlmsghdr *h) {
   nl_parse(tb, max, (struct rtattr *)((char *)NLMSG_DATA(h) + GENL_HDRLEN),
            (int)(h->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN)));
 }
@@ -43,7 +45,9 @@ static void id_cb(const struct nlmsghdr *h, void *arg) {
   }
 }
 
-int genl_open(struct nl *nl, const char *name, int *family_id) {
+/* A NETLINK_GENERIC socket with the id of family `name` resolved. 0, or
+ * -errno (-ENOENT when the kernel has no such family). */
+static int genl_open(struct nl *nl, const char *name, int *family_id) {
   int ret = nl_open_proto(nl, NETLINK_GENERIC);
   if (ret < 0)
     return ret;

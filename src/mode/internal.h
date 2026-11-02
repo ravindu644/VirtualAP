@@ -31,10 +31,6 @@
  * copy is Constants.DROIDSPACES. */
 #define DROIDSPACES_BIN "/data/local/Droidspaces/bin/droidspaces"
 
-/* ipv6.c: IPv6 for the clients in routed mode: NAT66 on a private prefix
- * where the kernel can masquerade IPv6, else a share of the upstream's own
- * /64, else none. Never fatal: on any problem the AP stays IPv4 only. */
-
 /* ipv6.c: NAT66 the Droidspaces way: a private /64 on ap0, masqueraded out
  * of whatever the upstream is. Survives an upstream or prefix change
  * untouched. */
@@ -99,11 +95,6 @@ bool ap_interrupted(void);
 
 /* Every rule of family at the priorities rules_add uses, whoever added it. */
 void rules_del(struct nl *nl, int family);
-
-/* managed.c: Droidspaces containers, as managed mode needs them. */
-
-/* managed.c: An OpenWrt container's LAN for the hotspot, provisioned
- * automatically. */
 
 /* managed.c: Receive packet steering on the managed-mode veth. */
 
