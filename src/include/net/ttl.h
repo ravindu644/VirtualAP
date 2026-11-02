@@ -17,5 +17,10 @@ void ttl_clear(void);
 /* src4 = the tethered IPv4 source subnet, src6 the IPv6 one or NULL. 0, or -1
  * when the TTL target is missing (everything undone). */
 int ttl_apply(const char *src4, const char *src6);
+/* For a new IPv6 source prefix (NULL: none) while the fix is on: the IPv6
+ * half again with the IPv4 rule left in place, so an IPv6 change never leaves
+ * IPv4 unfixed while iptables runs; everything again when the IPv4 rule is
+ * gone. ttl_apply's 0 or -1. */
+int ttl_refresh(const char *src4, const char *src6);
 
 #endif

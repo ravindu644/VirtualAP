@@ -23,15 +23,32 @@ bool ttl_supported(void) {
   return ok;
 }
 
+static void clear(int family) {
+  /* Bounded: a delete that keeps succeeding must not spin a stop forever. */
+  for (int n = 0; n < 16; n++)
+    if (MANGLE(family, "-D", "FORWARD", "-j", "vap_ttl") != 0)
+      break;
+  MANGLE(family, "-F", "vap_ttl");
+  MANGLE(family, "-X", "vap_ttl");
+}
+
 void ttl_clear(void) {
-  static const int fams[] = {AF_INET, AF_INET6};
-  for (size_t i = 0; i < sizeof(fams) / sizeof(fams[0]); i++) {
-    /* Bounded: a delete that keeps succeeding must not spin a stop forever. */
-    for (int n = 0; n < 16; n++)
-      if (MANGLE(fams[i], "-D", "FORWARD", "-j", "vap_ttl") != 0)
-        break;
-    MANGLE(fams[i], "-F", "vap_ttl");
-    MANGLE(fams[i], "-X", "vap_ttl");
+  clear(AF_INET);
+  clear(AF_INET6);
+}
+
+/* IPv6 calls the same field hop limit, a target of its own that a kernel
+ * with TTL can still lack; IPv4 stays fixed either way, with a word. */
+static void apply6(const char *src6) {
+  if (!src6 || !*src6)
+    return;
+  MANGLE(AF_INET6, "-N", "vap_ttl");
+  if (MANGLE(AF_INET6, "-A", "vap_ttl", "-s", src6, "-j", "HL", "--hl-set",
+             "64") != 0 ||
+      MANGLE(AF_INET6, "-I", "FORWARD", "-j", "vap_ttl") != 0) {
+    MANGLE(AF_INET6, "-F", "vap_ttl");
+    MANGLE(AF_INET6, "-X", "vap_ttl");
+    vap_warn("TTL fix: no IPv6 hop limit target, IPv6 leaves unchanged.");
   }
 }
 
@@ -48,17 +65,16 @@ int ttl_apply(const char *src4, const char *src6) {
     ttl_clear();
     return -1;
   }
-  /* IPv6 calls the same field hop limit, a target of its own that a kernel
-   * with TTL can still lack; IPv4 stays fixed either way, with a word. */
-  if (src6 && *src6) {
-    MANGLE(AF_INET6, "-N", "vap_ttl");
-    if (MANGLE(AF_INET6, "-A", "vap_ttl", "-s", src6, "-j", "HL", "--hl-set",
-               "64") != 0 ||
-        MANGLE(AF_INET6, "-I", "FORWARD", "-j", "vap_ttl") != 0) {
-      MANGLE(AF_INET6, "-F", "vap_ttl");
-      MANGLE(AF_INET6, "-X", "vap_ttl");
-      vap_warn("TTL fix: no IPv6 hop limit target, IPv6 leaves unchanged.");
-    }
-  }
+  apply6(src6);
+  return 0;
+}
+
+int ttl_refresh(const char *src4, const char *src6) {
+  /* The IPv4 jump gone means netd or a firewall app flushed mangle: all of
+   * it goes back. */
+  if (MANGLE(AF_INET, "-C", "FORWARD", "-j", "vap_ttl") != 0)
+    return ttl_apply(src4, src6);
+  clear(AF_INET6);
+  apply6(src6);
   return 0;
 }

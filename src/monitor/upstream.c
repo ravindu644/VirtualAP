@@ -11,10 +11,10 @@
 #include "core/fsutil.h"
 #include "core/log.h"
 #include "core/pidfile.h"
-#include "mode/ap.h"
 #include "mode/ipv6.h"
 #include "mode/rules.h"
 #include "net/ipt_rules.h"
+#include "net/ttl.h"
 #include "services/dnsmasq.h"
 #include "virtualap.h"
 
@@ -94,10 +94,11 @@ void ipv6_apply(struct nl *nl, const struct vap_opts *o, struct routed *r,
   pidfile_kill(DNSMASQ_PID, "dnsmasq");
   struct ra ra = {r->v6.prefix, r->v6.gw, r->v6.mode == V6_SHARED};
   dnsmasq_start(&r->net, o->dns_servers, r->v6.mode ? &ra : NULL);
-  /* The TTL fix names the IPv6 source prefix, which just changed. Off, there
-   * is nothing to clear: the start already did. */
+  /* The TTL fix names the IPv6 source prefix, which just changed. A kernel that
+   * refused it at the start refuses it again here, quietly: the start said
+   * so already. */
   if (!strcmp(o->ttl_fix, "1"))
-    ap_ttl(o, r->net.net, r->v6.mode ? r->v6.net : NULL);
+    ttl_refresh(r->net.net, r->v6.mode ? r->v6.net : NULL);
 }
 
 void ipv6_off(struct nl *nl, const struct vap_opts *o, struct routed *r,
