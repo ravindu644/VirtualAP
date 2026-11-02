@@ -9,26 +9,24 @@
 
 #include <sys/socket.h>
 
+#include "core/log.h"
 #include "net/ipt_rules.h"
-
-#define V4 AF_INET
-#define V6 AF_INET6
 
 #define MANGLE(fam, ...)                                                       \
   ipt_bin(fam, "mangle", (const char *const[]){__VA_ARGS__, NULL})
 
 bool ttl_supported(void) {
-  MANGLE(V4, "-N", "vap_ttl_probe");
-  bool ok =
-      MANGLE(V4, "-A", "vap_ttl_probe", "-j", "TTL", "--ttl-set", "64") == 0;
-  MANGLE(V4, "-F", "vap_ttl_probe");
-  MANGLE(V4, "-X", "vap_ttl_probe");
+  MANGLE(AF_INET, "-N", "vap_ttl_probe");
+  bool ok = MANGLE(AF_INET, "-A", "vap_ttl_probe", "-j", "TTL", "--ttl-set",
+                   "64") == 0;
+  MANGLE(AF_INET, "-F", "vap_ttl_probe");
+  MANGLE(AF_INET, "-X", "vap_ttl_probe");
   return ok;
 }
 
 void ttl_clear(void) {
-  static const int fams[] = {V4, V6};
-  for (int i = 0; i < 2; i++) {
+  static const int fams[] = {AF_INET, AF_INET6};
+  for (size_t i = 0; i < sizeof(fams) / sizeof(fams[0]); i++) {
     /* Bounded: a delete that keeps succeeding must not spin a stop forever. */
     for (int n = 0; n < 16; n++)
       if (MANGLE(fams[i], "-D", "FORWARD", "-j", "vap_ttl") != 0)
@@ -44,19 +42,24 @@ void ttl_clear(void) {
  * the clients keep the TTL they arrived with. */
 int ttl_apply(const char *src4, const char *src6) {
   ttl_clear();
-  MANGLE(V4, "-N", "vap_ttl");
-  if (MANGLE(V4, "-A", "vap_ttl", "-s", src4, "-j", "TTL", "--ttl-set", "64") !=
-          0 ||
-      MANGLE(V4, "-I", "FORWARD", "-j", "vap_ttl") != 0) {
+  MANGLE(AF_INET, "-N", "vap_ttl");
+  if (MANGLE(AF_INET, "-A", "vap_ttl", "-s", src4, "-j", "TTL", "--ttl-set",
+             "64") != 0 ||
+      MANGLE(AF_INET, "-I", "FORWARD", "-j", "vap_ttl") != 0) {
     ttl_clear();
     return -1;
   }
-  /* IPv6 calls the same field hop limit; best effort, as in start-ap. */
+  /* IPv6 calls the same field hop limit, a target of its own that a kernel
+   * with TTL can still lack; IPv4 stays fixed either way, with a word. */
   if (src6 && *src6) {
-    MANGLE(V6, "-N", "vap_ttl");
-    if (MANGLE(V6, "-A", "vap_ttl", "-s", src6, "-j", "HL", "--hl-set", "64") ==
-        0)
-      MANGLE(V6, "-I", "FORWARD", "-j", "vap_ttl");
+    MANGLE(AF_INET6, "-N", "vap_ttl");
+    if (MANGLE(AF_INET6, "-A", "vap_ttl", "-s", src6, "-j", "HL", "--hl-set",
+               "64") != 0 ||
+        MANGLE(AF_INET6, "-I", "FORWARD", "-j", "vap_ttl") != 0) {
+      MANGLE(AF_INET6, "-F", "vap_ttl");
+      MANGLE(AF_INET6, "-X", "vap_ttl");
+      vap_warn("TTL fix: no IPv6 hop limit target, IPv6 leaves unchanged.");
+    }
   }
   return 0;
 }
