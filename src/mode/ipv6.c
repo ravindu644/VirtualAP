@@ -17,10 +17,8 @@
 #include "mode/rules.h"
 #include "mode/v6shared.h"
 #include "monitor/v6disc.h"
-#include "net/addr.h"
 #include "net/ipt/ipt.h"
-#include "net/neigh.h"
-#include "net/route.h"
+#include "net/net.h"
 #include "virtualap.h"
 
 /* Droidspaces' NAT66 (network.c), for ap0: a ULA /64, router address ::1,

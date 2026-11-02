@@ -2,7 +2,8 @@
  * take the table, source and scope the AP's routes need.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "net/route.h"
+#include "internal.h"
+#include "net/net.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -12,8 +13,6 @@
 #include <string.h>
 
 #include "core/core.h"
-#include "net/netd.h"
-#include "net/rule.h"
 
 static int build(struct nl_req *r, int type, int flags,
                  const struct route *rt) {

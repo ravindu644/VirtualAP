@@ -13,16 +13,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../src/net/internal.h"
 #include "check.h"
 #include "core/core.h"
 #include "mode/rules.h"
-#include "net/addr.h"
 #include "net/ipt/ipt.h"
-#include "net/link.h"
-#include "net/neigh.h"
-#include "net/netd.h"
-#include "net/route.h"
-#include "net/rule.h"
+#include "net/net.h"
 
 static int ifreq_get(const char *name, unsigned long req, struct ifreq *ifr) {
   int s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);

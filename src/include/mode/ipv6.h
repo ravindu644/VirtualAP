@@ -11,7 +11,7 @@
 
 #include "cli/cli.h"
 #include "core/core.h"
-#include "net/netd.h"
+#include "net/net.h"
 
 enum { V6_OFF, V6_NAT66, V6_SHARED };
 

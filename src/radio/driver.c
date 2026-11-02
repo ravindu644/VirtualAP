@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 #include "core/core.h"
-#include "net/link.h"
+#include "net/net.h"
 #include "radio/genl.h"
 #include "radio/nl80211.h"
 #include "radio/wifi_mac.h"

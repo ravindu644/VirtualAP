@@ -1,7 +1,8 @@
 /* From Droidspaces-OSS src/net/netlink.c (links, bridge, veth).
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "net/link.h"
+#include "internal.h"
+#include "net/net.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -12,9 +13,6 @@
 #include <net/if.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "net/addr.h"
-#include "net/neigh.h"
 
 /* RTM_NEWLINK on an existing link, by index. */
 static struct ifinfomsg *change(struct nl_req *r, const char *ifname,

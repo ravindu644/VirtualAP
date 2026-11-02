@@ -9,7 +9,7 @@
 
 #include "core/core.h"
 #include "mode/ipv6.h"
-#include "net/netd.h"
+#include "net/net.h"
 
 /* IPv4's when net is set: replies to net via main (7000), everything from
  * ap0 via the upstream's table (7010). IPv6's when v has a mode: the same for

@@ -2,7 +2,8 @@
  * the dump loop folded into nl_dump.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "net/nl.h"
+#include "internal.h"
+#include "net/net.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,7 +15,6 @@
 #include <unistd.h>
 
 #include "core/core.h"
-#include "net/netns.h"
 
 #define NL_BUFSIZE 16384
 

@@ -13,7 +13,7 @@
 #include "cli/cli.h"
 #include "core/core.h"
 #include "net/ipt/ipt.h"
-#include "net/link.h"
+#include "net/net.h"
 #include "radio/nl80211.h"
 #include "radio/regdom.h"
 #include "radio/wpa_ctrl.h"

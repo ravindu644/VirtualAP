@@ -6,7 +6,7 @@
 
 #include <linux/genetlink.h>
 
-#include "net/nl.h"
+#include "net/net.h"
 
 /* A NETLINK_GENERIC socket with the id of family `name` resolved. 0, or
  * -errno (-ENOENT when the kernel has no such family). */

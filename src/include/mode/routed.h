@@ -8,7 +8,7 @@
 #include "cli/cli.h"
 #include "core/core.h"
 #include "mode/ipv6.h"
-#include "net/netd.h"
+#include "net/net.h"
 
 /* What a running routed AP was set up with, for the monitor to keep right. */
 struct routed {
