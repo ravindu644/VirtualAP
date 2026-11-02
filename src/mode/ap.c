@@ -51,15 +51,6 @@ int ap_iface_create(const char *phy_iface) {
 void ap_daemons_stop(void) {
   pidfile_kill(HOSTAPD_PID, "hostapd");
   pidfile_kill(DNSMASQ_PID, "dnsmasq");
-  /* The shell engine's IPv6 client loop (`sh start-ap v6sync ...`), which
-   * only the unreleased builds after v2.1.0 ran, for an AP one of them
-   * started: killed, not only told by its
-   * pid file going, or one iteration already past that check could add a
-   * proxy entry after the teardown removed them. */
-  pid_t v6sync = pidfile_cmdline(VAP_RUN "/v6sync.pid", " v6sync ");
-  if (v6sync > 0)
-    kill(v6sync, SIGTERM);
-  unlink(VAP_RUN "/v6sync.pid");
   unlink(HOSTAPD_CONF);
   unlink(DNSMASQ_CONF);
 }
