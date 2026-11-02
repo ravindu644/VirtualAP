@@ -14,9 +14,11 @@
 #define NLMSG_TAIL(n)                                                          \
   ((struct rtattr *)(((uint8_t *)(n)) + NLMSG_ALIGN((n)->nlmsg_len)))
 
-int nl_open(struct nl *nl) {
+int nl_open(struct nl *nl) { return nl_open_proto(nl, NETLINK_ROUTE); }
+
+int nl_open_proto(struct nl *nl, int proto) {
   nl->seq = 1;
-  nl->fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+  nl->fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, proto);
   if (nl->fd < 0)
     return -errno;
   struct sockaddr_nl sa = {.nl_family = AF_NETLINK};

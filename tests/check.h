@@ -20,6 +20,7 @@ extern int failed;
  * net/if.h, the iptables ones the kernel's linux/if.h, and glibc will not
  * have both in one file. */
 void test_ipt(void);
+void test_radio(void);
 void test_netlink_in_netns(void);
 
 #endif

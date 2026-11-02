@@ -9,5 +9,6 @@
 
 int cmd_start(struct vap_opts *o);
 int cmd_interfaces(struct vap_opts *o);
+int cmd_caps(struct vap_opts *o);
 
 #endif

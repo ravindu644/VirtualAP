@@ -17,6 +17,13 @@
 
 int failed;
 
+/* A mkstemp template where the tests may write: TMPDIR, else /tmp, which
+ * Android does not have (run there with TMPDIR=/data/local/tmp). */
+static void tmp_path(char *out, size_t size) {
+  const char *dir = getenv("TMPDIR");
+  snprintf(out, size, "%s/vapcheck.XXXXXX", dir && *dir ? dir : "/tmp");
+}
+
 static void test_ip4(void) {
   CHECK(valid_ip4("192.168.42.1"));
   CHECK(valid_ip4("0.0.0.0"));
@@ -62,7 +69,8 @@ static const struct {
 };
 
 static void test_conf(void) {
-  char path[] = "/tmp/vapcheck.XXXXXX";
+  char path[256];
+  tmp_path(path, sizeof(path));
   int fd = mkstemp(path);
   CHECK(fd >= 0);
   close(fd);
@@ -102,7 +110,8 @@ static void test_conf(void) {
   CHECK(!strcmp(out, ""));
 
   /* An unterminated quote in a file never brings the line break with it. */
-  char path2[] = "/tmp/vapcheck.XXXXXX";
+  char path2[256];
+  tmp_path(path2, sizeof(path2));
   int fd2 = mkstemp(path2);
   CHECK(write(fd2, "PASSWORD=\"abc\\\"\r\nSSID='x\n", 26) == 26);
   close(fd2);
@@ -131,7 +140,8 @@ static void test_opts(void) {
 }
 
 static void test_state(void) {
-  char path[] = "/tmp/vapstate.XXXXXX";
+  char path[256];
+  tmp_path(path, sizeof(path));
   int fd = mkstemp(path);
   close(fd);
   struct state s = {0}, back;
@@ -158,6 +168,7 @@ int main(void) {
   test_opts();
   test_state();
   test_ipt();
+  test_radio();
   test_netlink_in_netns();
   fprintf(stderr, failed ? "check: %d failed\n" : "check: ok\n", failed);
   return failed != 0;

@@ -16,6 +16,7 @@
 #include "check.h"
 #include "core/proc.h"
 #include "net/addr.h"
+#include "net/ipt_rules.h"
 #include "net/link.h"
 #include "net/neigh.h"
 #include "net/netd.h"
@@ -31,8 +32,15 @@ static int ifreq_get(const char *name, unsigned long req, struct ifreq *ifr) {
   return ret;
 }
 
+/* Root already (a phone): a network namespace is all it takes, and uids
+ * outside 0 stay valid, which the Android 15 netd rule needs. */
+static bool real_root;
+
 static int map_root(void) {
   char buf[64];
+  real_root = geteuid() == 0;
+  if (real_root)
+    return unshare(CLONE_NEWNET);
   uid_t uid = getuid();
   gid_t gid = getgid();
   if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0)
@@ -59,7 +67,8 @@ static int map_root(void) {
 /* iproute2's ip, for the netd rules the engine itself never writes; NULL
  * when the host has none, and those checks are skipped. */
 static const char *ip_bin(void) {
-  static const char *const paths[] = {"/usr/sbin/ip", "/usr/bin/ip", "/sbin/ip"};
+  static const char *const paths[] = {"/usr/sbin/ip", "/usr/bin/ip", "/sbin/ip",
+                                      "/system/bin/ip"};
   for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++)
     if (access(paths[i], X_OK) == 0)
       return paths[i];
@@ -191,6 +200,16 @@ static void test_netlink(void) {
                      "lookup", "1099", NULL};
   CHECK(run_quiet(bare) == 0 && run_quiet(per_app) == 0);
   CHECK(netd_default_table(&nl, AF_INET, &table) == 0 && table == 1031);
+  if (real_root) {
+    /* Android 15+: the default network itself as a range over every uid. */
+    const char *all_uids[] = {ip_bin(), "rule", "add", "pref", "21500",
+                              "fwmark", "0x0/0xffff", "iif", "lo", "uidrange",
+                              "0-2147483647", "lookup", "1033", NULL};
+    CHECK(run_quiet(all_uids) == 0);
+    CHECK(netd_default_table(&nl, AF_INET, &table) == 0 && table == 1033);
+    const char *del[] = {ip_bin(), "rule", "del", "pref", "21500", NULL};
+    CHECK(run_quiet(del) == 0);
+  }
 
   struct upstream up;
   CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1031 &&
@@ -207,6 +226,33 @@ static void test_netlink(void) {
   CHECK(!strcmp(upstream_v6_iface(&up), "rmnet_data1"));
 
 proxy:
+  /* The firewall rules against the kernel's own ip_tables, where there is
+   * one (a phone; desktop kernels are nftables only). This namespace's
+   * tables are its own, the phone's firewall is never touched. */
+  if (ipt_rules_present(AF_INET, "vt-p", NULL) < 0) {
+    fprintf(stderr, "check: no legacy ip_tables, iptables live test skipped\n");
+  } else {
+    for (int fam = AF_INET; fam; fam = fam == AF_INET ? AF_INET6 : 0) {
+      const char *net = fam == AF_INET ? "192.168.42.0/24" : "fd76:6170:2a::/64";
+      CHECK(ipt_rules_present(fam, "vt-p", NULL) == 0);
+      CHECK(ipt_forward_accept(fam, "vt-p", true) == 0);
+      CHECK(ipt_forward_accept(fam, "vt-p", true) == 0);
+      CHECK(ipt_rules_present(fam, "vt-p", NULL) == 1);
+      if (ipt_nat_available(fam)) {
+        CHECK(ipt_masquerade(fam, net, true) == 0);
+        CHECK(ipt_masquerade(fam, net, true) == 0);
+        CHECK(ipt_rules_present(fam, "vt-p", net) == 1);
+        CHECK(ipt_masquerade(fam, net, false) == 0);
+        CHECK(ipt_rules_present(fam, "vt-p", net) == 0);
+      } else {
+        fprintf(stderr, "check: no %s nat table here\n",
+                fam == AF_INET ? "IPv4" : "IPv6");
+      }
+      CHECK(ipt_forward_accept(fam, "vt-p", false) == 0);
+      CHECK(ipt_rules_present(fam, "vt-p", NULL) == 0);
+    }
+  }
+
   /* NDP proxy entries. */
   CHECK(neigh_proxy(&nl, true, "2001:db8:1:2::5", "vt-p") == 0);
   CHECK(neigh_proxy(&nl, true, "2001:db8:1:2::5", "vt-p") == 0);

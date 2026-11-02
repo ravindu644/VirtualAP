@@ -19,6 +19,7 @@ static const struct command {
 } commands[] = {
     {"start", cmd_start},
     {"interfaces", cmd_interfaces},
+    {"caps", cmd_caps},
 };
 
 int main(int argc, char **argv) {

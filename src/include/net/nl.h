@@ -20,8 +20,10 @@ struct nl {
   uint32_t seq;
 };
 
-/* 0, or -errno. */
+/* A NETLINK_ROUTE socket. 0, or -errno. */
 int nl_open(struct nl *nl);
+/* The same for another netlink protocol (NETLINK_GENERIC for nl80211). */
+int nl_open_proto(struct nl *nl, int proto);
 void nl_close(struct nl *nl);
 
 /* A request with room for its attributes. */
