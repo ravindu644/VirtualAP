@@ -35,8 +35,8 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
-    # The binaries only depend on the three source submodules and the build
-    # scripts, so most pushes can reuse the previous build.
+    # hostapd and dnsmasq only depend on their two source submodules and the
+    # build scripts, so most pushes can reuse the previous build.
     - name: Hash the sources
       id: src
       run: echo "hash=$(git ls-tree HEAD externals scripts | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
@@ -50,8 +50,8 @@ jobs:
 
     - name: Build static binaries from source
       if: steps.cache.outputs.cache-hit != 'true'
-      # Compiles hostapd/iw/dnsmasq (+ busybox) in an Alpine container from the
-      # externals/ submodules and stages them into backend/<arch>.
+      # Compiles hostapd and dnsmasq in an Alpine container from the externals/
+      # submodules and stages them into backend/<arch>.
       run: bash scripts/build-static.sh ${{ matrix.arch }}
 
     - name: Upload binaries
