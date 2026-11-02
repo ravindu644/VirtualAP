@@ -162,11 +162,15 @@ The binaries are built from the git submodules under `externals/`, our own forks
 3.23 container of that arch, under QEMU on an x86 host, with `-static -no-pie` so the
 result is a standalone ELF with no interpreter; busybox is Alpine's own static build. The
 `dnsmasq` fork drops the `getpwnam("root")` privilege drop, since Android has no root entry
-in `/etc/passwd` and static musl will not synthesize one. The output lands in
+in `/etc/passwd` and static musl will not synthesize one. `virtualap`, the C engine from
+`src/`, builds in the same container with the root `Makefile` (`make native`, warnings as
+errors), after `make check` has run the asserts in `tests/check.c`; `make aarch64` and
+`make armhf` build it on the host with a musl-cross gcc. The output lands in
 `backend/<arch>/`, which is gitignored, and the `prepareAssets` gradle task stages it and
 the script into the APK's assets, failing when either arch is missing.
 
-CI builds each arch on an ARM runner, cached on the `externals/` and `scripts/` trees, then
+CI builds each arch on an ARM runner, cached on `externals/`, `scripts/`, `src/`, `Makefile`
+and `VERSION`, then
 builds the APK with JDK 17. A pushed `v*` tag that matches `VERSION` publishes a release
 with the APK, a `SHA256SUMS` file and a changelog of every commit since the previous tag;
 the tag must match `VERSION` and the signing key must be present, or the run stops. CI

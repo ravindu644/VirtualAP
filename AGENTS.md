@@ -13,12 +13,14 @@ VirtualAP turns a rooted phone into a Wi-Fi access point. Two halves:
   static binaries it drives (`hostapd`, `hostapd_cli`, `iw`, `dnsmasq`, `busybox`). The
   binaries are built from the git submodules under `externals/` by `scripts/build-static.sh`
   into `backend/aarch64/` and `backend/armhf/`, which are gitignored.
+- `src/` is the C rewrite of that script, `virtualap`, being ported on branch `rewrite/c`.
+  It builds with the same binaries and replaces the script once it is complete.
 - `Android/` is the Compose app that drives that script over a root shell.
 
 The `prepareAssets` gradle task stages the script and both arch trees into a generated
 assets root under `Android/app/build/`, and the app deploys the matching arch to
-`/data/local/virtualap` on first run and after every APK update. There is no C backend, no
-chroot and no Magisk module.
+`/data/local/virtualap` on first run and after every APK update. There is no chroot and no
+Magisk module.
 
 ## Build
 
@@ -27,9 +29,10 @@ chroot and no Magisk module.
 ./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
 ```
 
-Run the first once before the first app build and again whenever `externals/` or the build
-scripts change; `prepareAssets` fails when `backend/<arch>/` is empty. The version comes
-from `VERSION` at the repository root. Bump it there, nowhere else. The build and CI
+Run the first once before the first app build and again whenever `externals/`, `src/` or the
+build scripts change (`make aarch64` alone rebuilds just `virtualap`, see `make help`);
+`prepareAssets` fails when `backend/<arch>/` is empty. The version comes from `VERSION` at
+the repository root. Bump it there, nowhere else. The build and CI
 details are in the Building section of How-It-Works.md.
 
 ## Commits
@@ -155,7 +158,8 @@ is a bug, not a shortcut.
   `${var//}`, no `function` keyword, no bashisms.
 - Binaries are fully static musl builds from the `externals/` submodules, both arches. Never
   a dynamically linked binary, never a prebuilt from elsewhere. A new tool is a new submodule
-  plus a block in `scripts/build-in-container.sh`.
+  plus a block in `scripts/build-in-container.sh`; `virtualap` is the one binary built from
+  this repository's own `src/`.
 - No new dependency when an installed one covers it. The app already has libsu, Compose,
   lifecycle, and zxing.
 - Samsung's Broadcom FullMAC driver is the floor for wireless assumptions, and MediaTek's
