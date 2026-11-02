@@ -22,6 +22,7 @@ object Constants {
     const val KEY_AP_PMF = "ap_pmf"
     const val KEY_AP_TTL_FIX = "ap_ttl_fix"
     const val KEY_AP_IPV6 = "ap_ipv6"
+    const val KEY_AP_IPV6_NAT = "ap_ipv6_nat"
     const val KEY_AP_CONTAINER_MODE = "ap_container_mode"
     const val KEY_AP_CONTAINER = "ap_container"
     const val KEY_AP_MAC_MODE = "ap_mac_mode"

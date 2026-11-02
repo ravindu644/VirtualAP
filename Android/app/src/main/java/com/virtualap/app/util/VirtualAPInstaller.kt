@@ -8,7 +8,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Deploys the static AP-stack binaries (hostapd/hostapd_cli/iw/dnsmasq/busybox)
+ * Deploys the static AP-stack binaries (hostapd/hostapd_cli/iw/dnsmasq/busybox and
+ * hev-socks5-tunnel/hev-socks5-server for the IPv6 NAT66)
  * to /data/local/virtualap/bin. No chroot, no rootfs extraction - every binary
  * is a fully-static ELF (aarch64 or armhf) that runs directly on Android.
  *

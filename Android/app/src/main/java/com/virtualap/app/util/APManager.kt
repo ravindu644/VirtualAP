@@ -64,7 +64,7 @@ object APManager {
         // script's default gateway.
         val container = if (cfg.containerMode) cfg.containerName else ""
         val mac = if (cfg.macMode == "random") "" else cfg.gatewayMac
-        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(cfg.gateway)} -d ${sq(cfg.dnsServers)} -H ${cfg.hidden.flag()} -A ${sq(cfg.security)} -M ${cfg.pmf.flag()} -K ${sq(container)} -T ${cfg.ttlFix.flag()} -6 ${cfg.ipv6.flag()} -m ${sq(mac)}"
+        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(cfg.gateway)} -d ${sq(cfg.dnsServers)} -H ${cfg.hidden.flag()} -A ${sq(cfg.security)} -M ${cfg.pmf.flag()} -K ${sq(container)} -T ${cfg.ttlFix.flag()} -6 ${cfg.ipv6.flag()} -N ${cfg.ipv6Nat.flag()} -m ${sq(mac)}"
 
         Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
     }
@@ -115,7 +115,7 @@ object APManager {
     }
 
     /** Every static binary the backend needs, under VAP_DIR/bin. */
-    private val REQUIRED_BINARIES = listOf("busybox", "hostapd", "hostapd_cli", "iw", "dnsmasq")
+    private val REQUIRED_BINARIES = listOf("busybox", "hostapd", "hostapd_cli", "iw", "dnsmasq", "hev-socks5-tunnel", "hev-socks5-server")
 
     /**
      * "Installed" means every required binary is present AND executable. If even

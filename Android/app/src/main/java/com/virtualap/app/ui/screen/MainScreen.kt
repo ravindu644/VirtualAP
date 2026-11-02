@@ -662,6 +662,15 @@ private fun AdvancedCard(vm: APViewModel) {
                 enabled = editable,
                 icon = Icons.Default.Public
             )
+            // How the IPv6 reaches the clients; only meaningful with IPv6 on.
+            ToggleCard(
+                title = stringResource(R.string.ipv6_nat_label),
+                description = stringResource(R.string.ipv6_nat_desc),
+                checked = vm.config.ipv6Nat,
+                onCheckedChange = { vm.config = vm.config.copy(ipv6Nat = it) },
+                enabled = editable && vm.config.ipv6,
+                icon = Icons.Default.SwapHoriz
+            )
         }
     }
 }

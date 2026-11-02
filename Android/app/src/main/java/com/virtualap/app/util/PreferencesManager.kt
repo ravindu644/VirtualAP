@@ -78,6 +78,7 @@ object PreferencesManager {
                 pmf = bool(Constants.KEY_AP_PMF, false),
                 ttlFix = bool(Constants.KEY_AP_TTL_FIX, false),
                 ipv6 = bool(Constants.KEY_AP_IPV6, true),
+                ipv6Nat = bool(Constants.KEY_AP_IPV6_NAT, true),
                 containerMode = bool(Constants.KEY_AP_CONTAINER_MODE, false),
                 containerName = str(Constants.KEY_AP_CONTAINER, ""),
                 macMode = str(Constants.KEY_AP_MAC_MODE, "random"),
@@ -98,6 +99,7 @@ object PreferencesManager {
             putBoolean(Constants.KEY_AP_PMF, c.pmf)
             putBoolean(Constants.KEY_AP_TTL_FIX, c.ttlFix)
             putBoolean(Constants.KEY_AP_IPV6, c.ipv6)
+            putBoolean(Constants.KEY_AP_IPV6_NAT, c.ipv6Nat)
             putBoolean(Constants.KEY_AP_CONTAINER_MODE, c.containerMode)
             putString(Constants.KEY_AP_CONTAINER, c.containerName)
             putString(Constants.KEY_AP_MAC_MODE, c.macMode)

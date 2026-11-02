@@ -5,7 +5,7 @@
 #
 # Creates a virtual AP (ap0): static gateway, DHCP+DNS via dnsmasq, selectable
 # upstream ("auto" follows netd's default-network rule). The whole AP stack
-# (iw/hostapd/dnsmasq) ships as fully-static aarch64 and armhf binaries under
+# (iw/hostapd/dnsmasq, plus hev-socks5-tunnel/server for NAT66) ships as fully-static aarch64 and armhf binaries under
 # bin/ and runs directly on Android - no chroot, no namespaces. Routing and
 # firewall use Android's own /system/bin ip + iptables.
 
@@ -59,6 +59,8 @@ PRIO_V6_SINK=7001     # from all iif <upstream> to <our /64> blackhole
 # router solicitation is a unicast RA to that link-local. Without this rule
 # clients got an address only from the periodic multicast RA, minutes later.
 PRIO_V6_LINK=7002     # from all oif ap0 lookup main
+# NAT66 only: sockets of hev-socks5-server (fwmark) leave through the upstream.
+PRIO_V6_MARK=7003     # from all fwmark <NAT6_MARK> lookup <upstream table>
 
 # Android's local_network table (constant since Android 5). We mirror the AP
 # subnet here so container reply packets (src 172.28.0.0/16) hit Droidspaces'
@@ -70,7 +72,7 @@ ANDROID_LOCAL_NETWORK_TABLE=97
 DS_NAT_NET="172.28.0.0/16"
 DS_NAT_NET6="fd64:7370::/48"
 
-# IPv6 for hotspot clients (routed mode). Stock kernels rarely ship ip6table_nat
+# IPv6 for hotspot clients (routed mode), "shared" mode. Stock kernels rarely ship ip6table_nat
 # and Android hands the phone one /64 (SLAAC) with no prefix delegation, so the
 # clients get global addresses out of that same /64 (what Android's own tethering
 # does): ap0 advertises it off-link, every client address is routed as a /128 to
@@ -82,6 +84,28 @@ IP6_UP_IFACE=""
 IP6_PREV_FWD=""
 IP6_PREV_PROXY=""
 IP6_ACTIVE=0
+IP6_MODE=""           # "shared" (the upstream's /64, NDP proxy) or "nat66" (userspace)
+
+# Userspace NAT66 (IPv6 mode "nat66"). Clients get a private /64 of their own on
+# ap0 (a 2001:db8::/32 one by default, see nat6_prefix) and everything they send
+# goes into a TUN device run by hev-socks5-tunnel, which hands each TCP/UDP flow
+# to hev-socks5-server on loopback. The server opens the real connection from the
+# phone's own socket, so the clients leave the phone as one IPv6 address: no
+# ip6table_nat, no NDP proxy, and a prefix change upstream cannot break them. The
+# server marks its sockets and a rule steers that mark into the upstream's table.
+NAT6_TUN_BIN="${BIN_DIR}/hev-socks5-tunnel"
+NAT6_SRV_BIN="${BIN_DIR}/hev-socks5-server"
+NAT6_TUN="vaptun6"
+NAT6_ADDR="127.254.65.70"     # loopback address the server listens on
+NAT6_PORT=808                 # behind a per-start password and the OUTPUT rule below
+# Apps (uid 9999 and up) are refused at the socket, root/system are not.
+NAT6_UID_RANGE="9999-2147483647"
+NAT6_TABLE=7166               # default route into the TUN, for traffic from ap0
+NAT6_MARK="0x7a000000"        # SO_MARK of the server's sockets (high byte: netd keeps clear)
+NAT6_MARK_MASK="0xff000000"
+NAT6_TUN_ADDR="fd76:6170:7636::1"
+NAT6_TUN_LOG="${BASE_DIR}/logs/socks5-tunnel.log"
+NAT6_SRV_LOG="${BASE_DIR}/logs/socks5-server.log"
 
 # Defaults (overridden by ap.conf, then by CLI flags)
 PHY_IFACE="wlan0"
@@ -103,6 +127,13 @@ TTL_FIX="0"
 # Hand IPv6 to the clients when the upstream interface has a global /64 prefix
 # (1 = yes [default], 0 = IPv4 only). Routed mode only.
 IPV6="1"
+# How IPv6 reaches the clients: 1 = userspace NAT66 through hev-socks5-tunnel and
+# hev-socks5-server, falling back to the upstream's /64 when that cannot start;
+# 0 = only the upstream's /64 (NDP proxy, no NAT).
+IPV6_NAT="1"
+# The /64 NAT66 hands out, first four groups ("2001:db8:xxxx:xxxx"). Empty makes
+# a random one on first use and keeps it, so the clients' network stays the same.
+IP6_NAT_PREFIX=""
 
 # Managed mode (a Droidspaces container). When CONTAINER is set: ap0 becomes a
 # bridged port on VAP_BRIDGE, a veth peer is handed to the container as
@@ -200,6 +231,8 @@ SECURITY='$(sq "$SECURITY")'
 PMF='$(sq "$PMF")'
 TTL_FIX='$(sq "$TTL_FIX")'
 IPV6='$(sq "$IPV6")'
+IPV6_NAT='$(sq "$IPV6_NAT")'
+IP6_NAT_PREFIX='$(sq "$IP6_NAT_PREFIX")'
 CONTAINER='$(sq "$CONTAINER")'
 GW_MAC='$(sq "$GW_MAC")'
 EOF
@@ -571,7 +604,14 @@ v6_sync_loop() {
 # from the state file on a later stop).
 teardown_ipv6() {
     local up="$1" fwd="$2" proxy="$3" a
-    del_rules -6 "$PRIO_FROM_AP" "$PRIO_TO_SUBNET" "$PRIO_V6_SINK" "$PRIO_V6_LINK"
+    del_rules -6 "$PRIO_FROM_AP" "$PRIO_TO_SUBNET" "$PRIO_V6_SINK" "$PRIO_V6_LINK" "$PRIO_V6_MARK"
+    # NAT66: the TUN goes with its process; the table and the configs stay.
+    kill_pidfile "$RUN_DIR/nat6tun.pid"
+    kill_pidfile "$RUN_DIR/nat6srv.pid"
+    "$IP" -6 route flush table "$NAT6_TABLE" 2>/dev/null
+    while "$IPT" -D OUTPUT -p tcp -d "$NAT6_ADDR" --dport "$NAT6_PORT" -m owner --uid-owner "$NAT6_UID_RANGE" \
+        -j REJECT --reject-with tcp-reset 2>/dev/null; do :; done
+    $RM -f "$RUN_DIR/socks5-tunnel.yml" "$RUN_DIR/socks5-server.yml"
     "$IP6T" -D FORWARD -i "$AP_IFACE" -j ACCEPT 2>/dev/null
     "$IP6T" -D FORWARD -o "$AP_IFACE" -j ACCEPT 2>/dev/null
     [ -n "$up" ] && for a in $($CAT "$RUN_DIR/v6clients" 2>/dev/null); do
@@ -592,14 +632,193 @@ teardown_ipv6() {
 v6_abort() {
     warn "IPv6: $1 - IPv4 only."
     teardown_ipv6 "$IP6_UP_IFACE" "$IP6_PREV_FWD" "$IP6_PREV_PROXY"
+    IP6_NET=""; IP6_GW=""; IP6_UP_IFACE=""; IP6_PREV_FWD=""; IP6_PREV_PROXY=""; IP6_MODE=""
+}
+
+# The /64 NAT66 hands out, into IP6_NAT_PREFIX. A saved one is kept when it is
+# four hex groups and not link-local or multicast; otherwise a random
+# 2001:db8:xxxx:xxxx is made and appended to ap.conf (the later line wins when
+# the file is sourced, and save_conf writes it on the next start). 2001:db8 and
+# not a ULA on purpose: clients rank a ULA source below IPv4 (RFC 6724) and would
+# hardly ever use IPv6, while this counts as global to them.
+nat6_prefix() {
+    local p
+    p=$($ECHO "$IP6_NAT_PREFIX" | $TR 'A-F' 'a-f')
+    $ECHO "$p" | $GREP -Eq '^[0-9a-f]{1,4}(:[0-9a-f]{1,4}){3}$' \
+        && ! $ECHO "$p" | $GREP -Eq '^f[ef]' || p=""
+    if [ -z "$p" ]; then
+        set -- $($BB od -An -N4 -tx2 /dev/urandom 2>/dev/null)
+        if [ -n "$2" ]; then p="2001:db8:$1:$2"; else p="2001:db8:76a9:5ee0"; fi
+        $ECHO "IP6_NAT_PREFIX='$p'" >> "$CONF_FILE"
+    fi
+    IP6_NAT_PREFIX="$p"
+}
+
+# hev-socks5-tunnel opens /dev/net/tun, which Android phones often lack while
+# having /dev/tun. Make the node when it is missing; false if there is no TUN.
+ensure_tun_dev() {
+    [ -c /dev/net/tun ] && return 0
+    $MKDIR -p /dev/net 2>/dev/null
+    [ -c /dev/tun ] && $BB ln -sf /dev/tun /dev/net/tun 2>/dev/null
+    [ -c /dev/net/tun ] || $BB mknod /dev/net/tun c 10 200 2>/dev/null
+    [ -c /dev/net/tun ]
+}
+
+# NAT66 failed after something was touched: undo it and leave nothing in the
+# IP6_* globals, so setup_ipv6 can still try the shared prefix.
+nat6_abort() {
+    warn "IPv6 NAT66: $1."
+    teardown_ipv6 "" "$IP6_PREV_FWD" ""
     IP6_NET=""; IP6_GW=""; IP6_UP_IFACE=""; IP6_PREV_FWD=""; IP6_PREV_PROXY=""
+    IP6_MODE=""; IP6_ACTIVE=0
+}
+
+# Userspace NAT66, see NAT6_* at the top. Returns 0 when it runs, 1 when it
+# cannot (everything rolled back, nothing fatal: the caller falls back).
+setup_ipv6_nat66() {
+    local up="$UPSTREAM_IFACE_RESOLVED" c="/proc/sys/net/ipv6/conf" pass i=0
+
+    [ -x "$NAT6_TUN_BIN" ] && [ -x "$NAT6_SRV_BIN" ] \
+        || { log "IPv6 NAT66: hev-socks5 binaries missing (reinstall the backend)."; return 1; }
+    "$IP" -6 route show table "$UPSTREAM_TABLE" 2>/dev/null | $GREP -q '^default' \
+        || { log "IPv6 NAT66: the upstream has no IPv6 default route."; return 1; }
+    ensure_tun_dev || { warn "IPv6 NAT66: this kernel has no TUN device."; return 1; }
+
+    nat6_prefix
+    IP6_GW="$IP6_NAT_PREFIX::1"
+    IP6_NET="$IP6_NAT_PREFIX::/64"
+    IP6_P4=$(v6_first4 "$IP6_GW")
+    [ -n "$IP6_P4" ] || { warn "IPv6 NAT66: cannot use prefix '$IP6_NAT_PREFIX'."; IP6_GW=""; IP6_NET=""; return 1; }
+    IP6_UP_IFACE="$up"
+    IP6_MODE="nat66"
+    log "IPv6 NAT66: giving the clients $IP6_NET, translated in userspace."
+
+    # ap0 holds addresses but never configures itself from (rogue) RAs. Forwarding
+    # turns interfaces with accept_ra=1 into routers that ignore RAs; keep the
+    # upstream on 2 so it keeps its address and default route.
+    $ECHO 0 > "$c/$AP_IFACE/disable_ipv6" 2>/dev/null
+    $ECHO 0 > "$c/$AP_IFACE/accept_ra" 2>/dev/null
+    $ECHO 0 > "$c/$AP_IFACE/autoconf" 2>/dev/null
+    IP6_PREV_FWD=$($CAT "$c/all/forwarding" 2>/dev/null)
+    [ -n "$up" ] && $ECHO 2 > "$c/$up/accept_ra" 2>/dev/null
+    $ECHO 1 > "$c/all/forwarding" 2>/dev/null \
+        || { nat6_abort "could not enable forwarding"; return 1; }
+
+    # On-link /64 (unlike the shared mode): this prefix is ours alone.
+    "$IP" -6 addr add "$IP6_GW/64" dev "$AP_IFACE" nodad 2>/dev/null \
+        || { nat6_abort "could not add $IP6_GW to $AP_IFACE"; return 1; }
+    "$IP" -6 route replace fe80::/64 dev "$AP_IFACE" table main 2>/dev/null
+
+    # Loopback only, a password per start, and an OUTPUT rule that resets the
+    # connections of app uids, so no other app on the phone can use the proxy.
+    # The rule needs the kernel's owner match; without it the password still holds.
+    "$IPT" -I OUTPUT -p tcp -d "$NAT6_ADDR" --dport "$NAT6_PORT" -m owner --uid-owner "$NAT6_UID_RANGE" \
+        -j REJECT --reject-with tcp-reset 2>/dev/null \
+        || warn "IPv6 NAT66: could not install the uid filter on $NAT6_ADDR:$NAT6_PORT (password only)."
+    pass=$($BB od -An -N8 -tx1 /dev/urandom 2>/dev/null | $TR -d ' \n')
+    [ -n "$pass" ] || pass="vap$($DATE +%s)"
+    $CAT > "$RUN_DIR/socks5-server.yml" <<EOF
+main:
+  workers: 2
+  port: $NAT6_PORT
+  listen-address: '$NAT6_ADDR'
+  listen-ipv6-only: false
+  domain-address-type: unspec
+  mark: $NAT6_MARK
+auth:
+  username: 'vap'
+  password: '$pass'
+misc:
+  connect-timeout: 10000
+  tcp-read-write-timeout: 300000
+  udp-read-write-timeout: 60000
+  log-file: $NAT6_SRV_LOG
+  log-level: warn
+  pid-file: $RUN_DIR/nat6srv.pid
+  limit-nofile: 65535
+EOF
+    # No mark in the tunnel's own socket: it only talks to $NAT6_ADDR. UDP rides
+    # inside the TCP connection (UDP-in-TCP), so there is no UDP relay port to
+    # reach. An IPv4 address is given too, only so the tunnel has one; nothing
+    # routes IPv4 into it.
+    $CAT > "$RUN_DIR/socks5-tunnel.yml" <<EOF
+tunnel:
+  name: $NAT6_TUN
+  mtu: 1500
+  multi-queue: false
+  ipv4: 192.0.2.76
+  ipv6: '$NAT6_TUN_ADDR'
+  icmp: 'reply'
+socks5:
+  port: $NAT6_PORT
+  address: $NAT6_ADDR
+  udp: 'tcp'
+  username: 'vap'
+  password: '$pass'
+misc:
+  connect-timeout: 10000
+  tcp-read-write-timeout: 300000
+  udp-read-write-timeout: 60000
+  log-file: $NAT6_TUN_LOG
+  log-level: warn
+  pid-file: $RUN_DIR/nat6tun.pid
+  limit-nofile: 65535
+EOF
+    $BB chmod 600 "$RUN_DIR/socks5-server.yml" "$RUN_DIR/socks5-tunnel.yml" 2>/dev/null
+
+    : > "$NAT6_SRV_LOG" 2>/dev/null; : > "$NAT6_TUN_LOG" 2>/dev/null
+    "$NAT6_SRV_BIN" "$RUN_DIR/socks5-server.yml" \
+        || { nat6_abort "hev-socks5-server failed to start (see $NAT6_SRV_LOG)"; return 1; }
+    "$NAT6_TUN_BIN" "$RUN_DIR/socks5-tunnel.yml" \
+        || { nat6_abort "hev-socks5-tunnel failed to start (see $NAT6_TUN_LOG)"; return 1; }
+    while [ ! -d "/sys/class/net/$NAT6_TUN" ] && [ $i -lt 30 ]; do $SLEEP 0.1; i=$((i + 1)); done
+    [ -d "/sys/class/net/$NAT6_TUN" ] \
+        || { nat6_abort "the tunnel never came up (see $NAT6_TUN_LOG)"; return 1; }
+    pid_alive "$RUN_DIR/nat6srv.pid" && pid_alive "$RUN_DIR/nat6tun.pid" \
+        || { nat6_abort "a hev-socks5 process died at start (see $NAT6_TUN_LOG)"; return 1; }
+
+    # The tunnel set its own address; this only covers a kernel where the TUN
+    # came up with IPv6 disabled.
+    $ECHO 0 > "$c/$NAT6_TUN/disable_ipv6" 2>/dev/null
+    $ECHO 0 > "$c/$NAT6_TUN/accept_ra" 2>/dev/null
+    "$IP" -6 addr add "$NAT6_TUN_ADDR/128" dev "$NAT6_TUN" nodad 2>/dev/null
+    "$IP" link set "$NAT6_TUN" up 2>/dev/null
+    "$IP" -6 route replace default dev "$NAT6_TUN" table "$NAT6_TABLE" 2>/dev/null \
+        || { nat6_abort "could not route into $NAT6_TUN"; return 1; }
+
+    # to-prefix: replies from the tunnel to a client; mark: the server's own
+    # sockets out of the upstream; oif ap0: the unicast RA to a link-local; iif
+    # ap0: everything a client sends into the tunnel.
+    if "$IP" -6 rule add from all to "$IP6_NET" lookup main pref "$PRIO_TO_SUBNET" 2>/dev/null \
+        && "$IP" -6 rule add from all fwmark "$NAT6_MARK/$NAT6_MARK_MASK" lookup "$UPSTREAM_TABLE" pref "$PRIO_V6_MARK" 2>/dev/null \
+        && "$IP" -6 rule add from all oif "$AP_IFACE" lookup main pref "$PRIO_V6_LINK" 2>/dev/null \
+        && "$IP" -6 rule add from all iif "$AP_IFACE" lookup "$NAT6_TABLE" pref "$PRIO_FROM_AP" 2>/dev/null \
+        && "$IP6T" -I FORWARD 1 -i "$AP_IFACE" -j ACCEPT 2>/dev/null \
+        && "$IP6T" -I FORWARD 1 -o "$AP_IFACE" -j ACCEPT 2>/dev/null
+    then
+        IP6_ACTIVE=1
+        return 0
+    fi
+    nat6_abort "policy rules/ip6tables failed"
+    return 1
+}
+
+# IPv6 for the clients, never fatal: NAT66 first when asked for, then the
+# upstream's own /64, and IPv4 only when neither can run.
+setup_ipv6() {
+    IP6_ACTIVE=0; IP6_MODE=""
+    [ "$IPV6" = "1" ] || return 0
+    if [ "$IPV6_NAT" = "1" ]; then
+        setup_ipv6_nat66 && return 0
+        log "IPv6: falling back to the upstream's /64."
+    fi
+    setup_ipv6_shared
 }
 
 # Share the upstream's global /64 with the clients, but only if the upstream
 # interface really has one. Never fatal: on any problem the AP stays IPv4-only.
-setup_ipv6() {
+setup_ipv6_shared() {
     IP6_ACTIVE=0
-    [ "$IPV6" = "1" ] || return 0
 
     local up="$UPSTREAM_IFACE_RESOLVED" c="/proc/sys/net/ipv6/conf" addr mac iid b0
     local m1 m2 m3 m4 m5 m6
@@ -655,7 +874,7 @@ EOF
         && "$IP6T" -I FORWARD 1 -i "$AP_IFACE" -j ACCEPT 2>/dev/null \
         && "$IP6T" -I FORWARD 1 -o "$AP_IFACE" -j ACCEPT 2>/dev/null
     then
-        IP6_ACTIVE=1
+        IP6_ACTIVE=1; IP6_MODE="shared"
     else
         v6_abort "policy rules/ip6tables failed"; return 0
     fi
@@ -700,7 +919,7 @@ del_rules() {
 
 stop_daemons() {
     local d
-    for d in hostapd dnsmasq v6sync; do kill_pidfile "$RUN_DIR/$d.pid"; done
+    for d in hostapd dnsmasq v6sync nat6tun nat6srv; do kill_pidfile "$RUN_DIR/$d.pid"; done
     $RM -f "$RUN_DIR/hostapd.conf" "$RUN_DIR/dnsmasq.conf"
 }
 
@@ -836,6 +1055,7 @@ gateway=$IP_GW
 dns_servers=$DNS_SERVERS
 prev_ip_forward=$prev_fwd
 ipv6_net=$IP6_NET
+ipv6_mode=$IP6_MODE
 ipv6_iface=$IP6_UP_IFACE
 prev_ip6_forward=$IP6_PREV_FWD
 prev_ip6_proxy_ndp=$IP6_PREV_PROXY
@@ -984,9 +1204,16 @@ start_services() {
     if [ "$IP6_ACTIVE" = "1" ]; then
         # off-link: clients send everything (even to the upstream LAN's own
         # addresses) to us instead of trying to resolve them on ap0.
-        v6_config="enable-ra
+        # NAT66 is the opposite: the prefix belongs to ap0, so it is on-link.
+        if [ "$IP6_MODE" = "nat66" ]; then
+            v6_config="enable-ra
+dhcp-range=${IP6_P4}::,ra-only,64,12h
+dhcp-option=option6:dns-server,[$IP6_GW]"
+        else
+            v6_config="enable-ra
 dhcp-range=${IP6_P4}::,ra-only,off-link,64,12h
 dhcp-option=option6:dns-server,[$IP6_GW]"
+        fi
     fi
 
     $CAT > "$RUN_DIR/dnsmasq.conf" <<EOF
@@ -1309,12 +1536,17 @@ cmd_start() {
         log "  Gateway : $IP_GW (static - never changes)"
         log "  Upstream: ${UPSTREAM_IFACE_RESOLVED:-$UPSTREAM} (table $UPSTREAM_TABLE)"
         if [ "$IP6_ACTIVE" = "1" ]; then
-            log "  IPv6    : $IP6_NET shared from $IP6_UP_IFACE (global, NDP proxy, no NAT)"
+            if [ "$IP6_MODE" = "nat66" ]; then
+                log "  IPv6    : $IP6_NET, NAT66 in userspace (hev-socks5) out of $IP6_UP_IFACE"
+            else
+                log "  IPv6    : $IP6_NET shared from $IP6_UP_IFACE (global, NDP proxy, no NAT)"
+            fi
         else
             log "  IPv6    : off"
         fi
         ttl_src="$IP_NET"; ttl_src6=""
-        [ "$IP6_ACTIVE" = "1" ] && ttl_src6="$IP6_NET"
+        # NAT66's traffic is the phone's own and already leaves with hop limit 64.
+        [ "$IP6_ACTIVE" = "1" ] && [ "$IP6_MODE" = "shared" ] && ttl_src6="$IP6_NET"
     fi
 
     # Clear first, so switching the option off takes effect on a restart.
@@ -1372,7 +1604,7 @@ cmd_status() {
         else $ECHO "security=wpa2"; fi
     fi
     # gateway/ssid/etc. come from the state file (IP_GW in both routed + bridged)
-    $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|started)=' "$STATE_FILE" 2>/dev/null \
+    $GREP -E '^(ssid|band|channel|upstream|upstream_table|upstream_iface|gateway|gw_mac|dns_servers|container|ipv6_net|ipv6_mode|started)=' "$STATE_FILE" 2>/dev/null \
         || $ECHO "gateway=$IP_GW"
 }
 
@@ -1435,10 +1667,14 @@ start options:
   -T <0|1>       TTL fix: forwarded packets leave with TTL 64, so they
                  look like the phone's own (0=off [default], 1=on).
                  Needs the kernel's TTL target; skipped when missing.
-  -6 <0|1>       IPv6 for clients when the upstream has a global /64
-                 prefix: they get global addresses from it, routed with
-                 an NDP proxy, no NAT (0=off, 1=on [default]). Routed
-                 mode only.
+  -6 <0|1>       IPv6 for clients (0=off, 1=on [default]). Routed mode
+                 only. See -N for how it reaches them.
+  -N <0|1>       IPv6 method: 1 = userspace NAT66 [default]: clients get a
+                 private 2001:db8:x:x::/64 and leave through the phone's
+                 own address (hev-socks5-tunnel + hev-socks5-server, no
+                 kernel NAT). Falls back to 0 when it cannot start.
+                 0 = the upstream's global /64 shared with the clients,
+                 NDP proxy, no NAT (needs a /64 upstream).
 
 Saved settings in $CONF_FILE are reused when flags are omitted.
 EOF
@@ -1451,7 +1687,7 @@ COMMAND="$1"; shift
 
 load_conf
 
-while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:" opt 2>/dev/null; do
+while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:N:" opt 2>/dev/null; do
     # hostapd.conf and run.state are line based: a value with a line break in
     # it would become a directive of its own.
     [ "$($PRINTF %s "$OPTARG" | $WC -l)" -eq 0 ] \
@@ -1473,6 +1709,7 @@ while getopts "s:p:o:b:c:W:w:g:d:H:A:M:K:T:m:6:" opt 2>/dev/null; do
         T) TTL_FIX="$OPTARG" ;;
         m) GW_MAC="$OPTARG" ;;
         6) IPV6="$OPTARG" ;;
+        N) IPV6_NAT="$OPTARG" ;;
         *) print_usage; exit 1 ;;
     esac
 done
