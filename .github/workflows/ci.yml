@@ -50,7 +50,7 @@ jobs:
 
     - name: Build static binaries from source
       if: steps.cache.outputs.cache-hit != 'true'
-      # Compiles hostapd/iw/dnsmasq (+ busybox) in an Alpine container from the
+      # Compiles hostapd/iw/dnsmasq and virtualap (+ busybox) in an Alpine container from the
       # externals/ submodules and stages them into backend/<arch>.
       run: bash scripts/build-static.sh ${{ matrix.arch }}
 
