@@ -30,7 +30,7 @@ endif
 SRCS := $(shell find $(SRC_DIR) -name '*.c' | sort)
 
 # gcc only: -Wlogical-op and the -Wduplicated-* family are unknown to clang.
-CFLAGS  = -Wall -Wextra -Wpedantic -O2 -std=gnu11 -I$(SRC_DIR) -fno-pie
+CFLAGS  = -Wall -Wextra -Wpedantic -O2 -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR) -fno-pie
 CFLAGS += -Wformat=2 -Wformat-overflow=2 -Wformat-truncation=2
 CFLAGS += -Wnull-dereference -Wcast-qual -Wlogical-op -Wshadow -Wdouble-promotion -Wundef
 CFLAGS += -Wduplicated-cond -Wduplicated-branches -Wimplicit-fallthrough=3
@@ -110,7 +110,7 @@ aarch64 armhf:
 CHECK_BIN = $(abspath $(OUT_DIR))/check
 $(CHECK_BIN): tests/check.c $(filter-out $(SRC_DIR)/main.c,$(SRCS)) $(shell find $(SRC_DIR) -name '*.h') Makefile VERSION
 	@mkdir -p $(dir $@)
-	$(Q)gcc -Wall -Wextra -O1 -g -std=gnu11 -I$(SRC_DIR) -DVAP_VERSION='"$(VERSION)"' $(filter %.c,$^) -o $@
+	$(Q)gcc -Wall -Wextra -O1 -g -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR) -DVAP_VERSION='"$(VERSION)"' $(filter %.c,$^) -o $@
 
 check: $(CHECK_BIN)
 	$(Q)$(CHECK_BIN)

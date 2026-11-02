@@ -1,0 +1,4 @@
+-Isrc
+-std=gnu11
+-DVAP_VERSION="dev"
+-D_GNU_SOURCE
