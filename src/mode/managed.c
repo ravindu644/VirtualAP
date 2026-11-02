@@ -30,7 +30,7 @@
 #include "mode/rps.h"
 #include "net/ipt/ipt.h"
 #include "net/net.h"
-#include "radio/wifi_mac.h"
+#include "radio/radio.h"
 #include "services/hostapd.h"
 #include "virtualap.h"
 

@@ -18,11 +18,9 @@
 #include <unistd.h>
 
 #include "core/core.h"
+#include "internal.h"
 #include "net/net.h"
-#include "radio/genl.h"
-#include "radio/nl80211.h"
-#include "radio/wifi_mac.h"
-#include "radio/wpa_ctrl.h"
+#include "radio/radio.h"
 
 void genl_req(struct nl_req *r, int family_id, int cmd, int flags) {
   struct genlmsghdr *g = nl_req_init(r, family_id, flags, GENL_HDRLEN);

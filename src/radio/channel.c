@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "radio/channel.h"
+#include "internal.h"
+#include "radio/radio.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -9,8 +10,6 @@
 #include <time.h>
 
 #include "core/core.h"
-#include "radio/regdom.h"
-#include "radio/wpa_ctrl.h"
 
 void sta_from_freq(int freq, struct sta *out) {
   out->band = out->chan = 0;

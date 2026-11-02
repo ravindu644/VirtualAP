@@ -5,7 +5,7 @@
 #define VAP_HOSTAPD_H
 
 #include "cli/cli.h"
-#include "radio/channel.h"
+#include "radio/radio.h"
 #include "virtualap.h"
 
 #define HOSTAPD_CONF VAP_RUN "/hostapd.conf"

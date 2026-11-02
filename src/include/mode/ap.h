@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 #include "cli/cli.h"
-#include "radio/channel.h"
+#include "radio/radio.h"
 
 struct state;
 struct subnet;

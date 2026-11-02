@@ -10,11 +10,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../src/radio/internal.h"
 #include "check.h"
-#include "radio/channel.h"
-#include "radio/regdom.h"
-#include "radio/wifi_mac.h"
-#include "radio/wpa_ctrl.h"
+#include "radio/radio.h"
 
 static struct plan plan(const char *band, const char *ch, int sta_freq,
                         bool *needs_ir) {
