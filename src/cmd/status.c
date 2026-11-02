@@ -14,7 +14,9 @@
 #include "core/fsutil.h"
 #include "core/log.h"
 #include "core/pidfile.h"
+#include "net/ttl.h"
 #include "radio/nl80211.h"
+#include "radio/wifi_mac.h"
 #include "services/dnsmasq.h"
 #include "services/hostapd.h"
 #include "virtualap.h"
@@ -122,5 +124,19 @@ int cmd_interfaces(struct vap_opts *o) {
   qsort(ifs, (size_t)n, sizeof(ifs[0]), by_name);
   for (int i = 0; i < n; i++)
     printf("%s:%s\n", ifs[i].name, ifs[i].ip[0] ? ifs[i].ip : "no-ip");
+  return 0;
+}
+
+/* What the app greys out or offers: 5 GHz widths beyond 20 MHz, the TTL fix,
+ * the factory MAC for Static MAC mode. */
+int cmd_caps(struct vap_opts *o) {
+  struct phy_info phy;
+  char mac[18];
+  nl80211_phy_info(o->phy_iface, &phy);
+  wifi_mac(o->phy_iface, mac);
+  printf("ht40=%d\n", phy.band[BAND_5].ht40);
+  printf("vht=%d\n", phy.band[BAND_5].vht);
+  printf("ttl=%d\n", ttl_supported());
+  printf("mac=%s\n", mac);
   return 0;
 }

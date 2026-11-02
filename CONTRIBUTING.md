@@ -174,8 +174,8 @@ Engine (`src/`):
   `routed`, `ipv6` (`ipv6_decide`, setup, teardown), `nat66`, `v6shared`, `managed`, `rps`,
   `droidspaces`, `openwrt`.
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`), `v6disc`.
-- `cmd/`: `start` (`start` and `stop`), `status` (`status` and `interfaces`), `caps`, the commands the
-  app calls, dispatched from `main.c`.
+- `cmd/`: the commands the app calls, dispatched from `main.c`: `start` (`start` and
+  `stop`) and `status` (the read-only ones: `status`, `interfaces`, `caps`).
 
 ## Opening a PR
 
