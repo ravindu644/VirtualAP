@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ static int wait_exit(pid_t pid) {
 /* stdout goes to out_fd (or /dev/null when -1), stderr to /dev/null. The
  * parent's stdout is flushed first, or the child would inherit and print
  * whatever the buffer held a second time. */
-static pid_t start(char *const argv[], int out_fd) {
+static pid_t start(const char *const argv[], int out_fd) {
   fflush(stdout);
   pid_t pid = fork();
   if (pid != 0)
@@ -35,16 +36,17 @@ static pid_t start(char *const argv[], int out_fd) {
   /* An ignored signal stays ignored across exec; main ignores SIGPIPE for
    * itself only. */
   signal(SIGPIPE, SIG_DFL);
-  execv(argv[0], argv);
+  /* execv's prototype predates const; it never writes through argv. */
+  execv(argv[0], (char *const *)(uintptr_t)argv);
   _exit(127);
 }
 
-int run_quiet(char *const argv[]) {
+int run_quiet(const char *const argv[]) {
   pid_t pid = start(argv, -1);
   return pid < 0 ? -1 : wait_exit(pid);
 }
 
-int run_capture(char *const argv[], char *out, size_t size) {
+int run_capture(const char *const argv[], char *out, size_t size) {
   int pfd[2];
   if (size == 0 || pipe2(pfd, O_CLOEXEC) < 0)
     return -1;

@@ -108,9 +108,9 @@ aarch64 armhf:
 # slips past it; run it under qemu-arm if one ever does.
 # Headers are listed too: there is no .d file for this one-shot link.
 CHECK_BIN = $(abspath $(OUT_DIR))/check
-$(CHECK_BIN): tests/check.c $(filter-out $(SRC_DIR)/main.c,$(SRCS)) $(shell find $(SRC_DIR) -name '*.h') Makefile VERSION
+$(CHECK_BIN): $(wildcard tests/*.[ch]) $(filter-out $(SRC_DIR)/main.c,$(SRCS)) $(shell find $(SRC_DIR) -name '*.h') Makefile VERSION
 	@mkdir -p $(dir $@)
-	$(Q)gcc -Wall -Wextra -O1 -g -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR)/include -DVAP_VERSION='"$(VERSION)"' $(filter %.c,$^) -o $@
+	$(Q)gcc -Wall -Wextra -O1 -g -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR)/include -Itests -DVAP_VERSION='"$(VERSION)"' $(filter %.c,$^) -o $@
 
 check: $(CHECK_BIN)
 	$(Q)$(CHECK_BIN)
