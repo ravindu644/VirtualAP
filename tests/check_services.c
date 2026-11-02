@@ -20,9 +20,9 @@ static void hostapd_conf(const char *band, int ch, int width,
   strcpy(o.security, security);
   struct plan p = {!strcmp(band, "5") ? 5 : 2, ch, width};
   char path[256];
-  const char *dir = getenv("TMPDIR");
-  snprintf(path, sizeof(path), "%s/vapconf.XXXXXX", dir && *dir ? dir : "/tmp");
+  tmp_path(path, sizeof(path));
   int fd = mkstemp(path);
+  CHECK(fd >= 0);
   close(fd);
   CHECK(hostapd_write_conf(path, &o, &p) == 0);
   CHECK(read_file(path, out, size) > 0);
@@ -52,9 +52,9 @@ void test_services(void) {
   subnet_from_gw("192.168.42.1", &net);
   struct ra ra = {"2001:db8:1:2::", "2001:db8:1:2::1", true};
   char path[256];
-  const char *dir = getenv("TMPDIR");
-  snprintf(path, sizeof(path), "%s/vapconf.XXXXXX", dir && *dir ? dir : "/tmp");
+  tmp_path(path, sizeof(path));
   int fd = mkstemp(path);
+  CHECK(fd >= 0);
   close(fd);
   CHECK(dnsmasq_write_conf(path, &net, " 9.9.9.9, ,1.1.1.1 ", &ra) == 0);
   CHECK(read_file(path, c, sizeof(c)) > 0);

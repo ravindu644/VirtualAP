@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -29,14 +30,27 @@ static struct plan plan(const char *band, const char *ch, int sta_freq,
 /* A daemon on a socket in a temporary directory: STATUS gets a reply, BIG one
  * too long for the caller's buffer, anything else silence. */
 static void test_wpa_ctrl(void) {
-  char dir[] = "/tmp/vap-ctrl-XXXXXX", path[64], r[256], small[8];
-  if (!mkdtemp(dir))
+  char dir[96], path[108], r[256], small[8];
+  tmp_path(dir, sizeof(dir));
+  /* Without the socket the forked daemon would wait forever: stop here. */
+  if (!mkdtemp(dir)) {
+    CHECK(!"mkdtemp under TMPDIR");
     return;
+  }
   snprintf(path, sizeof(path), "%s/ap0", dir);
   struct sockaddr_un sa = {.sun_family = AF_UNIX};
   snprintf(sa.sun_path, sizeof(sa.sun_path), "%s", path);
   int srv = socket(AF_UNIX, SOCK_DGRAM, 0);
-  CHECK(bind(srv, (struct sockaddr *)&sa, sizeof(sa)) == 0);
+  if (bind(srv, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+    CHECK(!"bind the control socket");
+    close(srv);
+    rmdir(dir);
+    return;
+  }
+  /* A request that never arrives must not leave the daemon waiting, nor
+   * waitpid below with it. */
+  struct timeval five = {5, 0};
+  setsockopt(srv, SOL_SOCKET, SO_RCVTIMEO, &five, sizeof(five));
   fflush(NULL);
   pid_t pid = fork();
   if (pid == 0) {

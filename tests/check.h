@@ -16,6 +16,11 @@ extern int failed;
     }                                                                          \
   } while (0)
 
+/* A mkstemp or mkdtemp template where the tests may write: TMPDIR, else
+ * /tmp, which Android does not have (run there with TMPDIR=/data/local/tmp).
+ * A TMPDIR too long for out is a failed check, not a cut template. */
+void tmp_path(char *out, size_t size);
+
 /* One per area, each in its own file: the netlink tests need libc's
  * net/if.h, the iptables ones the kernel's linux/if.h, and glibc will not
  * have both in one file. */

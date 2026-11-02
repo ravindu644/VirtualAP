@@ -17,11 +17,10 @@
 
 int failed;
 
-/* A mkstemp template where the tests may write: TMPDIR, else /tmp, which
- * Android does not have (run there with TMPDIR=/data/local/tmp). */
-static void tmp_path(char *out, size_t size) {
+void tmp_path(char *out, size_t size) {
   const char *dir = getenv("TMPDIR");
-  snprintf(out, size, "%s/vapcheck.XXXXXX", dir && *dir ? dir : "/tmp");
+  int n = snprintf(out, size, "%s/vapcheck.XXXXXX", dir && *dir ? dir : "/tmp");
+  CHECK(n > 0 && (size_t)n < size);
 }
 
 static void test_ip4(void) {
