@@ -21,9 +21,5 @@
  * run.state follow. Returns true when IPv6 was redone. Writes only what is
  * missing, so its own changes never wake it again. */
 bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r);
-/* Tear IPv6 down and set it up as want says, dnsmasq and the TTL fix
- * following. */
-void ipv6_apply(struct nl *nl, const struct vap_opts *o, struct routed *r,
-                const struct v6 *want);
 
 #endif

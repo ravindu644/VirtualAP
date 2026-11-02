@@ -77,8 +77,10 @@ static bool same_v6(const struct v6 *a, const struct v6 *b) {
  * every 3 s for nothing. */
 static struct v6 failed;
 
-void ipv6_apply(struct nl *nl, const struct vap_opts *o, struct routed *r,
-                const struct v6 *want) {
+/* Tear IPv6 down and set it up as want says, dnsmasq and the TTL fix
+ * following. */
+static void ipv6_apply(struct nl *nl, const struct vap_opts *o,
+                       struct routed *r, const struct v6 *want) {
   struct state st;
   if (state_load(VAP_STATE, &st))
     ipv6_teardown(nl, &st);
