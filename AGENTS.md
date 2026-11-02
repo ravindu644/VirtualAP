@@ -143,7 +143,7 @@ is a bug, not a shortcut.
   key, default, usage text. A new setting is a field in `struct vap_opts` and a row there;
   parsing, `ap.conf` and the usage text follow. Every value goes through `opt_set`, which
   refuses line breaks. `ap.conf` is written only by `conf_save`.
-- The kernel is spoken to through `net/` (rtnetlink: `link`, `addr`, `route`, `rule`,
+- The kernel is spoken to through `net/` (rtnetlink: `link` with the addresses, `route`, `rule`,
   `neigh`, `netd`; the `ip_tables` engine: `ipt`, `ipt_rules`) and `radio/` (`nl80211`,
   `wpa_ctrl`). No module spawns `ip`, `iw` or `hostapd_cli`; `iptables` is spawned only for
   the TTL fix (`net/ttl`).
