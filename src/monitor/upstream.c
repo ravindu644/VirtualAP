@@ -2,7 +2,8 @@
  * tether daemon: netd rewrites what a start set up, on every network switch.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "monitor/upstream.h"
+#include "internal.h"
+#include "monitor/monitor.h"
 
 #include <stdio.h>
 #include <string.h>

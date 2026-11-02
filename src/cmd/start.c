@@ -12,7 +12,6 @@
 #include "core/core.h"
 #include "mode/mode.h"
 #include "monitor/monitor.h"
-#include "monitor/upstream.h"
 #include "virtualap.h"
 
 void stop_ap(const struct vap_opts *o) {

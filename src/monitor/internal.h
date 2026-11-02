@@ -1,13 +1,18 @@
-/* One look at the network: follow the upstream, put back what was taken.
+/* What monitor/'s own files share, and the tests check: not part of its
+ * public header. Included as "internal.h", or by path from tests/.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#ifndef VAP_MON_UPSTREAM_H
-#define VAP_MON_UPSTREAM_H
+#ifndef VAP_MONITOR_INTERNAL_H
+#define VAP_MONITOR_INTERNAL_H
 
-#include <stdbool.h>
+#include "monitor/monitor.h"
 
-#include "cli/cli.h"
-#include "mode/mode.h"
+/* monitor.c */
+
+#define MONITOR_PID VAP_RUN "/monitor.pid"
+
+/* upstream.c: One look at the network: follow the upstream, put back what
+ * was taken. */
 
 /* Re-resolve the upstream and move rule 7010 when it changed, re-add the
  * rules and firewall entries netd flushed, re-assert forwarding, and redo
@@ -16,10 +21,6 @@
  * run.state follow. Returns true when IPv6 was redone. Writes only what is
  * missing, so its own changes never wake it again. */
 bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r);
-/* IPv6 off for good on this AP (the discovery a shared /64 needs could not
- * run): torn down, dnsmasq without the advertisement, not retried. */
-void ipv6_off(struct nl *nl, const struct vap_opts *o, struct routed *r,
-              const char *why);
 /* Tear IPv6 down and set it up as want says, dnsmasq and the TTL fix
  * following. */
 void ipv6_apply(struct nl *nl, const struct vap_opts *o, struct routed *r,
