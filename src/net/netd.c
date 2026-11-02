@@ -16,7 +16,7 @@ struct best {
   uint32_t prio;
 };
 
-static void default_cb(const struct nlmsghdr *h, void *arg) {
+static void netd_default_cb(const struct nlmsghdr *h, void *arg) {
   struct best *b = arg;
   if (h->nlmsg_type != RTM_NEWRULE)
     return;
@@ -63,7 +63,7 @@ int netd_default_table(struct nl *nl, int family, int *table) {
   struct fib_rule_hdr *f = nl_req_init(&r, RTM_GETRULE, 0, sizeof(*f));
   f->family = (unsigned char)family;
   struct best b = {.family = family};
-  int ret = nl_dump(nl, &r, default_cb, &b);
+  int ret = nl_dump(nl, &r, netd_default_cb, &b);
   if (ret < 0)
     return ret;
   if (!b.found)
