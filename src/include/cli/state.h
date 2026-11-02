@@ -13,13 +13,15 @@
 
 struct state {
   size_t n;
+  bool full; /* a key was dropped: state_save refuses to write it */
   struct {
     char key[32];
     char val[256];
   } kv[STATE_MAX];
 };
 
-/* Appends, or replaces a key already set. */
+/* Appends, or replaces a key already set. A key past STATE_MAX is dropped
+ * and marks the state full. */
 void state_set(struct state *s, const char *key, const char *val);
 const char *state_get(const struct state *s, const char *key);
 int state_save(const char *path, const struct state *s);

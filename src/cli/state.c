@@ -13,8 +13,10 @@ void state_set(struct state *s, const char *key, const char *val) {
     if (!strcmp(s->kv[i].key, key))
       break;
   if (i == s->n) {
-    if (s->n == STATE_MAX)
+    if (s->n == STATE_MAX) {
+      s->full = true;
       return;
+    }
     s->n++;
   }
   snprintf(s->kv[i].key, sizeof(s->kv[i].key), "%s", key);
@@ -35,11 +37,15 @@ static void body(FILE *f, const void *arg) {
 }
 
 int state_save(const char *path, const struct state *s) {
+  /* A run.state missing a key would have the teardown guess it. */
+  if (s->full)
+    return -1;
   return write_atomic(path, 0644, body, s);
 }
 
 bool state_load(const char *path, struct state *s) {
   s->n = 0;
+  s->full = false;
   FILE *f = fopen(path, "re");
   if (!f)
     return false;

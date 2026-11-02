@@ -201,24 +201,13 @@ static int wire(const struct vap_opts *o, struct managed *m,
     vap_log("configure it (assign an IP, run DHCP + NAT) on its own.");
   }
   struct state st = {0};
-  char buf[32];
   state_set(&st, "mode", "bridged");
   state_set(&st, "container", o->container);
   state_set(&st, "bridge", VAP_BRIDGE);
   /* Read back rather than assumed, so status shows a random one too. */
   state_set(&st, "gw_mac", mac);
-  snprintf(buf, sizeof(buf), "%d", p->band);
-  state_set(&st, "band", buf);
-  snprintf(buf, sizeof(buf), "%d", p->channel);
-  state_set(&st, "channel", buf);
-  state_set(&st, "ssid", o->ssid);
-  state_set(&st, "gateway", net->gw);
-  log_stamp(buf);
-  state_set(&st, "started", buf);
-  if (state_save(VAP_STATE, &st) < 0) {
-    vap_error("Cannot write %s", VAP_STATE);
+  if (ap_state_save(&st, o, p, net) < 0)
     goto out;
-  }
   vap_log("Managed network wiring completed.");
   ret = 0;
 out:
@@ -263,19 +252,11 @@ int managed_start(const struct vap_opts *o, struct managed *m) {
   vap_log("  Upstream: container '%s' via %s -> %s", o->container, VAP_BRIDGE,
           VAP_PORT);
   vap_log("  LAN     : served by the container (%s)", net.gw);
-  ttl_clear();
   /* The container NATs the clients, so their traffic reaches the host from
    * Droidspaces' own NAT subnets. */
-  if (!strcmp(o->ttl_fix, "1")) {
-    if (ttl_apply(DS_NAT_NET, DS_NAT_NET6) == 0)
-      vap_log("  TTL fix : forwarded packets leave with TTL 64");
-    else
-      vap_warn("TTL fix is not available: the kernel or iptables lacks the "
-               "TTL target. Continuing without it.");
-  }
+  ap_ttl(o, DS_NAT_NET, DS_NAT_NET6);
   /* A stop that came during the last steps is still a stop. */
   if (ap_interrupted()) {
-    ttl_clear();
     managed_teardown(o->container);
     return -1;
   }
@@ -285,6 +266,7 @@ int managed_start(const struct vap_opts *o, struct managed *m) {
 void managed_teardown(const char *container) {
   vap_log("Tearing down managed (bridged) AP...");
   ap_daemons_stop();
+  ttl_clear();
   ap_iface_del();
   struct nl nl;
   if (nl_open(&nl) == 0) {

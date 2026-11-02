@@ -9,6 +9,9 @@
 #include "cli/options.h"
 #include "radio/channel.h"
 
+struct state;
+struct subnet;
+
 /* Create ap0 on the physical Wi-Fi interface, after removing a stale one.
  * 0, or -1 after logging why. */
 int ap_iface_create(const char *phy_iface);
@@ -23,6 +26,14 @@ int ap_prerequisites(void);
 /* Band, channel and width for -b/-c/-W, the station and the chip, the 5 GHz
  * NO-IR fix included. */
 void ap_plan_radio(const struct vap_opts *o, struct plan *p);
+/* run.state with the keys both modes share added to st (band, channel, ssid,
+ * gateway, started). 0, or -1 after logging why. */
+int ap_state_save(struct state *st, const struct vap_opts *o,
+                  const struct plan *p, const struct subnet *net);
+/* The TTL fix as -T asks, cleared first so turning it off takes effect on a
+ * restart. src4 and src6 (or NULL) are the forwarded traffic's sources. */
+void ap_ttl(const struct vap_opts *o, const char *src4, const char *src6);
+
 /* SIGINT and SIGTERM are held for the whole start and looked at between
  * steps, so a start told to stop always tears down (start-ap's trap) and
  * never leaves half an AP. */

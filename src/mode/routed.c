@@ -93,21 +93,11 @@ static int config_network(struct nl *nl, const struct vap_opts *o,
   snprintf(buf, sizeof(buf), "%d", up->table);
   state_set(&st, "upstream_table", buf);
   state_set(&st, "upstream_iface", up->iface);
-  snprintf(buf, sizeof(buf), "%d", p->band);
-  state_set(&st, "band", buf);
-  snprintf(buf, sizeof(buf), "%d", p->channel);
-  state_set(&st, "channel", buf);
-  state_set(&st, "ssid", o->ssid);
-  state_set(&st, "gateway", net->gw);
   state_set(&st, "dns_servers", o->dns_servers);
   state_set(&st, "prev_ip_forward", prev_fwd);
   ipv6_save(v6, &st);
-  log_stamp(buf);
-  state_set(&st, "started", buf);
-  if (state_save(VAP_STATE, &st) < 0) {
-    vap_error("Cannot write %s", VAP_STATE);
+  if (ap_state_save(&st, o, p, net) < 0)
     return -1;
-  }
   vap_log("Network configuration completed.");
   return 0;
 }
@@ -124,6 +114,7 @@ void routed_teardown(const struct vap_opts *o) {
     return;
   vap_log("Bringing down %s and reverting settings...", AP_IFACE);
   ap_daemons_stop();
+  ttl_clear();
   struct nl nl;
   if (nl_open(&nl) == 0) {
     rules_del(&nl, AF_INET);
@@ -195,15 +186,7 @@ int routed_start(struct vap_opts *o, struct routed *r) {
   else
     vap_log("  IPv6    : off");
 
-  /* Cleared first, so switching the option off takes effect on a restart. */
-  ttl_clear();
-  if (!strcmp(o->ttl_fix, "1")) {
-    if (ttl_apply(net.net, v6.mode ? v6.net : NULL) == 0)
-      vap_log("  TTL fix : forwarded packets leave with TTL 64");
-    else
-      vap_warn("TTL fix is not available: the kernel or iptables lacks the "
-               "TTL target. Continuing without it.");
-  }
+  ap_ttl(o, net.net, v6.mode ? v6.net : NULL);
   /* A stop that came during the last steps is still a stop. */
   if (ap_interrupted()) {
     routed_teardown(o);

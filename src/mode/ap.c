@@ -6,12 +6,16 @@
 
 #include <net/if.h>
 #include <signal.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "cli/state.h"
+#include "core/ipaddr.h"
 #include "core/log.h"
 #include "core/pidfile.h"
 #include "net/link.h"
+#include "net/ttl.h"
 #include "radio/nl80211.h"
 #include "radio/regdom.h"
 #include "services/dnsmasq.h"
@@ -83,6 +87,37 @@ void ap_plan_radio(const struct vap_opts *o, struct plan *p) {
     ensure_5g_ir(p, o->phy_iface, &sta, &phy);
   plan_band(p);
   plan_width(p, o->width, &phy);
+}
+
+int ap_state_save(struct state *st, const struct vap_opts *o,
+                  const struct plan *p, const struct subnet *net) {
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%d", p->band);
+  state_set(st, "band", buf);
+  snprintf(buf, sizeof(buf), "%d", p->channel);
+  state_set(st, "channel", buf);
+  state_set(st, "ssid", o->ssid);
+  state_set(st, "gateway", net->gw);
+  log_stamp(buf);
+  state_set(st, "started", buf);
+  if (state_save(VAP_STATE, st) < 0) {
+    vap_error("Cannot write %s", VAP_STATE);
+    return -1;
+  }
+  return 0;
+}
+
+void ap_ttl(const struct vap_opts *o, const char *src4, const char *src6) {
+  /* ttl_apply clears first itself. */
+  if (strcmp(o->ttl_fix, "1")) {
+    ttl_clear();
+    return;
+  }
+  if (ttl_apply(src4, src6) == 0)
+    vap_log("  TTL fix : forwarded packets leave with TTL 64");
+  else
+    vap_warn("TTL fix is not available: the kernel or iptables lacks the "
+             "TTL target. Continuing without it.");
 }
 
 void ap_hold_signals(void) {
