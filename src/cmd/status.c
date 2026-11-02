@@ -11,9 +11,7 @@
 
 #include "cli/state.h"
 #include "cmd/cmd.h"
-#include "core/fsutil.h"
-#include "core/log.h"
-#include "core/pidfile.h"
+#include "core/core.h"
 #include "net/ttl.h"
 #include "radio/nl80211.h"
 #include "radio/wifi_mac.h"

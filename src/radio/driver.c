@@ -17,7 +17,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "core/fsutil.h"
+#include "core/core.h"
 #include "net/link.h"
 #include "radio/genl.h"
 #include "radio/nl80211.h"

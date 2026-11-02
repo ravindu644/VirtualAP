@@ -1,7 +1,7 @@
 /* Adapted from USB-Arsenal's utils.c.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "core/proc.h"
+#include "core/core.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -16,10 +16,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "core/fsutil.h"
-#include "core/lock.h"
-#include "core/log.h"
-#include "core/pidfile.h"
 #include "virtualap.h"
 
 static int wait_exit(pid_t pid) {

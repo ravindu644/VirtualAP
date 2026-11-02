@@ -7,9 +7,7 @@
 #include <unistd.h>
 
 #include "cli/state.h"
-#include "core/fsutil.h"
-#include "core/ipaddr.h"
-#include "core/log.h"
+#include "core/core.h"
 #include "mode/ap.h"
 #include "mode/ipv6.h"
 #include "mode/rules.h"

@@ -9,8 +9,7 @@
 #include "cli/conf.h"
 #include "cli/options.h"
 #include "cmd/cmd.h"
-#include "core/fsutil.h"
-#include "core/log.h"
+#include "core/core.h"
 #include "virtualap.h"
 
 static const struct command {

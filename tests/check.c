@@ -11,9 +11,7 @@
 #include "cli/conf.h"
 #include "cli/options.h"
 #include "cli/state.h"
-#include "core/fsutil.h"
-#include "core/ipaddr.h"
-#include "core/log.h"
+#include "core/core.h"
 #include "mode/nat66.h"
 #include "mode/rps.h"
 

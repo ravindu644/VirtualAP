@@ -4,7 +4,7 @@
 #ifndef VAP_OPENWRT_H
 #define VAP_OPENWRT_H
 
-#include "core/ipaddr.h"
+#include "core/core.h"
 
 /* A LAN on the container's VAP_PORT at the gateway's address, its DHCP and
  * router advertisements, and NAT out of its WAN. Best effort: what fails is

@@ -6,7 +6,7 @@
 
 #include <stdbool.h>
 
-#include "core/ipaddr.h"
+#include "core/core.h"
 #include "virtualap.h"
 
 #define DNSMASQ_CONF VAP_RUN "/dnsmasq.conf"

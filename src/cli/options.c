@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "core/log.h"
+#include "core/core.h"
 #include "virtualap.h"
 
 #define F(field) offsetof(struct vap_opts, field)

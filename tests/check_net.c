@@ -14,8 +14,7 @@
 #include <unistd.h>
 
 #include "check.h"
-#include "core/ipaddr.h"
-#include "core/proc.h"
+#include "core/core.h"
 #include "mode/rules.h"
 #include "net/addr.h"
 #include "net/ipt_rules.h"

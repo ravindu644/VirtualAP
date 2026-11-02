@@ -6,8 +6,7 @@
 #include <string.h>
 
 #include "cli/state.h"
-#include "core/fsutil.h"
-#include "core/log.h"
+#include "core/core.h"
 
 /* Enough sh to read what conf_save writes: '...' verbatim (a ' is '\''), a
  * bare \x as x, and the word ends at an unquoted blank. As in sh, a # starts

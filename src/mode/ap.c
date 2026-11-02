@@ -11,12 +11,7 @@
 #include <unistd.h>
 
 #include "cli/state.h"
-#include "core/csv.h"
-#include "core/fsutil.h"
-#include "core/ipaddr.h"
-#include "core/log.h"
-#include "core/pidfile.h"
-#include "core/proc.h"
+#include "core/core.h"
 #include "net/link.h"
 #include "net/ttl.h"
 #include "radio/nl80211.h"

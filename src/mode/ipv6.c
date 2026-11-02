@@ -12,8 +12,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "core/fsutil.h"
-#include "core/log.h"
+#include "core/core.h"
 #include "mode/nat66.h"
 #include "mode/rules.h"
 #include "mode/v6shared.h"

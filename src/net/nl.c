@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "core/log.h"
+#include "core/core.h"
 #include "net/netns.h"
 
 #define NL_BUFSIZE 16384

@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include "check.h"
-#include "core/fsutil.h"
+#include "core/core.h"
 #include "services/dnsmasq.h"
 #include "services/hostapd.h"
 

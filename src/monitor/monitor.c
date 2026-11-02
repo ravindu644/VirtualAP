@@ -17,9 +17,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "core/lock.h"
-#include "core/log.h"
-#include "core/pidfile.h"
+#include "core/core.h"
 #include "mode/droidspaces.h"
 #include "mode/managed.h"
 #include "monitor/upstream.h"

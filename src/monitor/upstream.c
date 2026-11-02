@@ -8,9 +8,7 @@
 #include <string.h>
 
 #include "cli/state.h"
-#include "core/fsutil.h"
-#include "core/log.h"
-#include "core/pidfile.h"
+#include "core/core.h"
 #include "mode/ipv6.h"
 #include "mode/rules.h"
 #include "net/ipt_rules.h"

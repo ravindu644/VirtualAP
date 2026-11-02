@@ -11,9 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "core/ipaddr.h"
-#include "core/log.h"
-#include "core/proc.h"
+#include "core/core.h"
 #include "net/ipt.h"
 #include "net/ttl.h"
 

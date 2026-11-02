@@ -9,7 +9,7 @@
 #include <sys/types.h>
 
 #include "cli/options.h"
-#include "core/ipaddr.h"
+#include "core/core.h"
 
 /* The whole managed start after the settings were validated and saved, lan
  * the subnet of the gateway start checked. 0, or -1 after logging why and

@@ -11,8 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "core/ipaddr.h"
-#include "core/log.h"
+#include "core/core.h"
 #include "net/netd.h"
 #include "net/rule.h"
 

@@ -6,7 +6,7 @@
 #define VAP_ROUTED_H
 
 #include "cli/options.h"
-#include "core/ipaddr.h"
+#include "core/core.h"
 #include "mode/ipv6.h"
 #include "net/netd.h"
 

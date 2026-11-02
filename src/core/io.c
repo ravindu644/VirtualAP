@@ -15,10 +15,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "core/csv.h"
-#include "core/fsutil.h"
-#include "core/ipaddr.h"
-#include "core/log.h"
+#include "core/core.h"
 #include "virtualap.h"
 
 int read_file(const char *path, char *buf, size_t size) {

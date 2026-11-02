@@ -8,8 +8,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "core/log.h"
-#include "core/proc.h"
+#include "core/core.h"
 #include "radio/regdom.h"
 #include "radio/wpa_ctrl.h"
 

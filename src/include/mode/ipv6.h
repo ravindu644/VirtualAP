@@ -11,7 +11,7 @@
 
 #include "cli/options.h"
 #include "cli/state.h"
-#include "core/ipaddr.h"
+#include "core/core.h"
 #include "net/netd.h"
 
 enum { V6_OFF, V6_NAT66, V6_SHARED };
