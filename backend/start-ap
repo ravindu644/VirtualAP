@@ -87,7 +87,7 @@ IP6_ACTIVE=0
 IP6_MODE=""           # "shared" (the upstream's /64, NDP proxy) or "nat66" (userspace)
 
 # Userspace NAT66 (IPv6 mode "nat66"). Clients get a private /64 of their own on
-# ap0 (a 2001:db8::/32 one by default, see nat6_prefix) and everything they send
+# ap0 (a 3fff::/20 one by default, see nat6_prefix) and everything they send
 # goes into a TUN device run by hev-socks5-tunnel, which hands each TCP/UDP flow
 # to hev-socks5-server on loopback. The server opens the real connection from the
 # phone's own socket, so the clients leave the phone as one IPv6 address: no
@@ -131,7 +131,7 @@ IPV6="1"
 # hev-socks5-server, falling back to the upstream's /64 when that cannot start;
 # 0 = only the upstream's /64 (NDP proxy, no NAT).
 IPV6_NAT="1"
-# The /64 NAT66 hands out, first four groups ("2001:db8:xxxx:xxxx"). Empty makes
+# The /64 NAT66 hands out, first four groups ("3fff:0xxx:xxxx:xxxx"). Empty makes
 # a random one on first use and keeps it, so the clients' network stays the same.
 IP6_NAT_PREFIX=""
 
@@ -637,18 +637,18 @@ v6_abort() {
 
 # The /64 NAT66 hands out, into IP6_NAT_PREFIX. A saved one is kept when it is
 # four hex groups and not link-local or multicast; otherwise a random
-# 2001:db8:xxxx:xxxx is made and appended to ap.conf (the later line wins when
-# the file is sourced, and save_conf writes it on the next start). 2001:db8 and
+# 3fff:0xxx:xxxx:xxxx is made and appended to ap.conf (the later line wins when
+# the file is sourced, and save_conf writes it on the next start). 3fff::/20 and
 # not a ULA on purpose: clients rank a ULA source below IPv4 (RFC 6724) and would
 # hardly ever use IPv6, while this counts as global to them.
 nat6_prefix() {
     local p
     p=$($ECHO "$IP6_NAT_PREFIX" | $TR 'A-F' 'a-f')
     $ECHO "$p" | $GREP -Eq '^[0-9a-f]{1,4}(:[0-9a-f]{1,4}){3}$' \
-        && ! $ECHO "$p" | $GREP -Eq '^f[ef]' || p=""
+        && ! $ECHO "$p" | $GREP -Eq '^(f[ef]|2001:0?db8:)' || p=""
     if [ -z "$p" ]; then
-        set -- $($BB od -An -N4 -tx2 /dev/urandom 2>/dev/null)
-        if [ -n "$2" ]; then p="2001:db8:$1:$2"; else p="2001:db8:76a9:5ee0"; fi
+        set -- $($BB od -An -N6 -tx2 /dev/urandom 2>/dev/null)
+        if [ -n "$3" ]; then p="3fff:0${1#?}:$2:$3"; else p="3fff:0a76:9b5e:e001"; fi
         $ECHO "IP6_NAT_PREFIX='$p'" >> "$CONF_FILE"
     fi
     IP6_NAT_PREFIX="$p"
@@ -1670,7 +1670,7 @@ start options:
   -6 <0|1>       IPv6 for clients (0=off, 1=on [default]). Routed mode
                  only. See -N for how it reaches them.
   -N <0|1>       IPv6 method: 1 = userspace NAT66 [default]: clients get a
-                 private 2001:db8:x:x::/64 and leave through the phone's
+                 private 3fff:0xxx:x:x::/64 and leave through the phone's
                  own address (hev-socks5-tunnel + hev-socks5-server, no
                  kernel NAT). Falls back to 0 when it cannot start.
                  0 = the upstream's global /64 shared with the clients,
