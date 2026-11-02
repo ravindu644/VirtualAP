@@ -16,7 +16,7 @@ class VirtualAPApplication : Application() {
         )
         // Synchronous: everything that shells out depends on these paths.
         PreferencesManager.init(this)
-        Backend.install(this)
+        Backend.init(this)
         Hotspot.init(this)
     }
 }

@@ -8,17 +8,16 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Deploys the static AP-stack binaries (hostapd/hostapd_cli/iw/dnsmasq/busybox)
- * to /data/local/virtualap/bin. No chroot, no rootfs extraction - every binary
- * is a fully-static ELF (aarch64 or armhf) that runs directly on Android.
+ * Deploys the static payload (virtualap, the engine, and the hostapd and dnsmasq
+ * it drives) to /data/local/virtualap/bin. Every binary is a fully-static ELF
+ * (aarch64 or armhf) that runs directly on Android.
  *
  * The APK bundles both arches under assets/bin/<arch>/; install() picks the one
  * matching the device (see [deviceArch]) and deploys only that. Each arch dir
  * carries a version marker (assets/bin/<arch>/PAYLOAD_VERSION, a hash of the
  * binaries written by the prepareAssets gradle task). When the installed APK
  * ships a different marker than the one last deployed, the setup flow re-runs -
- * this is the whole "update backend" mechanism. Scripts run from the app files
- * dir and can never go stale (see Backend).
+ * this is the whole "update backend" mechanism.
  */
 object VirtualAPInstaller {
 
@@ -68,15 +67,19 @@ object VirtualAPInstaller {
             // Step 0: A re-install (backend update) must not race a live backend.
             // Overwriting a binary some process still executes fails with
             // ETXTBSY, so stop the AP first (deployAsset also unlinks first).
+            // After an update from the sh engine this is the script it extracted
+            // (see Backend.startAp), which started the AP; it goes for good
+            // afterwards, and every command from then on is virtualap's.
             Shell.cmd("${Backend.startAp} stop").exec()
+            File(context.filesDir, "backend").deleteRecursively()
 
-            // Step 1: Create directories. Scripts are NOT deployed here - they run
-            // straight from the app's files dir (see Backend) so APK updates always
-            // take effect. Remove stale files from the old chroot-based versions.
+            // Step 1: Create directories, and remove what older versions left:
+            // the chroot-era scripts and rootfs, and the binaries only the sh
+            // engine ran.
             val dir = Backend.quote(Constants.VAP_DIR)
             Shell.cmd(
                 "mkdir -p $dir/bin $dir/logs $dir/run",
-                "rm -f $dir/vap.sh $dir/start-ap",
+                "rm -f $dir/vap.sh $dir/start-ap $dir/bin/busybox $dir/bin/iw $dir/bin/hostapd_cli",
                 "rm -rf $dir/rootfs"
             ).exec()
 

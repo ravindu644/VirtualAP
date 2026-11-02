@@ -2,6 +2,8 @@ package com.virtualap.app.util
 
 object Constants {
     const val VAP_DIR = "/data/local/virtualap"
+    /** The engine; Backend.startAp is how the app runs it. */
+    const val ENGINE = "$VAP_DIR/bin/virtualap"
     const val PREFS_NAME = "virtualap_prefs"
     const val KEY_ROOT_AVAILABLE = "root_available"
     const val KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme"

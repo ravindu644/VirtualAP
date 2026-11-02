@@ -115,7 +115,7 @@ object APManager {
     }
 
     /** Every static binary the backend needs, under VAP_DIR/bin. */
-    private val REQUIRED_BINARIES = listOf("busybox", "hostapd", "hostapd_cli", "iw", "dnsmasq")
+    private val REQUIRED_BINARIES = listOf("virtualap", "hostapd", "dnsmasq")
 
     /**
      * "Installed" means every required binary is present AND executable. If even

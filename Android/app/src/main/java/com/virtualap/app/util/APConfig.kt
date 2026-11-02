@@ -28,7 +28,7 @@ data class APConfig(
     /** Random mode sends no MAC; the other two need one the kernel will take. */
     fun macValid(): Boolean = macMode == "random" || isValidMac(gatewayMac)
 
-    /** Everything start-ap will reject on its own, checked before we shell out. */
+    /** Everything the engine will reject on its own, checked before we shell out. */
     fun isValid(): Boolean =
         ssid.isNotBlank() && passwordValid() &&
             (gateway.isBlank() || isValidIpv4(gateway)) && isValidDnsList(dnsServers) &&
@@ -38,7 +38,7 @@ data class APConfig(
         /** Default AP/LAN gateway when the gateway field is left blank. */
         const val DEFAULT_GATEWAY = "192.168.42.1"
 
-        /** A host address as start-ap takes it: four octets as inet_pton reads them, the last 1 to 254. */
+        /** A host address as the engine takes it: four octets as inet_pton reads them, the last 1 to 254. */
         fun isValidIpv4(ip: String): Boolean {
             val octets = ip.trim().split(".")
             return octets.size == 4 &&

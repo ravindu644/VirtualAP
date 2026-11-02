@@ -88,30 +88,30 @@ kotlin {
     }
 }
 
-// The script and the static binaries, staged into a generated assets root so
+// The static binaries, staged into a generated assets root so
 // nothing the build writes shows up as a diff. Each arch carries PAYLOAD_VERSION,
 // a hash of its binaries; the app compares it to its last deploy to know when an
 // APK update ships new ones.
 val backendDir = rootProject.file("../backend")
 val arches = listOf("aarch64", "armhf")
+// The payload, by name: backend/<arch> may still hold binaries an older build
+// left there, which nothing runs any more.
+val payload = listOf("virtualap", "hostapd", "dnsmasq")
 val assetsDir = layout.buildDirectory.dir("generated/assets")
 android.sourceSets["main"].assets.srcDir(assetsDir)
 
 val prepareAssets = tasks.register<Sync>("prepareAssets") {
-    from(File(backendDir, "start-ap")) { into("backend") }
-    for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); exclude(".*") }
+    for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); include(payload) }
     into(assetsDir)
     doFirst {
         // Builds before 2026-10-31 staged these two under src/main; a leftover tree
         // there would be merged alongside this one.
         file("src/main/assets/bin").deleteRecursively()
         file("src/main/assets/backend").deleteRecursively()
-        require(File(backendDir, "start-ap").isFile) { "prepareAssets: backend/start-ap is missing" }
-        for (arch in arches) {
-            val bins = File(backendDir, arch).listFiles { f -> f.isFile && !f.name.startsWith(".") }.orEmpty()
-            require(bins.isNotEmpty()) { "prepareAssets: no binaries in backend/$arch, run scripts/build-static.sh first" }
-            // The engine comes from its own build, so a payload without it is easy to miss.
-            require(File(backendDir, "$arch/virtualap").isFile) { "prepareAssets: backend/$arch/virtualap is missing, run make aarch64 armhf first" }
+        for (arch in arches) for (bin in payload) {
+            // virtualap comes from its own build, the others from the container's.
+            val how = if (bin == "virtualap") "make aarch64 armhf" else "scripts/build-static.sh"
+            require(File(backendDir, "$arch/$bin").isFile) { "prepareAssets: backend/$arch/$bin is missing, run $how first" }
         }
     }
     doLast {

@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 /**
  * The one owner of a start/stop session. It outlives the ViewModel so a start
  * begun from a Quick Settings tile is visible to the screen and the other way
- * round. Everything that runs start-ap start/stop goes through here.
+ * round. Everything that runs the engine's start/stop goes through here.
  */
 object Hotspot {
     enum class Phase { IDLE, STARTING, STOPPING }
@@ -88,7 +88,7 @@ object Hotspot {
         return s
     }
 
-    // start-ap only returns once hostapd answered and the state file is written,
+    // The engine's start only returns once hostapd answered and the state file is written,
     // and stop removes that file before it exits, so status is current at once.
     // Fans out unconditionally: after a stop from the notification in a fresh
     // process the new status equals the default and would not count as a change.
