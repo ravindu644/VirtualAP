@@ -14,7 +14,8 @@
 #include "monitor/monitor.h"
 #include "virtualap.h"
 
-void stop_ap(const struct vap_opts *o) {
+/* stop's teardown, for start to clear a previous AP under its own lock. */
+static void stop_ap(const struct vap_opts *o) {
   /* First, so it cannot put back what the teardown removes. */
   monitor_stop();
   struct state st;
