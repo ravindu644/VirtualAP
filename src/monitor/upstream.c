@@ -11,8 +11,7 @@
 #include "core/core.h"
 #include "mode/ipv6.h"
 #include "mode/rules.h"
-#include "net/ipt_rules.h"
-#include "net/ttl.h"
+#include "net/ipt/ipt.h"
 #include "services/dnsmasq.h"
 #include "virtualap.h"
 

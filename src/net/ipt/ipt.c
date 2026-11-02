@@ -3,7 +3,8 @@
  * matcher callback and the blob arithmetic split from the socket calls.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "net/ipt.h"
+#include "net/ipt/ipt.h"
+#include "internal.h"
 
 #include <errno.h>
 #include <fcntl.h>

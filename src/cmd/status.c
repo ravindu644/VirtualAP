@@ -12,7 +12,7 @@
 #include "cli/cli.h"
 #include "cmd/cmd.h"
 #include "core/core.h"
-#include "net/ttl.h"
+#include "net/ipt/ipt.h"
 #include "radio/nl80211.h"
 #include "radio/wifi_mac.h"
 #include "services/dnsmasq.h"

@@ -6,9 +6,9 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "../src/net/ipt/internal.h"
 #include "check.h"
-#include "net/ipt.h"
-#include "net/ipt_rules.h"
+#include "net/ipt/ipt.h"
 
 /* A filter table as the kernel hands one out: INPUT and OUTPUT with only
  * their policies, FORWARD with a jump into user chain X ahead of its policy,

@@ -1,19 +1,24 @@
-/* The raw ip_tables / ip6_tables engine: read a table, insert one rule at the
- * head of a chain, remove the rules a matcher picks, all through the kernel's
- * IPT_SO_* socket options. The two families share the machine and differ in
- * the rule header, which ipt_view hides.
- *
- * Android safety contract: never flush a chain, never change a policy, never
- * touch a rule the matcher did not pick, insert only rules scoped to us.
+/* What net/ipt/'s own files share, and the tests check: not part of its
+ * public header. Included as "internal.h", or by path from tests/.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#ifndef VAP_IPT_H
-#define VAP_IPT_H
+#ifndef VAP_NET_IPT_INTERNAL_H
+#define VAP_NET_IPT_INTERNAL_H
 
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "net/ipt/ipt.h"
+
+/* ipt.c: The raw ip_tables / ip6_tables engine: read a table, insert one
+ * rule at the head of a chain, remove the rules a matcher picks, all through
+ * the kernel's IPT_SO_* socket options. The two families share the machine
+ * and differ in the rule header, which ipt_view hides.
+ *
+ * Android safety contract: never flush a chain, never change a policy, never
+ * touch a rule the matcher did not pick, insert only rules scoped to us. */
 
 /* The match fields of one rule entry, whichever family. */
 struct ipt_view {
@@ -76,5 +81,19 @@ int ipt_find(int fd, int family, const char *table, unsigned hook,
              ipt_match_fn match, const void *arg);
 /* Does the kernel know this target (MASQUERADE in nat, TTL in mangle)? */
 bool ipt_target_known(int fd, int family, const char *name);
+
+/* ipt_rules.c: The firewall rules the AP needs, raw socket first and the
+ * iptables binary for whatever the raw path cannot reach. */
+
+/* /system/bin/iptables or ip6tables -w -t table args..., args ending in
+ * NULL. -w waits for netd's xtables lock instead of failing while netd holds
+ * it. Its exit code. */
+int ipt_bin(int family, const char *table, const char *const args[]);
+
+/* Our rules as the kernel stores them; buf holds 256 bytes. Size or -1. */
+int ipt_build_accept(int family, const struct ipt_iface_arg *a,
+                     unsigned char *buf);
+int ipt_build_masq(int family, const struct ipt_net_arg *a, unsigned char *buf);
+int ipt_net_parse(int family, const char *cidr, struct ipt_net_arg *out);
 
 #endif

@@ -18,7 +18,7 @@
 #include "mode/v6shared.h"
 #include "monitor/v6disc.h"
 #include "net/addr.h"
-#include "net/ipt_rules.h"
+#include "net/ipt/ipt.h"
 #include "net/neigh.h"
 #include "net/route.h"
 #include "virtualap.h"

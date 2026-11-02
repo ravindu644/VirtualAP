@@ -1,11 +1,15 @@
-/* The firewall rules the AP needs, raw socket first and the iptables binary
- * for whatever the raw path cannot reach.
+/* The ip_tables engine and the rules built on it. Kept apart from net/net.h:
+ * on musl the kernel's netfilter headers and libc's networking headers
+ * cannot meet in one file.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#ifndef VAP_IPT_RULES_H
-#define VAP_IPT_RULES_H
+#ifndef VAP_NET_IPT_H
+#define VAP_NET_IPT_H
 
 #include <stdbool.h>
+
+/* ipt_rules.c: The firewall rules the AP needs, raw socket first and the
+ * iptables binary for whatever the raw path cannot reach. */
 
 /* filter FORWARD -i iface -j ACCEPT and -o iface -j ACCEPT, at the head of
  * the chain, ahead of netd's own. 0 or -1. Removing what is not there is 0. */
@@ -13,11 +17,6 @@ int ipt_forward_accept(int family, const char *iface, bool add);
 /* nat POSTROUTING -s cidr ! -d cidr -j MASQUERADE, interface-less so it
  * survives an upstream change. 0 or -1. */
 int ipt_masquerade(int family, const char *cidr, bool add);
-/* /system/bin/iptables or ip6tables -w -t table args..., args ending in
- * NULL. -w waits for netd's xtables lock instead of failing while netd holds
- * it. Its exit code. */
-int ipt_bin(int family, const char *table, const char *const args[]);
-
 /* Both forward rules, and the MASQUERADE unless cidr is NULL (the shared /64
  * has none), in place: 1, 0 when any is missing,
  * -1 when the tables cannot be read (the rules then live wherever the binary
@@ -39,10 +38,24 @@ struct ipt_net_arg {
 };
 bool ipt_match_accept(int family, const unsigned char *e, const void *arg);
 bool ipt_match_masq(int family, const unsigned char *e, const void *arg);
-/* Our rules as the kernel stores them; buf holds 256 bytes. Size or -1. */
-int ipt_build_accept(int family, const struct ipt_iface_arg *a,
-                     unsigned char *buf);
-int ipt_build_masq(int family, const struct ipt_net_arg *a, unsigned char *buf);
-int ipt_net_parse(int family, const char *cidr, struct ipt_net_arg *out);
+
+/* ipt_rules.c: The TTL fix: forwarded packets leave with TTL (hop limit) 64,
+ * so tethered traffic looks like the phone's own to the operator. */
+
+/* Does the kernel take the TTL target? Asked by building the real rule in a
+ * chain nothing jumps to, so no packet ever sees it; one test covers a kernel
+ * without the target and an iptables without the extension. */
+bool ttl_supported(void);
+/* Our rules live in a chain of their own, vap_ttl, so clearing them never
+ * depends on knowing which subnet they were written for. */
+void ttl_clear(void);
+/* src4 = the tethered IPv4 source subnet, src6 the IPv6 one or NULL. 0, or -1
+ * when the TTL target is missing (everything undone). */
+int ttl_apply(const char *src4, const char *src6);
+/* For a new IPv6 source prefix (NULL: none) while the fix is on: the IPv6
+ * half again with the IPv4 rule left in place, so an IPv6 change never leaves
+ * IPv4 unfixed while iptables runs; everything again when the IPv4 rule is
+ * gone. ttl_apply's 0 or -1. */
+int ttl_refresh(const char *src4, const char *src6);
 
 #endif

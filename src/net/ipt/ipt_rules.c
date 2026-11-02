@@ -2,7 +2,8 @@
  * raw_ensure_masquerade, the matchers its removal fingerprints.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "net/ipt_rules.h"
+#include "internal.h"
+#include "net/ipt/ipt.h"
 
 #include <linux/netfilter.h>
 #include <linux/netfilter/nf_nat.h>
@@ -12,8 +13,6 @@
 #include <unistd.h>
 
 #include "core/core.h"
-#include "net/ipt.h"
-#include "net/ttl.h"
 
 int ipt_bin(int family, const char *table, const char *const args[]) {
   const char *argv[20] = {family == AF_INET6 ? "/system/bin/ip6tables"

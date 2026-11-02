@@ -17,7 +17,7 @@
 #include "core/core.h"
 #include "mode/rules.h"
 #include "net/addr.h"
-#include "net/ipt_rules.h"
+#include "net/ipt/ipt.h"
 #include "net/link.h"
 #include "net/neigh.h"
 #include "net/netd.h"
