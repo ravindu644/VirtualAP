@@ -7,11 +7,16 @@
 
 #include "cli/cli.h"
 
+/* start.c */
+
 int cmd_start(struct vap_opts *o);
 int cmd_stop(struct vap_opts *o);
-int cmd_status(struct vap_opts *o);
 /* stop's teardown, for start to clear a previous AP under its own lock. */
 void stop_ap(const struct vap_opts *o);
+
+/* status.c */
+
+int cmd_status(struct vap_opts *o);
 int cmd_interfaces(struct vap_opts *o);
 int cmd_caps(struct vap_opts *o);
 

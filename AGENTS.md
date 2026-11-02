@@ -127,10 +127,17 @@ is a bug, not a shortcut.
   starting/stopping phase, the command log, the running notification and the Quick Settings
   tile sync, so the screen and the tile always agree. `APConfig.isValid()` is the only
   start validation; the screen's button and the tile both ask it.
-- `src/` keeps one concern per `.c`, its header under `src/include/<layer>/`, everything
-  else `static`. A file includes only its own layer and the ones below it: `core`, `cli`,
-  `net` and `radio`, `mode`, `monitor`, `cmd`, `main`. A new concern is a new module, never
-  a few hundred lines added to one that has another.
+- `src/` is one folder per layer: `core`, `cli`, `net` (with `net/ipt/`), `radio`, `mode`,
+  `monitor`, `cmd`, then `main.c`. A file includes only its own layer and the ones below it,
+  in that order. Each folder has one public header, `src/include/<folder>/<folder>.h`, its
+  prototypes grouped under a label naming the defining file; what only the folder's own
+  files and the tests use goes in `src/<folder>/internal.h`, included as `"internal.h"`
+  (tests take it by path). Everything else is `static`. Files run 200 to 800 lines: a new
+  function goes into the file of its subsystem, and a new file is for a new subsystem or a
+  file past 800. `net/ipt/` has a header of its own because on musl the kernel's netfilter
+  headers and libc's networking headers cannot meet in one file. Code ported from
+  Droidspaces and USB-Arsenal follows these rules; vendored code stays in `externals/`,
+  untouched.
 - Logging is `vap_log`, `vap_warn`, `vap_error` (`core/io`). They print to stdout, which
   the app streams into its log sheet with the `[WARN]` and `[ERROR]` tags it reads, and
   append a timestamped copy to `logs/ap.log`. The app never reads that file. A bare

@@ -55,8 +55,8 @@ Commits are signed off and prefixed as AGENTS.md, Commits, says.
 
 Grep this list before you write anything new. If something close exists, extend it rather
 than adding a sibling. Android paths are relative to
-`Android/app/src/main/java/com/virtualap/app/`; engine modules are paths under `src/`, their
-headers under `src/include/`.
+`Android/app/src/main/java/com/virtualap/app/`; engine modules are paths under `src/`, each
+folder's header under `src/include/<folder>/`.
 This list answers "what do I call"; DESIGN.md answers "what should it look like" when
 nothing here fits. The shared components were ported from Droidspaces; when a caller for one
 of its other components appears, copy the upstream file rather than writing a new one.

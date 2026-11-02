@@ -217,12 +217,14 @@ Droidspaces way, `make aarch64 armhf` with the musl-cross gcc in
 which is gitignored, and the `prepareAssets` gradle task stages the three binaries into the
 APK's assets, failing when any is missing.
 
-`src/` has one module per concern, its header under `src/include/` beside the others of its
-layer: `core`, `cli`, `net` (rtnetlink, the `ip_tables` engine), `radio` (nl80211, the
-control socket, channel policy), `mode` (routed, managed, IPv6, `hostapd` and `dnsmasq`),
-`monitor` and `cmd`. `make check` runs the asserts in `tests/`, the netlink ones against the
-kernel inside a throwaway user and network namespace, so neither root nor a phone is needed;
-built for the phone and run there as root, they also exercise the real `ip_tables`.
+`src/` has one folder per layer, each with one public header under `src/include/<folder>/`
+and, where its files share more than that, a private `internal.h` beside its sources:
+`core`, `cli`, `net` (rtnetlink, and the `ip_tables` engine in `net/ipt/`), `radio`
+(nl80211, the control socket, channel policy), `mode` (routed, managed, IPv6, `hostapd` and
+`dnsmasq`), `monitor` and `cmd`. `make check` runs the asserts in `tests/`, the netlink ones
+against the kernel inside a throwaway user and network namespace, so neither root nor a
+phone is needed; built for the phone and run there as root, they also exercise the real
+`ip_tables`.
 
 CI builds `hostapd` and `dnsmasq` for each arch on an ARM runner, cached on the
 `externals/` and `scripts/` trees. The APK job then fetches Droidspaces' published musl
