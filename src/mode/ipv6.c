@@ -17,6 +17,12 @@
 #include "net/neigh.h"
 #include "virtualap.h"
 
+void ipv6_keep_ra(const char *iface) {
+  /* Forwarding turns interfaces with accept_ra=1 into routers that ignore
+   * RAs; the upstream keeps 2 so it keeps its address and default route. */
+  conf6_set(iface, "accept_ra", "2");
+}
+
 int conf6_set(const char *iface, const char *key, const char *val) {
   char p[128];
   snprintf(p, sizeof(p), "/proc/sys/net/ipv6/conf/%s/%s", iface, key);
@@ -145,10 +151,8 @@ void ipv6_setup(struct nl *nl, const struct vap_opts *o,
   conf6_set(AP_IFACE, "disable_ipv6", "0");
   conf6_set(AP_IFACE, "accept_ra", "0");
   conf6_set(AP_IFACE, "autoconf", "0");
-  /* Forwarding turns interfaces with accept_ra=1 into routers that ignore
-   * RAs; the upstream keeps 2 so it keeps its address and default route. */
   conf6_get("all", "forwarding", v->prev_fwd, sizeof(v->prev_fwd));
-  conf6_set(up6, "accept_ra", "2");
+  ipv6_keep_ra(up6);
   if (conf6_set("all", "forwarding", "1") < 0) {
     abort_v6(nl, v, "could not enable forwarding");
     return;

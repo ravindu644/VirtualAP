@@ -116,7 +116,21 @@ static bool redo_ipv6(struct nl *nl, const struct vap_opts *o,
   struct v6 want;
   struct in6_addr upaddr;
   ipv6_decide(nl, o, &r->up, &r->net, &want, &upaddr);
-  if (same_v6(&want, &r->v6) || (want.mode && same_v6(&want, &failed)))
+  if (same_v6(&want, &r->v6))
+    return false;
+  /* NAT66 still holding on a new upstream interface: its prefix comes from
+   * the IPv4 subnet and the MASQUERADE names no interface, so nothing needs
+   * a redo, as Droidspaces' NAT66 rides a switch. The new upstream needs
+   * accept_ra at 2, and 7010 goes back on its table straight after
+   * reprobe's IPv4 one. Checked before `failed`: none of it can fail. */
+  if (want.mode == V6_NAT66 && r->v6.mode == V6_NAT66) {
+    snprintf(r->v6.up, sizeof(r->v6.up), "%s", want.up);
+    ipv6_keep_ra(r->v6.up);
+    rules_add(nl, &r->up, NULL, &r->v6, true);
+    vap_log("IPv6: NAT66 now leaves through %s.", r->v6.up);
+    return false;
+  }
+  if (want.mode && same_v6(&want, &failed))
     return false;
   vap_log("IPv6 changed (%s on %s -> %s on %s), redoing it.",
           r->v6.mode ? r->v6.net : "off", r->v6.mode ? r->v6.up : "-",
@@ -150,6 +164,7 @@ static bool settled(const struct upstream *now, const struct upstream *cur) {
 
 bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r) {
   struct upstream now;
+  bool moved = false;
   /* No network at all (airplane mode): the old rule stays, there is
    * nothing better to point it at. */
   if (upstream_resolve(nl, o->upstream, &now, false) == 0 &&
@@ -157,15 +172,18 @@ bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r) {
     vap_log("Upstream changed: %s (table %d) -> %s (table %d)",
             r->up.iface[0] ? r->up.iface : "?", r->up.table, now.iface,
             now.table);
-    /* IPv4 back at once on the new table, not after the IPv6 redo below;
-     * IPv6 follows with the rest. */
+    /* IPv4 swapped back to back, as Droidspaces' monitor does; IPv6 follows
+     * in redo_ipv6 once it knows what the new upstream offers. */
     rules_del_upstream(nl);
     r->up = now;
     rules_add(nl, &r->up, &r->net, NULL, true);
-    save(r);
+    moved = true;
   }
   /* IPv6 first, so stale IPv6 rules are not put back just to be removed. */
   bool redone = redo_ipv6(nl, o, r);
+  /* A redo saved the state itself. */
+  if (moved && !redone)
+    save(r);
   /* ponytail: one rule dump per rule, a handful every beat; a single dump
    * checked against all of them if netd's rule list ever makes that show. */
   rules_add(nl, &r->up, &r->net, &r->v6, false);

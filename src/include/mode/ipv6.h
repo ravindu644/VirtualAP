@@ -45,6 +45,10 @@ void ipv6_teardown(struct nl *nl, const struct state *st);
 bool v6_global_addr(struct nl *nl, const char *iface, bool only64,
                     struct in6_addr *out);
 
+/* The IPv6 upstream's accept_ra at 2, which it needs once forwarding is on
+ * to go on taking RAs, and with them its address and default route. */
+void ipv6_keep_ra(const char *iface);
+
 /* /proc/sys/net/ipv6/conf/<iface>/<key>. */
 int conf6_set(const char *iface, const char *key, const char *val);
 void conf6_get(const char *iface, const char *key, char *out, size_t size);
