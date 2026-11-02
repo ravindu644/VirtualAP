@@ -96,14 +96,12 @@ static int discovery(struct nl *nl, const struct vap_opts *o,
   return fd;
 }
 
-/* A managed AP's container stopped or restarted: its network namespace went,
- * and the veth with it, the host end included. That end missing is the sign,
- * and a cheap one; namespace inodes are reused and prove nothing. */
+/* A managed AP's container stopped or restarted. */
 static void watch_container(const struct vap_opts *o) {
   /* A replug that keeps failing is tried one beat later each time, up to a
    * minute apart, so its errors do not fill ap.log. */
   static int wait, misses;
-  if (if_nametoindex(VAP_VETH_HOST)) {
+  if (managed_plugged()) {
     wait = misses = 0;
     return;
   }

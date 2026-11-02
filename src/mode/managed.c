@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -99,6 +100,12 @@ static const uint8_t *gw_mac(const char *want, uint8_t out[6]) {
   return out;
 }
 
+/* The container process and namespace the port went into. Set by the start,
+ * and inherited by the monitor it forks, so the monitor starts from the
+ * namespace actually used rather than whatever is there by its first look. */
+static pid_t plugged_pid;
+static ino_t plugged_ns;
+
 /* The veth: the host end a bridge port, the container's end born inside its
  * namespace as VAP_PORT, with the gateway MAC and the MIC-sized MTU, in one
  * request. A link moved in and renamed afterwards shows up under its old
@@ -147,6 +154,9 @@ static int plug(const struct vap_opts *o, pid_t pid, struct nl *nl,
     vap_log("RPS on %s and %s (CPU mask %s).", VAP_VETH_HOST, VAP_PORT, mask);
   else if (host || port)
     vap_warn("RPS took on %s only.", host ? VAP_VETH_HOST : VAP_PORT);
+  struct stat st;
+  plugged_pid = pid;
+  plugged_ns = fstat(fd, &st) == 0 ? st.st_ino : 0;
   close(fd);
   return 0;
 fail:
@@ -155,6 +165,15 @@ fail:
   link_del(nl, VAP_VETH_HOST);
   close(fd);
   return -1;
+}
+
+bool managed_plugged(void) {
+  /* Usually the old namespace goes and takes the whole veth along, but one
+   * something still holds a reference to outlives its last process, and the
+   * host end stays, peered into a namespace nobody uses. Its inode cannot be
+   * reused while it is held, and once it is freed the host end is gone. */
+  return if_nametoindex(VAP_VETH_HOST) && plugged_ns &&
+         netns_ino(plugged_pid) == plugged_ns;
 }
 
 int managed_replug(const struct vap_opts *o, pid_t pid) {

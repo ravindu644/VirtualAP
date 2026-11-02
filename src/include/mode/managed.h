@@ -5,6 +5,7 @@
 #ifndef VAP_MANAGED_H
 #define VAP_MANAGED_H
 
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "cli/options.h"
@@ -14,9 +15,12 @@
  * the subnet of the gateway start checked. 0, or -1 after logging why and
  * tearing down what was set up. */
 int managed_start(const struct vap_opts *o, const struct subnet *lan);
-/* The container restarted as pid: its network namespace, and with it the
- * veth (both ends), went away, so a new one is made in the new namespace.
- * Its OpenWrt LAN config survived the restart and picks the port up again. */
+/* Whether the port is still in the container: the host end is there and the
+ * process it was plugged into is still in that namespace. */
+bool managed_plugged(void);
+/* The container restarted as pid: a new veth goes into its namespace,
+ * replacing a host end left in the old one. Its OpenWrt LAN config survived
+ * the restart and picks the port up again. */
 int managed_replug(const struct vap_opts *o, pid_t pid);
 /* Undo a managed AP, tolerant of what is already gone. Deleting the veth
  * takes the container's end with it; its OpenWrt LAN config stays. */

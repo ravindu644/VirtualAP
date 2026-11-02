@@ -131,9 +131,12 @@ parked at that moment stay out until the AP restarts.
 
 A fresh veth has a new random MAC every start, and Windows keys its network profiles on the
 gateway's MAC, so the app can pin one: a random MAC kept across starts, or the phone's own
-Wi-Fi MAC. When the container restarts, its network namespace takes the veth with it; the
-monitor sees the host end gone and plugs a new one in, and the OpenWrt config, which
-survived the restart, picks it up.
+Wi-Fi MAC. When the container restarts, the
+monitor plugs a new veth in, and the OpenWrt config, which survived the restart, picks it
+up. The old namespace usually takes the veth with it, but it outlives its last process
+while anything holds a reference, and then the host end stays, peered into nothing. So the
+monitor checks both: the host end is there, and the process the start plugged into is
+still in the namespace it was plugged into.
 
 ## The TTL fix
 

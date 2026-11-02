@@ -27,6 +27,13 @@ int netns_open(pid_t pid) {
   return fd;
 }
 
+ino_t netns_ino(pid_t pid) {
+  char p[64];
+  struct stat st;
+  snprintf(p, sizeof(p), "/proc/%d/ns/net", (int)pid);
+  return stat(p, &st) == 0 ? st.st_ino : 0;
+}
+
 int in_netns(int fd, int (*fn)(void *), void *arg) {
   int self = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
   if (self < 0)
