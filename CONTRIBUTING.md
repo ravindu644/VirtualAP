@@ -129,8 +129,9 @@ Shell, root and the backend:
 - `Backend.quote(value)` and `Backend.startAp` in `util/Backend.kt`: every dynamic value that
   reaches a root command, and the engine's command prefix (with its fallback to the script an
   older release extracted, until the setup flow replaces it).
-- `APManager.getStatus/start/stop/getContainers/getInterfaces/getCaps/isInstalled` in
-  `util/APManager.kt`: driving `virtualap`. Never assemble one of these commands by hand.
+- `APManager.getStatus/start/stop/getInterfaces/getCaps/isInstalled` in `util/APManager.kt`:
+  driving `virtualap`, and `getContainers`/`parseContainers`, which ask Droidspaces for its
+  running containers directly. Never assemble one of these commands by hand.
 - `Hotspot.start(cfg)/stop()/refresh()`, `phase`, `status`, `actionLogs` in `util/Hotspot.kt`:
   starting or stopping the AP from anywhere and reading the session state; also posts the
   running notification and wakes the tile.
@@ -173,7 +174,7 @@ Engine (`src/`):
   `routed`, `ipv6` (`ipv6_decide`, setup, teardown), `nat66`, `v6shared`, `managed`, `rps`,
   `droidspaces`, `openwrt`.
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`), `v6disc`.
-- `cmd/`: `start`, `stop`, `status`, `interfaces`, `containers`, `caps`, the commands the
+- `cmd/`: `start`, `stop`, `status`, `interfaces`, `caps`, the commands the
   app calls, dispatched from `main.c`.
 
 ## Opening a PR

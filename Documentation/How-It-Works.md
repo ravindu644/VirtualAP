@@ -3,10 +3,13 @@
 VirtualAP creates a virtual AP interface, `ap0`, on the phone's Wi-Fi chip, runs `hostapd`
 on it, and then works in one of two modes. Everything below is done by `virtualap`, a
 static C binary running as root, built from `src/`; the app only calls its commands
-(`start`, `stop`, `status`, `interfaces`, `containers`, `caps`). It talks to the kernel
-directly over netlink (rtnetlink for links, addresses, routes and rules; nl80211 for the
-radio) and over the raw `ip_tables` socket, and spawns only `hostapd`, `dnsmasq` and, for
-the TTL fix, `iptables`.
+(`start`, `stop`, `status`, `interfaces`, `caps`). It talks to the kernel directly over
+netlink (rtnetlink for links, addresses, routes and rules; nl80211 for the radio) and over
+the raw `ip_tables` socket. It spawns `hostapd` and `dnsmasq`, `iptables` for the TTL fix
+only, and, in managed mode, `droidspaces` to find the container and run the OpenWrt setup
+in it. Which containers are running, the list the app offers for managed mode, the app
+asks Droidspaces itself (`droidspaces show --json`, or `show --format` on a release from
+before `--json`).
 
 ## Routed mode ("Interface" in the app)
 
