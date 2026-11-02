@@ -161,7 +161,7 @@ Engine (`src/`):
   `read_file`, `write_file`, `write_atomic`; the parsers `valid_ip4`, `prefix_parse`,
   `subnet_from_gw`, and `csv_each` for the comma lists of `-d`).
 - `cli/`: `options` (the `vap_keys` table, `opt_set`, `opts_parse`, `print_usage`), `conf`
-  (`ap.conf`), `state` (`run.state`).
+  (`ap.conf` and `run.state`).
 - `net/`: `nl` (the rtnetlink transport, `nl_dump`), `link`, `addr`, `route`, `rule`,
   `neigh`, `netd` (`upstream_resolve`, `upstream_v6_iface`), `netns` (`netns_open`,
   `in_netns`), `ipt` (the `ip_tables` engine), `ipt_rules` (FORWARD, MASQUERADE, the presence
