@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Build the fully static aarch64 and armhf binaries (hostapd, hostapd_cli, iw,
-# dnsmasq, busybox) for VirtualAP.
+# dnsmasq, busybox, hev-socks5-tunnel, hev-socks5-server) for VirtualAP.
 #
 # A static musl binary carries its own libc and libnl, so it runs on any phone
 # with no chroot. Each arch is built in an Alpine container of that arch, under
@@ -19,6 +19,10 @@ IMAGE="alpine:3.23"
 # Fetches the vendored sources with the https URLs in .gitmodules, no SSH keys.
 echo "[*] Initializing source submodules..."
 git -C "$REPO" submodule update --init externals/hostapd externals/iw externals/dnsmasq
+# The hev-* projects vendor their own deps (hev-task-system, hev-socks5-core,
+# lwip, yaml) as nested submodules, so these two need --recursive.
+git -C "$REPO" submodule update --init --recursive \
+    externals/hev-socks5-tunnel externals/hev-socks5-server
 
 [ $# -eq 0 ] && set -- aarch64 armhf
 for label in "$@"; do

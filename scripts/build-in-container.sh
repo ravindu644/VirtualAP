@@ -6,9 +6,11 @@
 #   iw                     - virtual interface management
 #   dnsmasq                - DHCP + DNS for AP clients
 #   busybox                - reliable coreutils (Alpine's busybox-static)
+#   hev-socks5-tunnel      - tun2socks (TUN device -> SOCKS5 proxy)
+#   hev-socks5-server      - lightweight SOCKS5 server
 #
 # Sources come from the vendored git submodules, bind-mounted read-only at
-# /externals/{hostapd,iw,dnsmasq} (our own forks - see externals/ and
+# /externals/{hostapd,iw,dnsmasq,hev-socks5-tunnel,hev-socks5-server} (our own forks - see externals/ and
 # .gitmodules). They are copied out before building so the mount stays clean.
 #
 # Output -> /out, build scratch -> /tmp/src.
@@ -117,9 +119,32 @@ make -j"$(nproc)" CFLAGS="$CF" LDFLAGS="$LDF"
 strip src/dnsmasq
 cp src/dnsmasq "$OUT"/
 
+echo "### Building hev-socks5-tunnel"
+vendor hev-socks5-tunnel
+cd "$SRC/hev-socks5-tunnel"
+make clean >/dev/null 2>&1 || true
+# Self-contained (lwip, yaml, hev-task-system and hev-socks5-core are built in
+# from the nested submodules). LDFLAGS comes from the ENVIRONMENT so the
+# Makefile's own `LDFLAGS +=` (-lm -lpthread ...) is kept, as with iw.
+export LDFLAGS="$LDF"
+make -j"$(nproc)" ENABLE_STATIC=1
+unset LDFLAGS
+strip bin/hev-socks5-tunnel
+cp bin/hev-socks5-tunnel "$OUT"/
+
+echo "### Building hev-socks5-server"
+vendor hev-socks5-server
+cd "$SRC/hev-socks5-server"
+make clean >/dev/null 2>&1 || true
+export LDFLAGS="$LDF"
+make -j"$(nproc)" ENABLE_STATIC=1
+unset LDFLAGS
+strip bin/hev-socks5-server
+cp bin/hev-socks5-server "$OUT"/
+
 echo "### Results"
 cd "$OUT"
-for b in busybox hostapd hostapd_cli iw dnsmasq; do
+for b in busybox hostapd hostapd_cli iw dnsmasq hev-socks5-tunnel hev-socks5-server; do
     printf '%-12s ' "$b"
     file -b "$b"
 done

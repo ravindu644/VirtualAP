@@ -7,3 +7,9 @@
 [submodule "externals/hostapd"]
 	path = externals/hostapd
 	url = https://github.com/Droidspaces/hostapd-vap.git
+[submodule "externals/hev-socks5-tunnel"]
+	path = externals/hev-socks5-tunnel
+	url = https://github.com/heiher/hev-socks5-tunnel.git
+[submodule "externals/hev-socks5-server"]
+	path = externals/hev-socks5-server
+	url = https://github.com/heiher/hev-socks5-server.git
