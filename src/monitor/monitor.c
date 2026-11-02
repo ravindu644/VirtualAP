@@ -6,8 +6,8 @@
 #include "monitor/monitor.h"
 
 #include <errno.h>
-#include <net/if.h>
 #include <fcntl.h>
+#include <net/if.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
@@ -118,8 +118,8 @@ static void watch_container(const struct vap_opts *o) {
     misses = 0;
 }
 
-static void run(const struct vap_opts *o, struct routed *r,
-                int ev, int sig, int ready) {
+static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
+                int ready) {
   struct nl nl = {-1, 0};
   if ((r && nl_open(&nl) < 0) || pidfile_write(MONITOR_PID, getpid()) < 0)
     _exit(1);

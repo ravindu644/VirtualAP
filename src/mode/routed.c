@@ -49,7 +49,7 @@ static int config_network(struct nl *nl, const struct vap_opts *o,
   }
 
   vap_log("Installing routes and policy rules...");
-  struct route main_rt = {AF_INET,       net->net,      AP_IFACE, net->gw,
+  struct route main_rt = {AF_INET,       net->net,      AP_IFACE,     net->gw,
                           RT_TABLE_MAIN, RTPROT_STATIC, RT_SCOPE_LINK};
   if (route_replace(nl, &main_rt) < 0) {
     vap_error("Failed to add subnet route to main");
@@ -117,8 +117,7 @@ void routed_teardown(const struct vap_opts *o) {
   if (nl_open(&nl) == 0) {
     rules_del(&nl, AF_INET);
     ipv6_teardown(&nl, &st);
-    struct route rt = {AF_INET,       net.net, AP_IFACE, NULL,
-                       RT_TABLE_MAIN, 0,       0};
+    struct route rt = {AF_INET, net.net, AP_IFACE, NULL, RT_TABLE_MAIN, 0, 0};
     route_del(&nl, &rt);
     rt.table = ANDROID_LOCAL_NETWORK_TABLE;
     route_del(&nl, &rt);
@@ -179,8 +178,8 @@ int routed_start(struct vap_opts *o, const struct subnet *lan,
   if (v6.mode == V6_NAT66)
     vap_log("  IPv6    : %s, NAT66 out of %s", v6.net, v6.up);
   else if (v6.mode == V6_SHARED)
-    vap_log("  IPv6    : %s shared from %s (global, NDP proxy, no NAT)",
-            v6.net, v6.up);
+    vap_log("  IPv6    : %s shared from %s (global, NDP proxy, no NAT)", v6.net,
+            v6.up);
   else
     vap_log("  IPv6    : off");
 

@@ -13,8 +13,7 @@
 void shared_prefix(const struct in6_addr *upaddr, struct v6 *v);
 /* 0, or -1 with the reason in why. */
 int shared_setup(struct nl *nl, const struct upstream *up,
-                 const struct in6_addr *upaddr, struct v6 *v,
-                 const char **why);
+                 const struct in6_addr *upaddr, struct v6 *v, const char **why);
 /* A client address found on ap0: its /128 to ap0 and its proxy entry on the
  * upstream, recorded in run/v6clients for the teardown when record (a
  * re-install of a known one is not). */

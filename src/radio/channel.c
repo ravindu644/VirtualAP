@@ -112,10 +112,9 @@ void plan_width(struct plan *p, const char *want, const struct phy_info *phy) {
     /* A 40 MHz channel takes most of 2.4 GHz and crowds out the neighbours
      * and Bluetooth, so auto stays at 20 and 40 is only used when asked for
      * by name. Channel 14 has no room for a second channel. */
-    p->width = !strcmp(want, "40") && p->channel <= 13 &&
-                       phy->band[BAND_24].ht40
-                   ? 40
-                   : 20;
+    p->width =
+        !strcmp(want, "40") && p->channel <= 13 && phy->band[BAND_24].ht40 ? 40
+                                                                           : 20;
   } else {
     /* The widest the chip and the channel can do, 5 GHz's own capabilities
      * only: a chip can do HT40 on 2.4 GHz and not on 5. A channel in no

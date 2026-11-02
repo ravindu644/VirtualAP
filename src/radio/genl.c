@@ -12,8 +12,7 @@ void genl_req(struct nl_req *r, int family_id, int cmd, int flags) {
 }
 
 void genl_parse(struct rtattr *tb[], int max, const struct nlmsghdr *h) {
-  nl_parse(tb, max,
-           (struct rtattr *)((char *)NLMSG_DATA(h) + GENL_HDRLEN),
+  nl_parse(tb, max, (struct rtattr *)((char *)NLMSG_DATA(h) + GENL_HDRLEN),
            (int)(h->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN)));
 }
 

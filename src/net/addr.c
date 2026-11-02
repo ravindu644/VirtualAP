@@ -22,8 +22,8 @@ int addr_add(struct nl *nl, const char *ifname, int family, const char *addr,
     return -EINVAL;
   int alen = family == AF_INET6 ? 16 : 4;
   struct nl_req r;
-  struct ifaddrmsg *a = nl_req_init(&r, RTM_NEWADDR,
-                                    NLM_F_CREATE | NLM_F_REPLACE, sizeof(*a));
+  struct ifaddrmsg *a =
+      nl_req_init(&r, RTM_NEWADDR, NLM_F_CREATE | NLM_F_REPLACE, sizeof(*a));
   a->ifa_family = (unsigned char)family;
   a->ifa_prefixlen = (unsigned char)prefix;
   a->ifa_index = idx;

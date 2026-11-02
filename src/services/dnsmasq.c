@@ -72,6 +72,7 @@ int dnsmasq_start(const struct subnet *net, const char *dns,
     vap_error("dnsmasq failed to start");
     return -1;
   }
-  vap_log("dnsmasq running (PID %d)", (int)pidfile_ours(DNSMASQ_PID, "dnsmasq"));
+  vap_log("dnsmasq running (PID %d)",
+          (int)pidfile_ours(DNSMASQ_PID, "dnsmasq"));
   return 0;
 }

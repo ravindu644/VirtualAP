@@ -21,8 +21,8 @@ pid_t ds_container_pid(const char *name) {
 int ds_run_script(const char *name, const char *script,
                   const char *const args[],
                   void (*line)(const char *text, void *arg), void *arg) {
-  const char *argv[24] = {DROIDSPACES_BIN, "-n",  name, "--stdin", "run",
-                          "sh",     "-s", "--"};
+  const char *argv[24] = {DROIDSPACES_BIN, "-n", name, "--stdin",
+                          "run",           "sh", "-s", "--"};
   int n = 8;
   for (int i = 0; args[i] && n < 23; i++)
     argv[n++] = args[i];
@@ -34,7 +34,7 @@ bool ds_is_openwrt(const char *name) {
   /* Read inside the container: through /proc/<pid>/root an absolute
    * symlink would resolve against the host. */
   char buf[4096];
-  const char *const argv[] = {DROIDSPACES_BIN, "-n", name, "run", "cat",
+  const char *const argv[] = {DROIDSPACES_BIN,   "-n", name, "run", "cat",
                               "/etc/os-release", NULL};
   if (run_capture(argv, buf, sizeof(buf)) != 0)
     return false;

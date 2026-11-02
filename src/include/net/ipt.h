@@ -52,8 +52,7 @@ int ipt_blob_insert(int family, const struct ipt_table *in, unsigned hook,
 /* Returns how many entries matched in hook's chain (0: out untouched), or
  * -errno. Policy entries are never removed. */
 int ipt_blob_remove(int family, const struct ipt_table *in, unsigned hook,
-                    ipt_match_fn match, const void *arg,
-                    struct ipt_table *out);
+                    ipt_match_fn match, const void *arg, struct ipt_table *out);
 bool ipt_blob_find(int family, const struct ipt_table *t, unsigned hook,
                    ipt_match_fn match, const void *arg);
 

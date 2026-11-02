@@ -63,9 +63,8 @@ static void exists_cb(const struct nlmsghdr *h, void *arg) {
       tb[FRA_UID_RANGE] ||
       (tb[FRA_SUPPRESS_PREFIXLEN] &&
        nl_u32(tb[FRA_SUPPRESS_PREFIXLEN]) != 0xffffffffu) ||
-      tb[FRA_L3MDEV] ||
-      tb[FRA_IP_PROTO] || tb[FRA_SPORT_RANGE] || tb[FRA_DPORT_RANGE] ||
-      f->tos || (f->flags & FIB_RULE_INVERT))
+      tb[FRA_L3MDEV] || tb[FRA_IP_PROTO] || tb[FRA_SPORT_RANGE] ||
+      tb[FRA_DPORT_RANGE] || f->tos || (f->flags & FIB_RULE_INVERT))
     return;
   int table = tb[FRA_TABLE] ? (int)nl_u32(tb[FRA_TABLE]) : f->table;
   if ((int)nl_u32(tb[FRA_PRIORITY]) != ru->prio ||

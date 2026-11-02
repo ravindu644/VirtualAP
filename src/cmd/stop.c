@@ -16,7 +16,7 @@ void stop_ap(const struct vap_opts *o) {
   struct state st;
   if (state_load(VAP_STATE, &st) && !strcmp(state_get(&st, "mode"), "bridged"))
     managed_teardown(*state_get(&st, "container") ? state_get(&st, "container")
-                                                   : o->container);
+                                                  : o->container);
   else
     routed_teardown(o);
 }

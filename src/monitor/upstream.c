@@ -191,4 +191,3 @@ bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r) {
   ensure_forwarding(r);
   return redone;
 }
-

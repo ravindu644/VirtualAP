@@ -141,8 +141,8 @@ static void test_netlink(void) {
   /* Routes: the AP's connected route in main and in local_network (97),
    * the lookups the upstream is resolved with. */
   CHECK(addr_add(&nl, "vt-p", AF_INET, "192.168.42.1", 24, false) == 0);
-  struct route rt = {AF_INET, "192.168.42.0/24", "vt-p", "192.168.42.1", 97,
-                     RTPROT_STATIC, RT_SCOPE_LINK};
+  struct route rt = {AF_INET, "192.168.42.0/24", "vt-p",       "192.168.42.1",
+                     97,      RTPROT_STATIC,     RT_SCOPE_LINK};
   CHECK(route_replace(&nl, &rt) == 0);
   CHECK(route_replace(&nl, &rt) == 0);
   CHECK(route_del(&nl, &rt) == 0);
@@ -150,7 +150,8 @@ static void test_netlink(void) {
   struct route def = {AF_INET, NULL, "vt-p", NULL, 1031, 0, RT_SCOPE_LINK};
   CHECK(route_replace(&nl, &def) == 0);
   char oif[IF_NAMESIZE];
-  CHECK(route_default_oif(&nl, AF_INET, 1031, oif) == 0 && !strcmp(oif, "vt-p"));
+  CHECK(route_default_oif(&nl, AF_INET, 1031, oif) == 0 &&
+        !strcmp(oif, "vt-p"));
   CHECK(route_default_oif(&nl, AF_INET, 1032, oif) == -ENOENT);
   int table = 0;
   CHECK(route_iface_table(&nl, AF_INET, "vt-p", &table) == 0 && table == 1031);
@@ -159,11 +160,11 @@ static void test_netlink(void) {
   CHECK(route_replace(&nl, &r6) == 0);
 
   /* Rules in every shape the AP writes, each idempotent. */
-  struct rule to = {AF_INET, NULL, "192.168.42.0/24", NULL, NULL, 254, 7000,
-                    false};
+  struct rule to = {AF_INET, NULL, "192.168.42.0/24", NULL, NULL, 254,
+                    7000,    false};
   struct rule from_ap = {AF_INET, NULL, NULL, "vt-p", NULL, 1031, 7010, false};
   struct rule sink = {AF_INET6, NULL, "2001:db8:1:2::/64", "vt-h", NULL, 0,
-                      7001, true};
+                      7001,     true};
   struct rule link = {AF_INET6, NULL, NULL, NULL, "vt-p", 254, 7002, false};
   CHECK(rule_add(&nl, &to) == 0 && rule_add(&nl, &to) == 0);
   CHECK(rule_add(&nl, &from_ap) == 0 && rule_add(&nl, &from_ap) == 0);
@@ -236,18 +237,20 @@ static void test_netlink(void) {
            "1031") == 0);
   CHECK(netd_default_table(&nl, AF_INET, &table) == 0 && table == 1031);
   CHECK(ip("rule", "flush", NULL, NULL, NULL, NULL, NULL, NULL) == 0);
-  const char *bare[] = {ip_bin(), "rule", "add", "pref", "22000", "fwmark",
-                  "0x0/0xffff", "iif", "lo", "lookup", "1031", NULL};
-  const char *per_app[] = {ip_bin(), "rule", "add", "pref", "21000",
-                     "fwmark", "0x0/0xffff", "iif", "lo", "uidrange", "0-0",
-                     "lookup", "1099", NULL};
+  const char *bare[] = {ip_bin(), "rule",   "add",        "pref",
+                        "22000",  "fwmark", "0x0/0xffff", "iif",
+                        "lo",     "lookup", "1031",       NULL};
+  const char *per_app[] = {ip_bin(), "rule",       "add",  "pref", "21000",
+                           "fwmark", "0x0/0xffff", "iif",  "lo",   "uidrange",
+                           "0-0",    "lookup",     "1099", NULL};
   CHECK(run_quiet(bare) == 0 && run_quiet(per_app) == 0);
   CHECK(netd_default_table(&nl, AF_INET, &table) == 0 && table == 1031);
   if (real_root) {
     /* Android 15+: the default network itself as a range over every uid. */
-    const char *all_uids[] = {ip_bin(), "rule", "add", "pref", "21500",
-                              "fwmark", "0x0/0xffff", "iif", "lo", "uidrange",
-                              "0-2147483647", "lookup", "1033", NULL};
+    const char *all_uids[] = {ip_bin(), "rule",     "add",          "pref",
+                              "21500",  "fwmark",   "0x0/0xffff",   "iif",
+                              "lo",     "uidrange", "0-2147483647", "lookup",
+                              "1033",   NULL};
     CHECK(run_quiet(all_uids) == 0);
     CHECK(netd_default_table(&nl, AF_INET, &table) == 0 && table == 1033);
     const char *del[] = {ip_bin(), "rule", "del", "pref", "21500", NULL};
@@ -259,8 +262,8 @@ static void test_netlink(void) {
         !strcmp(up.iface, "vt-p"));
   CHECK(upstream_resolve(&nl, "vt-p", &up, false) == 0 && up.table == 1031);
   /* No default anywhere: the table of whatever route it has. */
-  struct route lan = {AF_INET, "10.9.0.0/16", "vt-p", NULL, 1040, 0,
-                      RT_SCOPE_LINK};
+  struct route lan = {AF_INET, "10.9.0.0/16", "vt-p", NULL, 1040,
+                      0,       RT_SCOPE_LINK};
   CHECK(route_del(&nl, &def) == 0 && route_replace(&nl, &lan) == 0);
   CHECK(route_iface_table(&nl, AF_INET, "vt-p", &table) == 0 &&
         (table == 1040 || table == RT_TABLE_MAIN));
@@ -276,7 +279,8 @@ proxy:
     fprintf(stderr, "check: no legacy ip_tables, iptables live test skipped\n");
   } else {
     for (int fam = AF_INET; fam; fam = fam == AF_INET ? AF_INET6 : 0) {
-      const char *net = fam == AF_INET ? "192.168.42.0/24" : "fd76:6170:2a::/64";
+      const char *net =
+          fam == AF_INET ? "192.168.42.0/24" : "fd76:6170:2a::/64";
       CHECK(ipt_rules_present(fam, "vt-p", NULL) == 0);
       CHECK(ipt_forward_accept(fam, "vt-p", true) == 0);
       CHECK(ipt_forward_accept(fam, "vt-p", true) == 0);
@@ -328,4 +332,3 @@ void test_netlink_in_netns(void) {
   else if (!WIFEXITED(st) || WEXITSTATUS(st) != 0)
     failed++;
 }
-

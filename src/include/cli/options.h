@@ -31,12 +31,12 @@ struct vap_opts {
 };
 
 struct vap_key {
-  char flag;           /* the start flag */
-  const char *conf;    /* the ap.conf variable */
-  size_t off;          /* field in struct vap_opts */
-  const char *def;     /* built-in default */
-  const char *arg;     /* usage: the value's name */
-  const char *help;    /* usage: what it does, may span lines */
+  char flag;            /* the start flag */
+  const char *conf;     /* the ap.conf variable */
+  size_t off;           /* field in struct vap_opts */
+  const char *def;      /* built-in default */
+  const char *arg;      /* usage: the value's name */
+  const char *help;     /* usage: what it does, may span lines */
   int empty_is_default; /* -g '' means the default gateway */
 };
 

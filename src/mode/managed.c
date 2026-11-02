@@ -115,9 +115,10 @@ static int plug(const struct vap_opts *o, pid_t pid, struct nl *nl,
                 char mac[18]) {
   int fd = netns_open(pid);
   if (fd < 0) {
-    vap_error(fd == -EINVAL ? "Container '%s' shares the host's network - it has "
-                          "no LAN port to give."
-                        : "Cannot open container '%s''s network namespace.",
+    vap_error(fd == -EINVAL
+                  ? "Container '%s' shares the host's network - it has "
+                    "no LAN port to give."
+                  : "Cannot open container '%s''s network namespace.",
               o->container);
     return -1;
   }
@@ -195,8 +196,8 @@ int managed_replug(const struct vap_opts *o, pid_t pid) {
   return 0;
 }
 
-static int wire(const struct vap_opts *o, pid_t pid,
-                const struct subnet *net, const struct plan *p) {
+static int wire(const struct vap_opts *o, pid_t pid, const struct subnet *net,
+                const struct plan *p) {
   vap_log("Managed mode: wiring %s to container '%s' (PID %d) via %s.",
           AP_IFACE, o->container, (int)pid, VAP_BRIDGE);
   if (ap_iface_create(o->phy_iface) < 0)
@@ -250,8 +251,7 @@ int managed_start(const struct vap_opts *o, const struct subnet *lan) {
   struct plan p;
   pid_t pid = ds_container_pid(o->container);
   if (!pid) {
-    vap_error("Container '%s' is not running - start it first.",
-              o->container);
+    vap_error("Container '%s' is not running - start it first.", o->container);
     return -1;
   }
   ap_plan_radio(o, &p);

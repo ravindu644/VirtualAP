@@ -63,8 +63,8 @@ int link_set_master(struct nl *nl, const char *ifname, const char *master) {
 static struct rtattr *create(struct nl_req *r, const char *name,
                              const char *kind, unsigned mtu,
                              struct rtattr **linfo, int data) {
-  struct ifinfomsg *i = nl_req_init(r, RTM_NEWLINK,
-                                    NLM_F_CREATE | NLM_F_EXCL, sizeof(*i));
+  struct ifinfomsg *i =
+      nl_req_init(r, RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL, sizeof(*i));
   i->ifi_family = AF_UNSPEC;
   nl_attr_str(r, IFLA_IFNAME, name);
   if (mtu)

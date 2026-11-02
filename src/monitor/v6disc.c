@@ -47,8 +47,8 @@ int v6disc_open(const struct v6 *v) {
   struct sockaddr_in6 me = {.sin6_family = AF_INET6};
   if (inet_pton(AF_INET6, v->gw, &me.sin6_addr) != 1)
     return -1;
-  int fd = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK,
-                  IPPROTO_ICMPV6);
+  int fd =
+      socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
   if (fd < 0)
     return -1;
   struct icmp6_filter f;
@@ -57,8 +57,8 @@ int v6disc_open(const struct v6 *v) {
   unsigned idx = if_nametoindex(AP_IFACE);
   int off = 0;
   if (setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &f, sizeof(f)) < 0 ||
-      setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, AP_IFACE,
-                 sizeof(AP_IFACE)) < 0 ||
+      setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, AP_IFACE, sizeof(AP_IFACE)) <
+          0 ||
       setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, &idx, sizeof(idx)) < 0 ||
       setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off, sizeof(off)) <
           0 ||
@@ -109,8 +109,7 @@ void v6disc_read(int fd, struct nl *nl, const struct v6 *v) {
     struct icmp6_hdr h;
     struct sockaddr_in6 from;
     socklen_t len = sizeof(from);
-    ssize_t n =
-        recvfrom(fd, &h, sizeof(h), 0, (struct sockaddr *)&from, &len);
+    ssize_t n = recvfrom(fd, &h, sizeof(h), 0, (struct sockaddr *)&from, &len);
     if (n < 0)
       return;
     const struct in6_addr *a = &from.sin6_addr;

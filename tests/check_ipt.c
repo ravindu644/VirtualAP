@@ -50,8 +50,8 @@ static void make_table(int fam, struct tbl *b) {
   b->t.info.valid_hooks = (1 << NF_INET_LOCAL_IN) | (1 << NF_INET_FORWARD) |
                           (1 << NF_INET_LOCAL_OUT);
   const int accept = -NF_ACCEPT - 1;
-  b->t.info.hook_entry[NF_INET_LOCAL_IN] = b->t.info.underflow[NF_INET_LOCAL_IN] =
-      put_std(fam, b, accept);
+  b->t.info.hook_entry[NF_INET_LOCAL_IN] =
+      b->t.info.underflow[NF_INET_LOCAL_IN] = put_std(fam, b, accept);
   b->t.info.hook_entry[NF_INET_FORWARD] = b->jump_at = put_std(fam, b, 0);
   b->t.info.underflow[NF_INET_FORWARD] = put_std(fam, b, accept);
   b->t.info.hook_entry[NF_INET_LOCAL_OUT] =
@@ -117,7 +117,8 @@ static void test_ipt_family(int fam) {
   /* Nothing of ours left, nothing else taken. */
   struct ipt_table none = {0};
   CHECK(ipt_blob_remove(fam, &b.t, NF_INET_FORWARD, ipt_match_accept, &foo,
-                        &none) == 0 && !none.blob);
+                        &none) == 0 &&
+        !none.blob);
   ipt_free(&ins);
 
   /* MASQUERADE: ours matches, another subnet's does not. */
@@ -153,4 +154,3 @@ void test_ipt(void) {
         n.mask[2] == 0xff && n.mask[3] == 0);
   CHECK(ipt_net_parse(AF_INET, "192.168.42.0/", &n) < 0);
 }
-

@@ -37,8 +37,8 @@ void rps_mask_from(const char *present, char *mask, size_t size) {
       if (cpu >= 1 && cpu <= max)
         bits |= 1u << b;
     }
-    int n = snprintf(mask + off, size - off, w == max / 32 ? "%x" : ",%08x",
-                     bits);
+    int n =
+        snprintf(mask + off, size - off, w == max / 32 ? "%x" : ",%08x", bits);
     /* A short buffer gives no mask rather than a wrong one. */
     if (n < 0 || (size_t)n >= size - off) {
       mask[0] = '\0';

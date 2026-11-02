@@ -18,8 +18,7 @@
 static bool eui64(struct in6_addr *a) {
   char mac[32];
   unsigned m[6];
-  if (read_file("/sys/class/net/" AP_IFACE "/address", mac, sizeof(mac)) <
-          17 ||
+  if (read_file("/sys/class/net/" AP_IFACE "/address", mac, sizeof(mac)) < 17 ||
       sscanf(mac, "%x:%x:%x:%x:%x:%x", &m[0], &m[1], &m[2], &m[3], &m[4],
              &m[5]) != 6)
     return false;
@@ -69,8 +68,8 @@ int shared_setup(struct nl *nl, const struct upstream *up,
     return -1;
   }
   struct route lan = {AF_INET6, v->net, AP_IFACE, NULL, RT_TABLE_MAIN, 0, 0};
-  struct route ll = {AF_INET6, "fe80::/64", AP_IFACE, NULL, RT_TABLE_MAIN, 0,
-                     RT_SCOPE_LINK};
+  struct route ll = {AF_INET6,      "fe80::/64", AP_IFACE,     NULL,
+                     RT_TABLE_MAIN, 0,           RT_SCOPE_LINK};
   route_del(nl, &lan);
   route_replace(nl, &ll);
   if (rules_add(nl, up, NULL, v, true) < 0) {

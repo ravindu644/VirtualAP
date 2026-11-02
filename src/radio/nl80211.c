@@ -114,7 +114,8 @@ static void scan_cb(const struct nlmsghdr *h, void *arg) {
   if (!bss[NL80211_BSS_STATUS] || !bss[NL80211_BSS_FREQUENCY])
     return;
   uint32_t st = nl_u32(bss[NL80211_BSS_STATUS]);
-  if (st == NL80211_BSS_STATUS_ASSOCIATED || st == NL80211_BSS_STATUS_IBSS_JOINED)
+  if (st == NL80211_BSS_STATUS_ASSOCIATED ||
+      st == NL80211_BSS_STATUS_IBSS_JOINED)
     *freq = (int)nl_u32(bss[NL80211_BSS_FREQUENCY]);
 }
 

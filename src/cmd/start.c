@@ -8,8 +8,8 @@
 #include <unistd.h>
 
 #include "cli/conf.h"
-#include "core/csv.h"
 #include "cmd/cmd.h"
+#include "core/csv.h"
 #include "core/ipaddr.h"
 #include "core/lock.h"
 #include "core/log.h"

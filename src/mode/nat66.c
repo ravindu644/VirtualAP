@@ -39,10 +39,10 @@ int nat66_setup(struct nl *nl, const struct upstream *up, struct v6 *v,
   }
   /* Android files an interface's own routes, the /64 and fe80::/64 too, in
    * table 1000+ifindex, which no rule reads; main gets them by hand. */
-  struct route lan = {AF_INET6, v->net, AP_IFACE, NULL, RT_TABLE_MAIN, 0,
-                      RT_SCOPE_LINK};
-  struct route ll = {AF_INET6, "fe80::/64", AP_IFACE, NULL, RT_TABLE_MAIN, 0,
-                     RT_SCOPE_LINK};
+  struct route lan = {AF_INET6,      v->net, AP_IFACE,     NULL,
+                      RT_TABLE_MAIN, 0,      RT_SCOPE_LINK};
+  struct route ll = {AF_INET6,      "fe80::/64", AP_IFACE,     NULL,
+                     RT_TABLE_MAIN, 0,           RT_SCOPE_LINK};
   if (route_replace(nl, &lan) < 0 || route_replace(nl, &ll) < 0 ||
       rules_add(nl, up, NULL, v, true) < 0) {
     *why = "routes or policy rules failed";

@@ -25,10 +25,10 @@ int rules_add(struct nl *nl, const struct upstream *up,
    * catch-alls included); everything from them goes to the upstream's
    * table. */
   if (net) {
-    struct rule to = {AF_INET, NULL, net->net, NULL, NULL, RT_TABLE_MAIN,
-                      PRIO_TO_SUBNET, false};
-    struct rule from = {AF_INET, NULL, NULL, AP_IFACE, NULL, up->table,
-                        PRIO_FROM_AP, false};
+    struct rule to = {AF_INET, NULL,          net->net,       NULL,
+                      NULL,    RT_TABLE_MAIN, PRIO_TO_SUBNET, false};
+    struct rule from = {AF_INET, NULL,      NULL,         AP_IFACE,
+                        NULL,    up->table, PRIO_FROM_AP, false};
     add(nl, &to, verbose, &ret);
     add(nl, &from, verbose, &ret);
   }
@@ -36,14 +36,14 @@ int rules_add(struct nl *nl, const struct upstream *up,
     return ret;
   /* The sink before the rule that opens the upstream: until it is there, a
    * packet for an address no client holds bounces back out. */
-  struct rule to = {AF_INET6, NULL, v->net, NULL, NULL, RT_TABLE_MAIN,
-                    PRIO_TO_SUBNET, false};
-  struct rule link = {AF_INET6, NULL, NULL, NULL, AP_IFACE, RT_TABLE_MAIN,
-                      PRIO_V6_LINK, false};
-  struct rule sink = {AF_INET6, NULL, v->net, v->up, NULL, 0, PRIO_V6_SINK,
-                      true};
-  struct rule from = {AF_INET6, NULL, NULL, AP_IFACE, NULL, up->table,
-                      PRIO_FROM_AP, false};
+  struct rule to = {AF_INET6, NULL,          v->net,         NULL,
+                    NULL,     RT_TABLE_MAIN, PRIO_TO_SUBNET, false};
+  struct rule link = {AF_INET6, NULL,          NULL,         NULL,
+                      AP_IFACE, RT_TABLE_MAIN, PRIO_V6_LINK, false};
+  struct rule sink = {AF_INET6, NULL, v->net,       v->up,
+                      NULL,     0,    PRIO_V6_SINK, true};
+  struct rule from = {AF_INET6, NULL,      NULL,         AP_IFACE,
+                      NULL,     up->table, PRIO_FROM_AP, false};
   add(nl, &to, verbose, &ret);
   add(nl, &link, verbose, &ret);
   if (v->mode == V6_SHARED)
@@ -59,8 +59,8 @@ void rules_del_upstream(struct nl *nl) {
     int family = i ? AF_INET6 : AF_INET;
     int err = rule_del_prio(nl, family, PRIO_FROM_AP);
     if (err < 0)
-      vap_warn("Policy rule %d (IPv%c) could not be removed: %s",
-               PRIO_FROM_AP, i ? '6' : '4', strerror(-err));
+      vap_warn("Policy rule %d (IPv%c) could not be removed: %s", PRIO_FROM_AP,
+               i ? '6' : '4', strerror(-err));
   }
 }
 

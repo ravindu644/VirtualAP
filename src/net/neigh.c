@@ -39,10 +39,12 @@ static void seek_cb(const struct nlmsghdr *h, void *arg) {
     return;
   struct ndmsg *nd = NLMSG_DATA(h);
   struct rtattr *tb[NDA_MAX + 1];
-  nl_parse(tb, NDA_MAX, (struct rtattr *)((char *)nd + NLMSG_ALIGN(sizeof(*nd))),
+  nl_parse(tb, NDA_MAX,
+           (struct rtattr *)((char *)nd + NLMSG_ALIGN(sizeof(*nd))),
            (int)(h->nlmsg_len - NLMSG_LENGTH(sizeof(*nd))));
   if (!(nd->ndm_flags & NTF_PROXY) && tb[NDA_DST] &&
-      RTA_PAYLOAD(tb[NDA_DST]) == 16 && !memcmp(RTA_DATA(tb[NDA_DST]), k->want, 16))
+      RTA_PAYLOAD(tb[NDA_DST]) == 16 &&
+      !memcmp(RTA_DATA(tb[NDA_DST]), k->want, 16))
     k->found = true;
 }
 

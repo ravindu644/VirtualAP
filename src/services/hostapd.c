@@ -45,7 +45,8 @@ static void body(FILE *f, const void *arg) {
        * FullMAC chips (Broadcom on the Galaxy S10) cannot run on an AP and
        * answer with -95, aborting hostapd. Our hostapd fork wires it into
        * the config parser. */
-      fprintf(f, "no_pri_sec_switch=1\nht_capab=[HT40%c]\nvht_oper_chwidth=%d\n",
+      fprintf(f,
+              "no_pri_sec_switch=1\nht_capab=[HT40%c]\nvht_oper_chwidth=%d\n",
               ht40_dir(p->channel, seg0), p->width == 80);
       if (p->width == 80)
         fprintf(f, "vht_oper_centr_freq_seg0_idx=%d\n", seg0);
@@ -86,9 +87,9 @@ static int try_once(void) {
   write_file(VAP_HOSTAPD_LOG, "");
   /* -t -f: timestamped output to its own log, since -B daemonizes it away;
    * stderr goes there too for errors printed before that. */
-  const char *const argv[] = {VAP_BIN "/hostapd", "-B", "-t", "-f",
-                              VAP_HOSTAPD_LOG,    "-P", HOSTAPD_PID,
-                              HOSTAPD_CONF,       NULL};
+  const char *const argv[] = {
+      VAP_BIN "/hostapd", "-B",         "-t", "-f", VAP_HOSTAPD_LOG, "-P",
+      HOSTAPD_PID,        HOSTAPD_CONF, NULL};
   if (run_logged(argv, VAP_HOSTAPD_LOG) != 0)
     return -1;
   struct timespec two = {2, 0};

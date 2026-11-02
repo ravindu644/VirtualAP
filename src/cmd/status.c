@@ -16,9 +16,9 @@
 /* The run.state keys the app reads, printed in the file's own order. */
 static bool shown(const char *key) {
   static const char *const keys[] = {
-      "ssid",           "band",    "channel",  "upstream",    "upstream_table",
-      "upstream_iface", "gateway", "gw_mac",   "dns_servers", "container",
-      "started"};
+      "ssid",           "band",           "channel", "upstream",
+      "upstream_table", "upstream_iface", "gateway", "gw_mac",
+      "dns_servers",    "container",      "started"};
   for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++)
     if (!strcmp(key, keys[i]))
       return true;
@@ -50,15 +50,15 @@ int cmd_status(struct vap_opts *o) {
      * driver does not say. */
     int width = nl80211_width(AP_IFACE);
     if (!width)
-      width = strstr(conf, "\nvht_oper_chwidth=1")  ? 80
-              : strstr(conf, "\nht_capab=[HT40") ? 40
-                                                  : 20;
+      width = strstr(conf, "\nvht_oper_chwidth=1") ? 80
+              : strstr(conf, "\nht_capab=[HT40")   ? 40
+                                                   : 20;
     printf("width=%d\n", width);
     const char *sec = !strstr(conf, "\nwpa=") ? "open"
                       : strstr(conf, "\nwpa_key_mgmt=WPA-PSK SAE\n")
                           ? "wpa2wpa3"
                       : strstr(conf, "\nwpa_key_mgmt=SAE\n") ? "wpa3"
-                                                              : "wpa2";
+                                                             : "wpa2";
     printf("security=%s\n", sec);
   }
   int printed = 0;

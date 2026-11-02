@@ -73,8 +73,7 @@ static void test_wpa_ctrl(void) {
   }
   CHECK(wpa_ctrl_request(path, "STATUS", r, sizeof(r), 1000) > 0 &&
         strstr(r, "\nnum_sta[0]=2\n"));
-  CHECK(wpa_ctrl_request(path, "BIG", small, sizeof(small), 1000) ==
-        -EMSGSIZE);
+  CHECK(wpa_ctrl_request(path, "BIG", small, sizeof(small), 1000) == -EMSGSIZE);
   CHECK(wpa_ctrl_request(path, "PING", r, sizeof(r), 100) == -ETIMEDOUT);
   CHECK(wpa_ctrl_request("/nonexistent/ap0", "PING", r, sizeof(r), 100) ==
         -ENOENT);
@@ -175,7 +174,8 @@ void test_radio(void) {
   CHECK(!chan_no_ir(&phy, 36));
 
   char mac[18];
-  CHECK(mac_take("FC:93:6B:C2:3C:20\n", mac) && !strcmp(mac, "fc:93:6b:c2:3c:20"));
+  CHECK(mac_take("FC:93:6B:C2:3C:20\n", mac) &&
+        !strcmp(mac, "fc:93:6b:c2:3c:20"));
   CHECK(mac_take("FC936BC23C20", mac) && !strcmp(mac, "fc:93:6b:c2:3c:20"));
   CHECK(!mac_take("FC936BC23C20FC936BC23C20", mac));
   CHECK(!mac_take("00:00:00:00:00:00", mac));

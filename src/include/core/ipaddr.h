@@ -16,10 +16,10 @@ bool prefix_parse(int family, const char *s, unsigned char bin[16], int *len);
 
 /* The AP's /24, derived from its gateway: the last octet is the host part. */
 struct subnet {
-  char gw[16];    /* 192.168.42.1 */
-  char net[20];   /* 192.168.42.0/24 */
-  char begin[16]; /* .10, the DHCP pool */
-  char end[16];   /* .50 */
+  char gw[16];         /* 192.168.42.1 */
+  char net[20];        /* 192.168.42.0/24 */
+  char begin[16];      /* .10, the DHCP pool */
+  char end[16];        /* .50 */
   unsigned char third; /* 42: the /64s are numbered after it */
 };
 /* false when gw is not a host address (.0 and .255 refused). */
