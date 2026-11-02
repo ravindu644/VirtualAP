@@ -99,29 +99,31 @@ uint32_t nl_u32(const struct rtattr *rta) {
   return v;
 }
 
-static int nl_send(struct nl *nl, struct nl_req *r) {
+/* r with flags added, then its reply read until it ends: an ACK or error,
+ * a dump's DONE, or a single non-multipart reply (an ACK after that one
+ * stays queued). Each request takes a new sequence number, so a leftover of
+ * an earlier one is skipped, never taken for this one's answer. */
+static int nl_call(struct nl *nl, struct nl_req *r, int flags,
+                   void (*cb)(const struct nlmsghdr *, void *), void *arg) {
+  r->n.nlmsg_flags |= (uint16_t)flags;
   r->n.nlmsg_seq = ++nl->seq;
   struct sockaddr_nl sa = {.nl_family = AF_NETLINK};
   if (sendto(nl->fd, &r->n, r->n.nlmsg_len, 0, (struct sockaddr *)&sa,
              sizeof(sa)) < 0)
     return -errno;
-  return 0;
-}
-
-/* Reads until the reply to r ends: an ACK or error, a dump's DONE, or a
- * single non-multipart reply. Messages for other sequence numbers (a late
- * ACK from an earlier request) are skipped, never taken for ours. */
-static int nl_recv(struct nl *nl, struct nl_req *r,
-                   void (*cb)(const struct nlmsghdr *, void *), void *arg) {
   uint8_t buf[NL_BUFSIZE];
   int ret = 0;
   for (;;) {
-    ssize_t n = recv(nl->fd, buf, sizeof(buf), 0);
+    /* MSG_TRUNC: a reply cut to fit would be skipped as malformed, and the
+     * next recv would wait for good for one already taken. */
+    ssize_t n = recv(nl->fd, buf, sizeof(buf), MSG_TRUNC);
     if (n < 0) {
       if (errno == EINTR)
         continue;
       return -errno;
     }
+    if ((size_t)n > sizeof(buf))
+      return -EMSGSIZE;
     struct nlmsghdr *h = (struct nlmsghdr *)buf;
     for (; NLMSG_OK(h, (uint32_t)n); h = NLMSG_NEXT(h, n)) {
       if (h->nlmsg_seq != r->n.nlmsg_seq)
@@ -148,20 +150,15 @@ static int nl_recv(struct nl *nl, struct nl_req *r,
 }
 
 int nl_talk(struct nl *nl, struct nl_req *r) {
-  r->n.nlmsg_flags |= NLM_F_ACK;
-  int ret = nl_send(nl, r);
-  return ret < 0 ? ret : nl_recv(nl, r, NULL, NULL);
+  return nl_call(nl, r, NLM_F_ACK, NULL, NULL);
 }
 
 int nl_get(struct nl *nl, struct nl_req *r,
            void (*cb)(const struct nlmsghdr *, void *), void *arg) {
-  int ret = nl_send(nl, r);
-  return ret < 0 ? ret : nl_recv(nl, r, cb, arg);
+  return nl_call(nl, r, 0, cb, arg);
 }
 
 int nl_dump(struct nl *nl, struct nl_req *r,
             void (*cb)(const struct nlmsghdr *, void *), void *arg) {
-  r->n.nlmsg_flags |= NLM_F_DUMP;
-  int ret = nl_send(nl, r);
-  return ret < 0 ? ret : nl_recv(nl, r, cb, arg);
+  return nl_call(nl, r, NLM_F_DUMP, cb, arg);
 }
