@@ -110,6 +110,8 @@ val prepareAssets = tasks.register<Sync>("prepareAssets") {
         for (arch in arches) {
             val bins = File(backendDir, arch).listFiles { f -> f.isFile && !f.name.startsWith(".") }.orEmpty()
             require(bins.isNotEmpty()) { "prepareAssets: no binaries in backend/$arch, run scripts/build-static.sh first" }
+            // The engine comes from its own build, so a payload without it is easy to miss.
+            require(File(backendDir, "$arch/virtualap").isFile) { "prepareAssets: backend/$arch/virtualap is missing, run make aarch64 armhf first" }
         }
     }
     doLast {
