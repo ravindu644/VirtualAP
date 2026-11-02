@@ -129,8 +129,8 @@ is a bug, not a shortcut.
   start validation; the screen's button and the tile both ask it.
 - `src/` keeps one concern per `.c`, its header under `src/include/<layer>/`, everything
   else `static`. A file includes only its own layer and the ones below it: `core`, `cli`,
-  `net` and `radio`, `services`, `mode`, `monitor`, `cmd`, `main`. A new concern is a new
-  module, never a few hundred lines added to one that has another.
+  `net` and `radio`, `mode`, `monitor`, `cmd`, `main`. A new concern is a new module, never
+  a few hundred lines added to one that has another.
 - Logging is `vap_log`, `vap_warn`, `vap_error` (`core/io`). They print to stdout, which
   the app streams into its log sheet with the `[WARN]` and `[ERROR]` tags it reads, and
   append a timestamped copy to `logs/ap.log`. The app never reads that file. A bare

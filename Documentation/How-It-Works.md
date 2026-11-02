@@ -219,11 +219,10 @@ APK's assets, failing when any is missing.
 
 `src/` has one module per concern, its header under `src/include/` beside the others of its
 layer: `core`, `cli`, `net` (rtnetlink, the `ip_tables` engine), `radio` (nl80211, the
-control socket, channel policy), `services` (`hostapd`, `dnsmasq`), `mode` (routed,
-managed, IPv6), `monitor` and `cmd`. `make check` runs the asserts in `tests/`, the netlink
-ones against the kernel inside a throwaway user and network namespace, so neither root nor
-a phone is needed; built for the phone and run there as root, they also exercise the real
-`ip_tables`.
+control socket, channel policy), `mode` (routed, managed, IPv6, `hostapd` and `dnsmasq`),
+`monitor` and `cmd`. `make check` runs the asserts in `tests/`, the netlink ones against the
+kernel inside a throwaway user and network namespace, so neither root nor a phone is needed;
+built for the phone and run there as root, they also exercise the real `ip_tables`.
 
 CI builds `hostapd` and `dnsmasq` for each arch on an ARM runner, cached on the
 `externals/` and `scripts/` trees. The APK job then fetches Droidspaces' published musl
