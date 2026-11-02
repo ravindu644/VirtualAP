@@ -97,13 +97,17 @@ NAT6_TUN_BIN="${BIN_DIR}/hev-socks5-tunnel"
 NAT6_SRV_BIN="${BIN_DIR}/hev-socks5-server"
 NAT6_TUN="vaptun6"
 NAT6_ADDR="127.254.65.70"     # loopback address the server listens on
-NAT6_PORT=808                 # behind a per-start password and the OUTPUT rule below
+NAT6_PORT=808                 # no password: the OUTPUT rule below is the guard
 # Apps (uid 9999 and up) are refused at the socket, root/system are not.
 NAT6_UID_RANGE="9999-2147483647"
 NAT6_TABLE=7166               # default route into the TUN, for traffic from ap0
 NAT6_MARK="0x7a000000"        # SO_MARK of the server's sockets (high byte: netd keeps clear)
 NAT6_MARK_MASK="0xff000000"
 NAT6_TUN_ADDR="fd76:6170:7636::1"
+PRIO_N6_FROM_AP=900   # from all iif ap0 lookup <NAT6_TABLE>
+PRIO_N6_TO_NET=901    # from all to <our /64> lookup main (replies to a client)
+PRIO_N6_LINK=902      # from all oif ap0 lookup main
+PRIO_N6_MARK=903      # from all fwmark <NAT6_MARK> lookup <upstream table>
 NAT6_TUN_LOG="${BASE_DIR}/logs/socks5-tunnel.log"
 NAT6_SRV_LOG="${BASE_DIR}/logs/socks5-server.log"
 
@@ -604,7 +608,9 @@ v6_sync_loop() {
 # from the state file on a later stop).
 teardown_ipv6() {
     local up="$1" fwd="$2" proxy="$3" a
-    del_rules -6 "$PRIO_FROM_AP" "$PRIO_TO_SUBNET" "$PRIO_V6_SINK" "$PRIO_V6_LINK" "$PRIO_V6_MARK"
+    del_rules -6 "$PRIO_FROM_AP" "$PRIO_TO_SUBNET" "$PRIO_V6_SINK" "$PRIO_V6_LINK" "$PRIO_V6_MARK" \
+        "$PRIO_N6_FROM_AP" "$PRIO_N6_TO_NET" "$PRIO_N6_LINK" "$PRIO_N6_MARK"
+    while "$IP6T" -t mangle -D OUTPUT -m mark --mark "$NAT6_MARK/$NAT6_MARK_MASK" -j ACCEPT 2>/dev/null; do :; done
     # NAT66: the TUN goes with its process; the table and the configs stay.
     kill_pidfile "$RUN_DIR/nat6tun.pid"
     kill_pidfile "$RUN_DIR/nat6srv.pid"
@@ -676,7 +682,7 @@ nat6_abort() {
 # Userspace NAT66, see NAT6_* at the top. Returns 0 when it runs, 1 when it
 # cannot (everything rolled back, nothing fatal: the caller falls back).
 setup_ipv6_nat66() {
-    local up="$UPSTREAM_IFACE_RESOLVED" c="/proc/sys/net/ipv6/conf" pass i=0
+    local up="$UPSTREAM_IFACE_RESOLVED" c="/proc/sys/net/ipv6/conf" i=0
 
     [ -x "$NAT6_TUN_BIN" ] && [ -x "$NAT6_SRV_BIN" ] \
         || { log "IPv6 NAT66: hev-socks5 binaries missing (reinstall the backend)."; return 1; }
@@ -709,14 +715,18 @@ setup_ipv6_nat66() {
         || { nat6_abort "could not add $IP6_GW to $AP_IFACE"; return 1; }
     "$IP" -6 route replace fe80::/64 dev "$AP_IFACE" table main 2>/dev/null
 
-    # Loopback only, a password per start, and an OUTPUT rule that resets the
-    # connections of app uids, so no other app on the phone can use the proxy.
-    # The rule needs the kernel's owner match; without it the password still holds.
+    # Loopback only, and an OUTPUT rule that resets the connections of app uids,
+    # so no other app on the phone can use the proxy. There is no password, so
+    # the rule is the only protection: without the kernel's owner match NAT66
+    # does not start.
     "$IPT" -I OUTPUT -p tcp -d "$NAT6_ADDR" --dport "$NAT6_PORT" -m owner --uid-owner "$NAT6_UID_RANGE" \
         -j REJECT --reject-with tcp-reset 2>/dev/null \
-        || warn "IPv6 NAT66: could not install the uid filter on $NAT6_ADDR:$NAT6_PORT (password only)."
-    pass=$($BB od -An -N8 -tx1 /dev/urandom 2>/dev/null | $TR -d ' \n')
-    [ -n "$pass" ] || pass="vap$($DATE +%s)"
+        || { nat6_abort "could not install the uid filter on $NAT6_ADDR:$NAT6_PORT (no owner match?)"; return 1; }
+    # Tools that rewrite the mark of every locally made packet would erase the 
+    # server's mark and send it to their own table. ACCEPT ends mangle OUTPUT
+    # for marked packets, mark intact.
+    "$IP6T" -t mangle -I OUTPUT 1 -m mark --mark "$NAT6_MARK/$NAT6_MARK_MASK" -j ACCEPT 2>/dev/null \
+        || warn "IPv6 NAT66: could not exempt the server's mark in mangle OUTPUT."
     $CAT > "$RUN_DIR/socks5-server.yml" <<EOF
 main:
   workers: 2
@@ -725,9 +735,6 @@ main:
   listen-ipv6-only: false
   domain-address-type: unspec
   mark: $NAT6_MARK
-auth:
-  username: 'vap'
-  password: '$pass'
 misc:
   connect-timeout: 10000
   tcp-read-write-timeout: 300000
@@ -753,8 +760,6 @@ socks5:
   port: $NAT6_PORT
   address: $NAT6_ADDR
   udp: 'tcp'
-  username: 'vap'
-  password: '$pass'
 misc:
   connect-timeout: 10000
   tcp-read-write-timeout: 300000
@@ -789,10 +794,10 @@ EOF
     # to-prefix: replies from the tunnel to a client; mark: the server's own
     # sockets out of the upstream; oif ap0: the unicast RA to a link-local; iif
     # ap0: everything a client sends into the tunnel.
-    if "$IP" -6 rule add from all to "$IP6_NET" lookup main pref "$PRIO_TO_SUBNET" 2>/dev/null \
-        && "$IP" -6 rule add from all fwmark "$NAT6_MARK/$NAT6_MARK_MASK" lookup "$UPSTREAM_TABLE" pref "$PRIO_V6_MARK" 2>/dev/null \
-        && "$IP" -6 rule add from all oif "$AP_IFACE" lookup main pref "$PRIO_V6_LINK" 2>/dev/null \
-        && "$IP" -6 rule add from all iif "$AP_IFACE" lookup "$NAT6_TABLE" pref "$PRIO_FROM_AP" 2>/dev/null \
+    if "$IP" -6 rule add from all to "$IP6_NET" lookup main pref "$PRIO_N6_TO_NET" 2>/dev/null \
+        && "$IP" -6 rule add from all fwmark "$NAT6_MARK/$NAT6_MARK_MASK" lookup "$UPSTREAM_TABLE" pref "$PRIO_N6_MARK" 2>/dev/null \
+        && "$IP" -6 rule add from all oif "$AP_IFACE" lookup main pref "$PRIO_N6_LINK" 2>/dev/null \
+        && "$IP" -6 rule add from all iif "$AP_IFACE" lookup "$NAT6_TABLE" pref "$PRIO_N6_FROM_AP" 2>/dev/null \
         && "$IP6T" -I FORWARD 1 -i "$AP_IFACE" -j ACCEPT 2>/dev/null \
         && "$IP6T" -I FORWARD 1 -o "$AP_IFACE" -j ACCEPT 2>/dev/null
     then
