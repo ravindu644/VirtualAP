@@ -18,10 +18,8 @@
 #include <unistd.h>
 
 #include "core/core.h"
-#include "mode/droidspaces.h"
-#include "mode/managed.h"
+#include "mode/mode.h"
 #include "monitor/upstream.h"
-#include "monitor/v6disc.h"
 
 /* Quiet for 200 ms after the last event before looking, so a burst (netd
  * swapping a network rewrites dozens of rules) costs one reprobe; a second

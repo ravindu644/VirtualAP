@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "mode/ap.h"
+#include "internal.h"
+#include "mode/mode.h"
 
 #include <net/if.h>
 #include <signal.h>
@@ -15,8 +16,6 @@
 #include "net/ipt/ipt.h"
 #include "net/net.h"
 #include "radio/radio.h"
-#include "services/dnsmasq.h"
-#include "services/hostapd.h"
 #include "virtualap.h"
 
 static int server_line(const char *item, void *f) {

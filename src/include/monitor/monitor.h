@@ -6,7 +6,7 @@
 #define VAP_MONITOR_H
 
 #include "cli/cli.h"
-#include "mode/routed.h"
+#include "mode/mode.h"
 #include "virtualap.h"
 
 #define MONITOR_PID VAP_RUN "/monitor.pid"

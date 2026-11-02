@@ -2,7 +2,8 @@
  * Droidspaces' and USB-Arsenal's gateway mode.
  * Copyright (C) 2026 ravindu644 <droidcasts@protonmail.com>
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "mode/managed.h"
+#include "internal.h"
+#include "mode/mode.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -23,15 +24,9 @@
 
 #include "cli/cli.h"
 #include "core/core.h"
-#include "mode/ap.h"
-#include "mode/droidspaces.h"
-#include "mode/ipv6.h"
-#include "mode/openwrt.h"
-#include "mode/rps.h"
 #include "net/ipt/ipt.h"
 #include "net/net.h"
 #include "radio/radio.h"
-#include "services/hostapd.h"
 #include "virtualap.h"
 
 pid_t ds_container_pid(const char *name) {

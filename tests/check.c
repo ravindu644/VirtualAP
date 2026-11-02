@@ -8,11 +8,11 @@
 #include <unistd.h>
 
 #include "../src/cli/internal.h"
+#include "../src/mode/internal.h"
 #include "check.h"
 #include "cli/cli.h"
 #include "core/core.h"
-#include "mode/nat66.h"
-#include "mode/rps.h"
+#include "mode/mode.h"
 
 int failed;
 

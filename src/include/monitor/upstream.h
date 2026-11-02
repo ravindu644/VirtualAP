@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 #include "cli/cli.h"
-#include "mode/routed.h"
+#include "mode/mode.h"
 
 /* Re-resolve the upstream and move rule 7010 when it changed, re-add the
  * rules and firewall entries netd flushed, re-assert forwarding, and redo

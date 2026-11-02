@@ -9,10 +9,8 @@
 
 #include "cli/cli.h"
 #include "core/core.h"
-#include "mode/ipv6.h"
-#include "mode/rules.h"
+#include "mode/mode.h"
 #include "net/ipt/ipt.h"
-#include "services/dnsmasq.h"
 #include "virtualap.h"
 
 /* r into run.state. The values a stop restores are the ones from before the

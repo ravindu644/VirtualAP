@@ -13,10 +13,11 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../src/mode/internal.h"
 #include "../src/net/internal.h"
 #include "check.h"
 #include "core/core.h"
-#include "mode/rules.h"
+#include "mode/mode.h"
 #include "net/ipt/ipt.h"
 #include "net/net.h"
 

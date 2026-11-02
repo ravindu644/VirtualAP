@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "mode/ipv6.h"
+#include "internal.h"
+#include "mode/mode.h"
 
 #include <errno.h>
 #include <linux/if_addr.h>
@@ -13,10 +14,6 @@
 #include <unistd.h>
 
 #include "core/core.h"
-#include "mode/nat66.h"
-#include "mode/rules.h"
-#include "mode/v6shared.h"
-#include "monitor/v6disc.h"
 #include "net/ipt/ipt.h"
 #include "net/net.h"
 #include "virtualap.h"

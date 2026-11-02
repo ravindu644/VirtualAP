@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
-#include "mode/routed.h"
+#include "internal.h"
+#include "mode/mode.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -8,13 +9,8 @@
 
 #include "cli/cli.h"
 #include "core/core.h"
-#include "mode/ap.h"
-#include "mode/ipv6.h"
-#include "mode/rules.h"
 #include "net/ipt/ipt.h"
 #include "net/net.h"
-#include "services/dnsmasq.h"
-#include "services/hostapd.h"
 #include "virtualap.h"
 
 static void add(struct nl *nl, const struct rule *ru, bool verbose, int *ret) {

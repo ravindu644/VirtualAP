@@ -6,10 +6,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "../src/mode/internal.h"
 #include "check.h"
 #include "core/core.h"
-#include "services/dnsmasq.h"
-#include "services/hostapd.h"
+#include "mode/mode.h"
 
 static void hostapd_conf(const char *band, int ch, int width,
                          const char *security, char *out, size_t size) {

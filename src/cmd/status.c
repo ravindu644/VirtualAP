@@ -12,10 +12,9 @@
 #include "cli/cli.h"
 #include "cmd/cmd.h"
 #include "core/core.h"
+#include "mode/mode.h"
 #include "net/ipt/ipt.h"
 #include "radio/radio.h"
-#include "services/dnsmasq.h"
-#include "services/hostapd.h"
 #include "virtualap.h"
 
 /* The run.state keys the app reads, printed in the file's own order. */
