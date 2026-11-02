@@ -101,8 +101,6 @@ static void test_netlink(void) {
   CHECK(link_set_up(&nl, "vt-h", true) == 0);
   CHECK(link_set_up(&nl, "vt-p", true) == 0);
   CHECK(ifreq_get("vt-h", SIOCGIFFLAGS, &ifr) == 0 && (ifr.ifr_flags & IFF_UP));
-  static const uint8_t mac2[6] = {0x02, 0, 0, 0, 0, 0x09};
-  CHECK(link_set_mac(&nl, "vt-p", mac2) == 0);
   CHECK(link_set_master(&nl, "vt-h", NULL) == 0);
 
   /* A veth whose far end is born in another namespace, named and with its

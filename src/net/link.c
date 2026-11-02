@@ -58,15 +58,6 @@ int link_set_master(struct nl *nl, const char *ifname, const char *master) {
   return nl_talk(nl, &r);
 }
 
-int link_set_mac(struct nl *nl, const char *ifname, const uint8_t mac[6]) {
-  struct nl_req r;
-  int err;
-  if (!change(&r, ifname, &err))
-    return err;
-  nl_attr(&r, IFLA_ADDRESS, mac, 6);
-  return nl_talk(nl, &r);
-}
-
 /* RTM_NEWLINK creating `name` of `kind`; returns the IFLA_INFO_DATA nest
  * opened for the kind's own attributes when data is set. */
 static struct rtattr *create(struct nl_req *r, const char *name,

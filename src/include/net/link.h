@@ -15,7 +15,6 @@ int link_set_up(struct nl *nl, const char *ifname, bool up);
 int link_del(struct nl *nl, const char *ifname);
 /* master NULL releases the link from its bridge. */
 int link_set_master(struct nl *nl, const char *ifname, const char *master);
-int link_set_mac(struct nl *nl, const char *ifname, const uint8_t mac[6]);
 int link_add_bridge(struct nl *nl, const char *name);
 /* A veth pair, both ends at mtu (0 = the default). With netns_fd >= 0 the peer
  * is born inside that namespace, already under its final name and with
