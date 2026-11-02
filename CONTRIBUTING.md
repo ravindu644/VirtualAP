@@ -173,7 +173,8 @@ Engine (`src/`):
 - `mode/`: `ap` (ap0, the daemons, radio planning, the signal hold both modes share, and
   `hostapd` and `dnsmasq`: their configs and starts, the client count), `routed` (with the
   pinned policy rules both families use), `ipv6` (`ipv6_decide`, setup, teardown, NAT66 and
-  the shared /64 with its client discovery), `managed`, `rps`, `droidspaces`, `openwrt`.
+  the shared /64 with its client discovery), `managed` (with the RPS masks), `droidspaces`,
+  `openwrt`.
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`).
 - `cmd/`: the commands the app calls, dispatched from `main.c`: `start` (`start` and
   `stop`) and `status` (the read-only ones: `status`, `interfaces`, `caps`).
