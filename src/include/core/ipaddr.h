@@ -10,6 +10,10 @@
  * digits, no leading zero. */
 bool valid_ip4(const char *s);
 
+/* "addr/len" (or a bare address, a host prefix) into bin and *len, strictly:
+ * a missing, empty or out of range length is refused, never read as /0. */
+bool prefix_parse(int family, const char *s, unsigned char bin[16], int *len);
+
 /* The AP's /24, derived from its gateway: the last octet is the host part. */
 struct subnet {
   char gw[16];    /* 192.168.42.1 */

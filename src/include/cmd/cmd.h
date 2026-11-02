@@ -8,5 +8,6 @@
 #include "cli/options.h"
 
 int cmd_start(struct vap_opts *o);
+int cmd_interfaces(struct vap_opts *o);
 
 #endif

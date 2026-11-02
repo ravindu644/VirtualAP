@@ -18,6 +18,7 @@ static const struct command {
   int (*fn)(struct vap_opts *);
 } commands[] = {
     {"start", cmd_start},
+    {"interfaces", cmd_interfaces},
 };
 
 int main(int argc, char **argv) {
