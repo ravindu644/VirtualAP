@@ -24,14 +24,14 @@ static int any(const char *item, void *arg) {
 
 bool dns_any(const char *dns) { return csv_each(dns, any, NULL) != 0; }
 
-struct conf {
+struct dnsmasq_conf {
   const struct subnet *net;
   const char *dns;
   const struct ra *ra;
 };
 
-static void body(FILE *f, const void *arg) {
-  const struct conf *c = arg;
+static void dnsmasq_body(FILE *f, const void *arg) {
+  const struct dnsmasq_conf *c = arg;
   fprintf(f,
           "interface=" AP_IFACE "\nbind-interfaces\nexcept-interface=lo\n"
           "listen-address=%s\ndhcp-range=%s,%s,12h\n"
@@ -52,8 +52,8 @@ static void body(FILE *f, const void *arg) {
 
 int dnsmasq_write_conf(const char *path, const struct subnet *net,
                        const char *dns, const struct ra *ra) {
-  struct conf c = {net, dns, ra};
-  return write_atomic(path, 0644, body, &c);
+  struct dnsmasq_conf c = {net, dns, ra};
+  return write_atomic(path, 0644, dnsmasq_body, &c);
 }
 
 int dnsmasq_start(const struct subnet *net, const char *dns,
