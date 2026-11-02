@@ -18,17 +18,13 @@
 #include "core/log.h"
 #include "virtualap.h"
 
-/* "fe" for CPUs 0-7, 32-bit words most significant first, "" for one CPU. */
-void rps_mask(char *mask, size_t size) {
-  char buf[64];
+void rps_mask_from(const char *present, char *mask, size_t size) {
   mask[0] = '\0';
-  if (read_file("/sys/devices/system/cpu/present", buf, sizeof(buf)) < 0)
-    return;
   /* "0-7" or "0,2-5": the highest CPU id is the last number. */
-  char *p = buf + strlen(buf);
-  while (p > buf && !isdigit((unsigned char)p[-1]))
+  const char *p = present + strlen(present);
+  while (p > present && !isdigit((unsigned char)p[-1]))
     p--;
-  while (p > buf && isdigit((unsigned char)p[-1]))
+  while (p > present && isdigit((unsigned char)p[-1]))
     p--;
   int max = atoi(p);
   if (max < 1 || max > 1023)
@@ -41,9 +37,22 @@ void rps_mask(char *mask, size_t size) {
       if (cpu >= 1 && cpu <= max)
         bits |= 1u << b;
     }
-    off += (size_t)snprintf(mask + off, size - off,
-                            w == max / 32 ? "%x" : ",%08x", bits);
+    int n = snprintf(mask + off, size - off, w == max / 32 ? "%x" : ",%08x",
+                     bits);
+    /* A short buffer gives no mask rather than a wrong one. */
+    if (n < 0 || (size_t)n >= size - off) {
+      mask[0] = '\0';
+      return;
+    }
+    off += (size_t)n;
   }
+}
+
+void rps_mask(char *mask, size_t size) {
+  char buf[64];
+  mask[0] = '\0';
+  if (read_file("/sys/devices/system/cpu/present", buf, sizeof(buf)) >= 0)
+    rps_mask_from(buf, mask, size);
 }
 
 static bool write_mask(const char *sys, const char *ifname, const char *mask) {
@@ -53,17 +62,11 @@ static bool write_mask(const char *sys, const char *ifname, const char *mask) {
   return write_file(path, mask) == 0;
 }
 
-bool rps_host(const char *ifname) {
-  char mask[300];
-  rps_mask(mask, sizeof(mask));
-  return *mask && write_mask("/sys", ifname, mask);
+bool rps_host(const char *ifname, const char *mask) {
+  return write_mask("/sys", ifname, mask);
 }
 
-bool rps_in_netns(int netns_fd, const char *ifname) {
-  char mask[300];
-  rps_mask(mask, sizeof(mask));
-  if (!*mask)
-    return false;
+bool rps_in_netns(int netns_fd, const char *ifname, const char *mask) {
   fflush(stdout);
   pid_t pid = fork();
   if (pid == 0) {

@@ -15,6 +15,7 @@
 #include "core/ipaddr.h"
 #include "core/log.h"
 #include "mode/nat66.h"
+#include "mode/rps.h"
 
 int failed;
 
@@ -160,6 +161,22 @@ static void test_state(void) {
   CHECK(!state_load(path, &back));
 }
 
+static void test_rps(void) {
+  char m[RPS_MASK_MAX], tiny[4];
+  rps_mask_from("0-7\n", m, sizeof(m));
+  CHECK(!strcmp(m, "fe"));
+  rps_mask_from("0,2-5", m, sizeof(m));
+  CHECK(!strcmp(m, "3e"));
+  rps_mask_from("0-39", m, sizeof(m));
+  CHECK(!strcmp(m, "ff,fffffffe"));
+  rps_mask_from("0", m, sizeof(m));
+  CHECK(!strcmp(m, ""));
+  rps_mask_from("0-1023", m, sizeof(m));
+  CHECK(strlen(m) == 32 * 8 + 31 && !strncmp(m, "ffffffff,", 9));
+  rps_mask_from("0-39", tiny, sizeof(tiny));
+  CHECK(!strcmp(tiny, ""));
+}
+
 int main(void) {
   log_set_file(NULL);
   /* opts_parse reports to stdout; keep the run quiet unless a check fails. */
@@ -169,6 +186,7 @@ int main(void) {
   test_conf();
   test_opts();
   test_state();
+  test_rps();
   test_ipt();
   test_radio();
   test_services();

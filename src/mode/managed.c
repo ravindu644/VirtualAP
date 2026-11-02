@@ -138,10 +138,16 @@ static int plug(const struct vap_opts *o, pid_t pid, struct nl *nl,
     goto fail;
   }
   snprintf(mac, 18, "%s", p.mac);
-  char mask[300];
+  /* One CPU has nothing to spread over. Best effort, but half of it brings
+   * the reordering back, so that says so. */
+  char mask[RPS_MASK_MAX];
   rps_mask(mask, sizeof(mask));
-  if (rps_host(VAP_VETH_HOST) && rps_in_netns(fd, VAP_PORT))
+  bool host = *mask && rps_host(VAP_VETH_HOST, mask);
+  bool port = *mask && rps_in_netns(fd, VAP_PORT, mask);
+  if (host && port)
     vap_log("RPS on %s and %s (CPU mask %s).", VAP_VETH_HOST, VAP_PORT, mask);
+  else if (host || port)
+    vap_warn("RPS took on %s only.", host ? VAP_VETH_HOST : VAP_PORT);
   close(fd);
   return 0;
 fail:
