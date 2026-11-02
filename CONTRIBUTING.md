@@ -10,15 +10,15 @@ before you write.
 
 The rules for anyone changing this repository, agents included, are in
 [AGENTS.md](./AGENTS.md): the style, the commit format, the choke points and the hard
-constraints. In short: Android only, `backend/start-ap` is strict POSIX sh over the bundled
-busybox and Android's own `ip` and `iptables`, the app runs on Android 8, and the binaries
+constraints. In short: Android only, the engine is single-threaded C on musl that talks to
+the kernel itself, split one concern per module, the app runs on Android 8, and the binaries
 come only from `scripts/build-static.sh` and, for `virtualap`, the root `Makefile`.
 
 VirtualAP runs on Qualcomm, Broadcom FullMAC (Samsung) and MediaTek chips. A fix for one
 chip's quirk is accepted only when the backend adapts to it at runtime, by detection, a
-conditional path or a fallback, without changing behaviour on the others; `sta_channel`
-reading the link frequency because Samsung omits the channel line, and `ensure_5g_ir` firing
-only when the phy reports NO-IR, are the pattern. If the fix cannot be gated that way, it
+conditional path or a fallback, without changing behaviour on the others;
+`nl80211_sta_freq` reading the associated BSS's frequency because Samsung omits the channel,
+and `ensure_5g_ir` firing only when the phy reports NO-IR, are the pattern. If the fix cannot be gated that way, it
 belongs in a fork. Test on a real phone, there is no emulator for a Wi-Fi chip, and say in
 your PR which devices, drivers, bands and upstreams you tested on; an untested claim counts
 as untested.
@@ -55,7 +55,8 @@ Commits are signed off and prefixed as AGENTS.md, Commits, says.
 
 Grep this list before you write anything new. If something close exists, extend it rather
 than adding a sibling. Android paths are relative to
-`Android/app/src/main/java/com/virtualap/app/`; backend symbols live in `backend/start-ap`.
+`Android/app/src/main/java/com/virtualap/app/`; engine modules are paths under `src/`, their
+headers under `src/include/`.
 This list answers "what do I call"; DESIGN.md answers "what should it look like" when
 nothing here fits. The shared components were ported from Droidspaces; when a caller for one
 of its other components appears, copy the upstream file rather than writing a new one.
@@ -125,11 +126,11 @@ Navigation:
 
 Shell, root and the backend:
 
-- `Backend.quote(value)`, `Backend.startAp`, `Backend.install(context)` in `util/Backend.kt`:
-  every dynamic value that reaches a root command, the script's command prefix, and its
-  extraction from the APK.
+- `Backend.quote(value)` and `Backend.startAp` in `util/Backend.kt`: every dynamic value that
+  reaches a root command, and the engine's command prefix (with its fallback to the script an
+  older release extracted, until the setup flow replaces it).
 - `APManager.getStatus/start/stop/getContainers/getInterfaces/getCaps/isInstalled` in
-  `util/APManager.kt`: driving `start-ap`. Never assemble one of these commands by hand.
+  `util/APManager.kt`: driving `virtualap`. Never assemble one of these commands by hand.
 - `Hotspot.start(cfg)/stop()/refresh()`, `phase`, `status`, `actionLogs` in `util/Hotspot.kt`:
   starting or stopping the AP from anywhere and reading the session state; also posts the
   running notification and wakes the tile.
@@ -152,22 +153,28 @@ Shell, root and the backend:
   `Hotspot`. The 3 s status poll lives in `MainScreen`, bound to its lifecycle.
 - The global libsu configuration lives in `VirtualAPApplication.kt`, and only there.
 
-Backend:
+Engine (`src/`):
 
-- `log`, `warn`, `error`: every message. `save_conf`, `load_conf`, `sq()`: `ap.conf`.
-  `hostapd_cli` (the function): every call to the binary.
-- `detect_auto_table`, `table_oif`, `resolve_iface_table`, `resolve_upstream`: upstream
-  table resolution. `sta_channel`, `is_dfs_channel`, `chan_no_ir`, `ensure_5g_ir`: radio
-  probes and the NO-IR fix. `phy_idx`, `phy_info`, `phy_supports_vht`, `phy_supports_ht40`,
-  `vht_seg0`, `ht40_dir`, `pick_width`: chip capabilities and 40/80 MHz geometry.
-  `pick_channel`: band and channel policy. `calculate_subnet`: gateway to pool.
-- `check_prerequisites`, `create_ap_iface`, `config_network`, `write_hostapd_conf`,
-  `start_hostapd`, `start_services`, `teardown`, `stop_daemons`: routed mode and its mirror.
-  `ds_run`, `ds_list`, `ds_container_pid`, `ds_is_openwrt`, `provision_openwrt`,
-  `config_network_bridged`, `start_services_bridged`, `teardown_bridged`: managed mode.
-- `pid_alive`, `kill_pidfile`, `del_ap_iface`, `del_bridge`, `del_rules`, `state`, `retry`,
-  `wpa_block`, `follow_sta`, `dns_lines`: the pieces setup and teardown share.
-- `cmd_start/stop/status/interfaces/containers/caps`: the subcommands. The app calls all six.
+- `core/`: `log` (`vap_log`, `vap_warn`, `vap_error`, `log_stamp`), `proc` (every program
+  run), `pidfile`, `lock` (one start or stop at a time), `fsutil` (`read_file`,
+  `write_file`, `write_atomic`), `ipaddr` (`valid_ip4`, `prefix_parse`, `subnet_from_gw`),
+  `csv` (the comma lists of `-d`).
+- `cli/`: `options` (the `vap_keys` table, `opt_set`, `opts_parse`, `print_usage`), `conf`
+  (`ap.conf`), `state` (`run.state`).
+- `net/`: `nl` (the rtnetlink transport, `nl_dump`), `link`, `addr`, `route`, `rule`,
+  `neigh`, `netd` (`upstream_resolve`, `upstream_v6_iface`), `netns` (`netns_open`,
+  `in_netns`), `ipt` (the `ip_tables` engine), `ipt_rules` (FORWARD, MASQUERADE, the presence
+  check, the NAT probe, `ipt_bin`), `ttl`.
+- `radio/`: `genl`, `nl80211` (create and delete ap0, the phy, the station's frequency, the
+  width), `wpa_ctrl` (the control socket), `channel` (band, channel and width policy),
+  `regdom` (`ensure_5g_ir`), `wifi_mac`.
+- `services/`: `hostapd` (its config, start and client count), `dnsmasq`.
+- `mode/`: `ap` (ap0, the daemons, radio planning, the signal hold both modes share),
+  `routed`, `ipv6` (`ipv6_decide`, setup, teardown), `nat66`, `v6shared`, `managed`, `rps`,
+  `droidspaces`, `openwrt`.
+- `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`), `v6disc`.
+- `cmd/`: `start`, `stop`, `status`, `interfaces`, `containers`, `caps`, the commands the
+  app calls, dispatched from `main.c`.
 
 ## Opening a PR
 
@@ -188,8 +195,9 @@ Every PR says:
 
 What is merged: fixes with a reproduction and a verified resolution, features validated
 across devices, security hardening, measured performance improvements, deletions, and
-documentation corrections. What is rejected: a backend change that only parses under bash
-or calls a coreutil outside the busybox variables; a prebuilt or dynamically linked binary;
+documentation corrections. What is rejected: an engine change that spawns a tool for what
+netlink or the kernel's own files can do, or that grows a module past its one concern; a
+prebuilt or dynamically linked binary;
 a feature no real user has reported or that only works on one hardware configuration; code
 its author cannot explain; an app change that breaks Android 8; a second copy of something
 in the inventory; any dynamic value reaching a root shell unquoted; anything that regresses
