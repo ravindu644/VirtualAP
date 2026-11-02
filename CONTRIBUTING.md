@@ -172,8 +172,8 @@ Engine (`src/`):
   (band, channel and width policy, and `ensure_5g_ir`).
 - `mode/`: `ap` (ap0, the daemons, radio planning, the signal hold both modes share, and
   `hostapd` and `dnsmasq`: their configs and starts, the client count), `routed` (with the
-  pinned policy rules both families use), `ipv6` (`ipv6_decide`, setup, teardown), `nat66`,
-  `v6shared`, `managed`, `rps`, `droidspaces`, `openwrt`.
+  pinned policy rules both families use), `ipv6` (`ipv6_decide`, setup, teardown, and the
+  shared /64), `nat66`, `managed`, `rps`, `droidspaces`, `openwrt`.
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`), `v6disc`.
 - `cmd/`: the commands the app calls, dispatched from `main.c`: `start` (`start` and
   `stop`) and `status` (the read-only ones: `status`, `interfaces`, `caps`).
