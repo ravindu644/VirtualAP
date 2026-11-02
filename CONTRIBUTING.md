@@ -164,9 +164,10 @@ Engine (`src/`):
   (`ap.conf` and `run.state`).
 - `net/`: `nl` (the rtnetlink transport, `nl_dump`, and the namespace helpers `netns_open`,
   `in_netns`), `link` (links, addresses and neighbours), `route` (routes, policy rules, and
-  netd's tables: `upstream_resolve`, `upstream_v6_iface`), `ipt` (the `ip_tables` engine),
-  `ipt_rules` (FORWARD, MASQUERADE, the presence check, the NAT probe, `ipt_bin`, the TTL
-  fix).
+  netd's tables: `upstream_resolve`, `upstream_v6_iface`), `ipt/`, kept apart because on
+  musl the kernel's netfilter headers and libc's networking headers cannot meet in one file:
+  `ipt` (the `ip_tables` engine), `ipt_rules` (FORWARD, MASQUERADE, the presence check, the
+  NAT probe, `ipt_bin`, the TTL fix).
 - `radio/`: `driver` (nl80211 over genetlink: create and delete ap0, the phy, the station's
   frequency, the width; the wpa control socket; `wifi_mac`, the factory MAC), `channel`
   (band, channel and width policy, and `ensure_5g_ir`).
