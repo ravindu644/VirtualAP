@@ -9,6 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "core/fsutil.h"
 #include "virtualap.h"
 
 static const char *log_file = VAP_LOG;
@@ -24,9 +25,8 @@ void log_set_file(const char *path) { log_file = path; }
 void log_truncate(void) {
   if (!log_file)
     return;
-  int fd = open(log_file, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-  if (fd >= 0)
-    close(fd);
+  /* A missing file stays missing: emit creates it with the first line. */
+  write_file(log_file, "");
 }
 
 /* Opened per line with O_APPEND, so the lines of the start, a later stop and

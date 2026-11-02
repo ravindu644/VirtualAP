@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "services/hostapd.h"
 
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,10 +84,8 @@ int hostapd_write_conf(const char *path, const struct vap_opts *o,
  * (a late channel rejection by the firmware) shows in status and hostapd.log
  * instead. Polling slowed the common start for no real-world gain. */
 static int try_once(void) {
-  int fd = open(VAP_HOSTAPD_LOG, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
-                0644);
-  if (fd >= 0)
-    close(fd);
+  /* run_logged creates it when there is none. */
+  write_file(VAP_HOSTAPD_LOG, "");
   /* -t -f: timestamped output to its own log, since -B daemonizes it away;
    * stderr goes there too for errors printed before that. */
   const char *const argv[] = {VAP_BIN "/hostapd", "-B", "-t", "-f",

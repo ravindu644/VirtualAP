@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "services/dnsmasq.h"
 
-#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -65,10 +64,8 @@ int dnsmasq_start(const struct subnet *net, const char *dns,
     return -1;
   }
   vap_log("Starting dnsmasq...");
-  int fd = open(VAP_DNSMASQ_LOG, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
-                0644);
-  if (fd >= 0)
-    close(fd);
+  /* Its log-facility creates it when there is none. */
+  write_file(VAP_DNSMASQ_LOG, "");
   /* stderr stays ours: what dnsmasq says before it daemonizes ("Address in
    * use") is the reason the start failed, and belongs in the app's log. */
   const char *const argv[] = {VAP_BIN "/dnsmasq", "-C", DNSMASQ_CONF, NULL};

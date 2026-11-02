@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "mode/v6shared.h"
 
-#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -80,9 +79,8 @@ int shared_setup(struct nl *nl, const struct upstream *up,
     *why = "policy rules failed";
     return -1;
   }
-  int fd = open(V6CLIENTS, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-  if (fd >= 0)
-    close(fd);
+  /* shared_add_client creates it with the first client. */
+  write_file(V6CLIENTS, "");
   return 0;
 }
 
