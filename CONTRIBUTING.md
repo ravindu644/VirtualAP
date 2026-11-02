@@ -12,7 +12,7 @@ The rules for anyone changing this repository, agents included, are in
 [AGENTS.md](./AGENTS.md): the style, the commit format, the choke points and the hard
 constraints. In short: Android only, `backend/start-ap` is strict POSIX sh over the bundled
 busybox and Android's own `ip` and `iptables`, the app runs on Android 8, and the binaries
-come only from `scripts/build-static.sh`.
+come only from `scripts/build-static.sh` and, for `virtualap`, the root `Makefile`.
 
 VirtualAP runs on Qualcomm, Broadcom FullMAC (Samsung) and MediaTek chips. A fix for one
 chip's quirk is accepted only when the backend adapts to it at runtime, by detection, a
@@ -27,6 +27,7 @@ as untested.
 
 ```
 ./scripts/build-static.sh    # from the repository root: both arches, needs Docker
+make aarch64 armhf           # from the repository root: virtualap, needs musl-cross gcc
 ./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
 ```
 

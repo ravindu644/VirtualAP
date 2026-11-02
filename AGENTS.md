@@ -30,9 +30,9 @@ make aarch64 armhf           # from the repository root: virtualap, needs musl-c
 ./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
 ```
 
-Run the first once before the first app build and again whenever `externals/` or the build
-scripts change, the second whenever `src/` changes; `prepareAssets` fails when
-`backend/<arch>/` is empty. The version comes from `VERSION` at
+Run the first two before the first app build; after that, the first again whenever
+`externals/` or the build scripts change, the second whenever `src/` does. `prepareAssets`
+fails when `backend/<arch>/` is empty or has no `virtualap`. The version comes from `VERSION` at
 the repository root. Bump it there, nowhere else. The build and CI
 details are in the Building section of How-It-Works.md.
 
