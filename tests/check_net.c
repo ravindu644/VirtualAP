@@ -271,6 +271,8 @@ void test_netlink_in_netns(void) {
   fflush(NULL);
   pid_t pid = fork();
   if (pid == 0) {
+    /* Its own count: failures before the fork are the parent's to report. */
+    failed = 0;
     if (map_root() < 0)
       _exit(77);
     test_netlink();

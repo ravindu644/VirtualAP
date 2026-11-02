@@ -13,6 +13,12 @@
 
 static const char *log_file = VAP_LOG;
 
+void log_stamp(char out[32]) {
+  time_t now = time(NULL);
+  struct tm tm;
+  strftime(out, 32, "%Y-%m-%d %H:%M:%S", localtime_r(&now, &tm));
+}
+
 void log_set_file(const char *path) { log_file = path; }
 
 void log_truncate(void) {
@@ -31,9 +37,7 @@ static void emit(const char *tag, const char *fmt, va_list ap) {
   printf("%s%s\n", tag, msg);
   if (!log_file)
     return;
-  time_t now = time(NULL);
-  struct tm tm;
-  strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime_r(&now, &tm));
+  log_stamp(stamp);
   int n = snprintf(line, sizeof(line), "[%s] %s%s\n", stamp, tag, msg);
   int fd = open(log_file, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
   if (fd < 0)

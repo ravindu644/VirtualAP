@@ -9,6 +9,8 @@ void vap_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void vap_warn(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void vap_error(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
+/* "YYYY-mm-dd HH:MM:SS" local time, the log's and run.state's stamp. */
+void log_stamp(char out[32]);
 /* Where the timestamped copy goes; NULL keeps it on stdout only (tests). */
 void log_set_file(const char *path);
 /* One session per file: nothing reads ap.log but a person with a shell, and

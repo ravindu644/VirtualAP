@@ -21,6 +21,7 @@ extern int failed;
  * have both in one file. */
 void test_ipt(void);
 void test_radio(void);
+void test_services(void);
 void test_netlink_in_netns(void);
 
 #endif

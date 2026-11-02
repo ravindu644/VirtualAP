@@ -19,10 +19,10 @@ static int wait_exit(pid_t pid) {
   return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
-/* stdout goes to out_fd (or /dev/null when -1), stderr to /dev/null. The
- * parent's stdout is flushed first, or the child would inherit and print
- * whatever the buffer held a second time. */
-static pid_t start(const char *const argv[], int out_fd) {
+/* stdout goes to out_fd (or /dev/null when -1), stderr to err_fd (or
+ * /dev/null). The parent's stdout is flushed first, or the child would
+ * inherit and print whatever the buffer held a second time. */
+static pid_t start(const char *const argv[], int out_fd, int err_fd) {
   fflush(stdout);
   pid_t pid = fork();
   if (pid != 0)
@@ -32,17 +32,34 @@ static pid_t start(const char *const argv[], int out_fd) {
   int null = open("/dev/null", O_RDWR | O_CLOEXEC);
   dup2(null, STDIN_FILENO);
   dup2(out_fd >= 0 ? out_fd : null, STDOUT_FILENO);
-  dup2(null, STDERR_FILENO);
-  /* An ignored signal stays ignored across exec; main ignores SIGPIPE for
-   * itself only. */
+  dup2(err_fd >= 0 ? err_fd : null, STDERR_FILENO);
+  /* An ignored signal stays ignored across exec, and a blocked one stays
+   * blocked: main ignores SIGPIPE and the start holds SIGTERM for itself
+   * only. A hostapd that inherited the hold would never stop. */
   signal(SIGPIPE, SIG_DFL);
+  sigset_t none;
+  sigemptyset(&none);
+  sigprocmask(SIG_SETMASK, &none, NULL);
   /* execv's prototype predates const; it never writes through argv. */
   execv(argv[0], (char *const *)(uintptr_t)argv);
   _exit(127);
 }
 
 int run_quiet(const char *const argv[]) {
-  pid_t pid = start(argv, -1);
+  pid_t pid = start(argv, -1, -1);
+  return pid < 0 ? -1 : wait_exit(pid);
+}
+
+int run_shown(const char *const argv[]) {
+  pid_t pid = start(argv, STDOUT_FILENO, STDERR_FILENO);
+  return pid < 0 ? -1 : wait_exit(pid);
+}
+
+int run_logged(const char *const argv[], const char *log) {
+  int fd = open(log, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
+  pid_t pid = start(argv, fd, fd);
+  if (fd >= 0)
+    close(fd);
   return pid < 0 ? -1 : wait_exit(pid);
 }
 
@@ -50,7 +67,7 @@ int run_capture(const char *const argv[], char *out, size_t size) {
   int pfd[2];
   if (size == 0 || pipe2(pfd, O_CLOEXEC) < 0)
     return -1;
-  pid_t pid = start(argv, pfd[1]);
+  pid_t pid = start(argv, pfd[1], -1);
   close(pfd[1]);
   if (pid < 0) {
     close(pfd[0]);

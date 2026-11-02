@@ -169,6 +169,7 @@ int main(void) {
   test_state();
   test_ipt();
   test_radio();
+  test_services();
   test_netlink_in_netns();
   fprintf(stderr, failed ? "check: %d failed\n" : "check: ok\n", failed);
   return failed != 0;

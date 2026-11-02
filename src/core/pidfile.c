@@ -62,6 +62,26 @@ void pidfile_kill(const char *path, const char *exe) {
   unlink(path);
 }
 
+pid_t pidfile_cmdline(const char *path, const char *needle) {
+  char p[64], cmd[512];
+  pid_t pid = pidfile_read(path);
+  if (!pid)
+    return 0;
+  snprintf(p, sizeof(p), "/proc/%d/cmdline", (int)pid);
+  int fd = open(p, O_RDONLY | O_CLOEXEC);
+  if (fd < 0)
+    return 0;
+  ssize_t n = read(fd, cmd, sizeof(cmd) - 1);
+  close(fd);
+  if (n <= 0)
+    return 0;
+  for (ssize_t i = 0; i < n; i++)
+    if (!cmd[i])
+      cmd[i] = ' ';
+  cmd[n] = '\0';
+  return strstr(cmd, needle) ? pid : 0;
+}
+
 int pidfile_write(const char *path, pid_t pid) {
   int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
   if (fd < 0)

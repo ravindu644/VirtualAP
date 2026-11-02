@@ -15,5 +15,8 @@ pid_t pidfile_ours(const char *path, const char *exe);
  * interface is a race the kernel does not always win. */
 void pidfile_kill(const char *path, const char *exe);
 int pidfile_write(const char *path, pid_t pid);
+/* The pid in path if that process's command line holds needle, else 0: for
+ * a shell loop, whose exe is just sh. */
+pid_t pidfile_cmdline(const char *path, const char *needle);
 
 #endif

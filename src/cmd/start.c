@@ -5,32 +5,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "cli/conf.h"
+#include "core/csv.h"
 #include "cmd/cmd.h"
 #include "core/ipaddr.h"
 #include "core/lock.h"
 #include "core/log.h"
+#include "mode/ap.h"
+#include "mode/routed.h"
 #include "virtualap.h"
 
-/* Each entry of a comma separated list, blanks removed, empties skipped, as
- * the script's word splitting did. Returns the first entry that fails ok(),
- * NULL when all pass. buf holds the entry. */
-static const char *bad_entry(const char *list, char *buf, size_t size,
-                             bool (*ok)(const char *)) {
-  size_t n = 0;
-  for (const char *p = list;; p++) {
-    if (*p == ',' || !*p) {
-      buf[n] = '\0';
-      if (n && !ok(buf))
-        return buf;
-      n = 0;
-      if (!*p)
-        return NULL;
-    } else if (!isspace((unsigned char)*p) && n + 1 < size) {
-      buf[n++] = *p;
-    }
-  }
+/* The first DNS entry that is no IPv4 address, into arg. */
+static int bad_dns(const char *item, void *arg) {
+  if (valid_ip4(item))
+    return 0;
+  snprintf(arg, OPT_LEN, "%s", item);
+  return 1;
 }
 
 static int all_digits(const char *s) {
@@ -79,7 +71,7 @@ int cmd_start(struct vap_opts *o) {
   /* Checked before ap.conf is written: dnsmasq would only refuse a bad entry
    * after hostapd is up, and the value would already be saved. */
   char entry[OPT_LEN];
-  if (bad_entry(o->dns_servers, entry, sizeof(entry), valid_ip4)) {
+  if (csv_each(o->dns_servers, bad_dns, entry)) {
     vap_error("Invalid DNS server: '%s'", entry);
     return 1;
   }
@@ -92,12 +84,25 @@ int cmd_start(struct vap_opts *o) {
     return 1;
   }
   check_channel(o);
+  /* Refused before ap.conf is saved or a running AP is touched. */
+  if (*o->container) {
+    vap_error("Managed mode (-K) is not in the C engine yet.");
+    return 1;
+  }
 
   /* Saved now, before the channel policy rewrites band and channel and
    * before anything can fail: a failed attempt must not lose the config. */
   if (conf_save(VAP_CONF, o) < 0)
     vap_warn("Could not save %s.", VAP_CONF);
 
-  vap_error("start: the rest of the engine is not ported to C yet.");
-  return 1;
+  /* Tear down any previous AP, and daemons orphaned by one that left no
+   * state. */
+  if (access(VAP_STATE, F_OK) == 0) {
+    vap_log("Existing AP state found - restarting...");
+    stop_ap(o);
+  }
+  ap_daemons_stop();
+  if (ap_prerequisites() < 0)
+    return 1;
+  return routed_start(o) == 0 ? 0 : 1;
 }
