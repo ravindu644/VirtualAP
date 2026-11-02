@@ -94,8 +94,10 @@ void ipv6_apply(struct nl *nl, const struct vap_opts *o, struct routed *r,
   pidfile_kill(DNSMASQ_PID, "dnsmasq");
   struct ra ra = {r->v6.prefix, r->v6.gw, r->v6.mode == V6_SHARED};
   dnsmasq_start(&r->net, o->dns_servers, r->v6.mode ? &ra : NULL);
-  /* The TTL fix names the IPv6 source prefix, which just changed. */
-  ap_ttl(o, r->net.net, r->v6.mode ? r->v6.net : NULL);
+  /* The TTL fix names the IPv6 source prefix, which just changed. Off, there
+   * is nothing to clear: the start already did. */
+  if (!strcmp(o->ttl_fix, "1"))
+    ap_ttl(o, r->net.net, r->v6.mode ? r->v6.net : NULL);
 }
 
 void ipv6_off(struct nl *nl, const struct vap_opts *o, struct routed *r,
@@ -154,10 +156,11 @@ bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r) {
     vap_log("Upstream changed: %s (table %d) -> %s (table %d)",
             r->up.iface[0] ? r->up.iface : "?", r->up.table, now.iface,
             now.table);
-    /* Put back below with the new table. */
-    rules_del(nl, AF_INET);
-    rules_del(nl, AF_INET6);
+    /* IPv4 back at once on the new table, not after the IPv6 redo below;
+     * IPv6 follows with the rest. */
+    rules_del_upstream(nl);
     r->up = now;
+    rules_add(nl, &r->up, &r->net, NULL, true);
     save(r);
   }
   /* IPv6 first, so stale IPv6 rules are not put back just to be removed. */

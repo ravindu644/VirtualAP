@@ -52,6 +52,18 @@ int rules_add(struct nl *nl, const struct upstream *up,
   return ret;
 }
 
+void rules_del_upstream(struct nl *nl) {
+  /* A survivor would sit ahead of the new table's rule at the same
+   * priority, and the kernel takes the first. */
+  for (int i = 0; i < 2; i++) {
+    int family = i ? AF_INET6 : AF_INET;
+    int err = rule_del_prio(nl, family, PRIO_FROM_AP);
+    if (err < 0)
+      vap_warn("Policy rule %d (IPv%c) could not be removed: %s",
+               PRIO_FROM_AP, i ? '6' : '4', strerror(-err));
+  }
+}
+
 void rules_del(struct nl *nl, int family) {
   /* The upstream rule first, so nothing leaves while the rest go. */
   rule_del_prio(nl, family, PRIO_FROM_AP);

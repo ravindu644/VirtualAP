@@ -22,5 +22,9 @@ int rules_add(struct nl *nl, const struct upstream *up,
               const struct subnet *net, const struct v6 *v, bool verbose);
 /* Every rule of family at the priorities rules_add uses, whoever added it. */
 void rules_del(struct nl *nl, int family);
+/* Only the rules that name the upstream's table (PRIO_FROM_AP), both
+ * families, a failure logged: an upstream switch moves those and leaves the
+ * clients' return path in place. */
+void rules_del_upstream(struct nl *nl);
 
 #endif

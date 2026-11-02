@@ -200,6 +200,20 @@ static void test_netlink(void) {
   };
   for (int i = 0; i < 5; i++)
     CHECK(rule_exists(&nl, &want[i]));
+  /* An upstream switch takes 7010 alone, the return path stays. */
+  rules_del_upstream(&nl);
+  CHECK(!rule_exists(&nl, &want[1]) && !rule_exists(&nl, &want[3]));
+  CHECK(rule_exists(&nl, &want[0]) && rule_exists(&nl, &want[2]) &&
+        rule_exists(&nl, &want[4]));
+  ups.table = 1032;
+  CHECK(rules_add(&nl, &ups, &sn, &v6, true) == 0);
+  struct rule moved4 = want[1], moved6 = want[3];
+  moved4.table = moved6.table = 1032;
+  CHECK(rule_exists(&nl, &moved4) && rule_exists(&nl, &moved6));
+  CHECK(!rule_exists(&nl, &want[1]) && !rule_exists(&nl, &want[3]));
+  rules_del_upstream(&nl);
+  ups.table = 1031;
+  CHECK(rules_add(&nl, &ups, &sn, &v6, true) == 0);
   CHECK(!rule_exists(&nl, &sink));
   v6.mode = V6_SHARED;
   CHECK(rules_add(&nl, &ups, NULL, &v6, true) == 0);
