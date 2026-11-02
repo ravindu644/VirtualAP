@@ -8,10 +8,11 @@
 #include "core/fsutil.h"
 #include "core/log.h"
 
-/* Enough sh to read what save_conf wrote: '...' verbatim, "..." with \" \\
- * \$ \` escapes, a bare \x as x, and the word ends at an unquoted blank. As
- * in sh, a # starts a comment only where a word starts. Releases before 1.0
- * wrote "...", every one since '...' with '\''. */
+/* Enough sh to read what conf_save writes: '...' verbatim (a ' is '\''), a
+ * bare \x as x, and the word ends at an unquoted blank. As in sh, a # starts
+ * a comment only where a word starts. A " is an ordinary character: only
+ * the releases before 1.0 wrote "...", and the app passes every flag on a
+ * start, so such a file is rewritten by the first one. */
 void conf_unquote(const char **s, char *out, size_t size) {
   const char *p = *s;
   size_t n = 0;
@@ -26,14 +27,6 @@ void conf_unquote(const char **s, char *out, size_t size) {
     if (*p == '\'') {
       for (p++; *p && *p != '\''; p++)
         PUT(*p);
-      if (*p)
-        p++;
-    } else if (*p == '"') {
-      for (p++; *p && *p != '"'; p++) {
-        if (*p == '\\' && p[1] && strchr("\"\\$`", p[1]))
-          p++;
-        PUT(*p);
-      }
       if (*p)
         p++;
     } else if (*p == '\\' && p[1]) {

@@ -90,16 +90,14 @@ static void test_conf(void) {
   }
   unlink(path);
 
-  /* The pre-1.0 double-quoted form. */
-  const char *s = "\"a\\\"b \\$x\\\\\" # comment";
+  /* A trailing backslash or an open quote must not walk off the end. */
+  const char *s = "abc\\";
   char out[64];
   conf_unquote(&s, out, sizeof(out));
-  CHECK(!strcmp(out, "a\"b $x\\"));
-
-  /* A trailing backslash inside quotes must not walk off the end. */
-  s = "\"abc\\";
-  conf_unquote(&s, out, sizeof(out));
   CHECK(!strcmp(out, "abc\\"));
+  s = "'abc";
+  conf_unquote(&s, out, sizeof(out));
+  CHECK(!strcmp(out, "abc"));
   /* # is a comment only where a word starts. */
   s = "Cafe#1 # note";
   conf_unquote(&s, out, sizeof(out));
@@ -112,13 +110,13 @@ static void test_conf(void) {
   char path2[256];
   tmp_path(path2, sizeof(path2));
   int fd2 = mkstemp(path2);
-  CHECK(write(fd2, "PASSWORD=\"abc\\\"\r\nSSID='x\n", 26) == 26);
+  CHECK(write(fd2, "PASSWORD='abc\r\nSSID='x\n", 23) == 23);
   close(fd2);
   struct vap_opts o;
   opts_defaults(&o);
   CHECK(conf_load(path2, &o) == 0);
   CHECK(!strpbrk(o.password, "\r\n") && !strpbrk(o.ssid, "\r\n"));
-  CHECK(!strcmp(o.ssid, "x"));
+  CHECK(!strcmp(o.password, "abc") && !strcmp(o.ssid, "x"));
   unlink(path2);
 }
 
