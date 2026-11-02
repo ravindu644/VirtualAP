@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Build the fully static aarch64 and armhf binaries (hostapd, hostapd_cli, iw,
-# dnsmasq, busybox, virtualap) for VirtualAP.
+# dnsmasq, busybox) for VirtualAP. virtualap itself is `make aarch64 armhf`.
 #
 # A static musl binary carries its own libc and libnl, so it runs on any phone
 # with no chroot. Each arch is built in an Alpine container of that arch, under
@@ -48,10 +48,6 @@ for label in "$@"; do
         -e ARCH_LABEL="$label" \
         -v "$HERE":/work:ro,z \
         -v "$REPO/externals":/externals:ro,z \
-        -v "$REPO/src":/repo/src:ro,z \
-        -v "$REPO/tests":/repo/tests:ro,z \
-        -v "$REPO/Makefile":/repo/Makefile:ro,z \
-        -v "$REPO/VERSION":/repo/VERSION:ro,z \
         -v "$out":/out:z \
         "$IMAGE" sh /work/build-in-container.sh
     mkdir -p "$REPO/backend/$label"

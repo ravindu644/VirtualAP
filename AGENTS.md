@@ -26,12 +26,13 @@ Magisk module.
 
 ```
 ./scripts/build-static.sh    # from the repository root: both arches, needs Docker
+make aarch64 armhf           # from the repository root: virtualap, needs musl-cross gcc
 ./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
 ```
 
-Run the first once before the first app build and again whenever `externals/`, `src/` or the
-build scripts change (`make aarch64` alone rebuilds just `virtualap`, see `make help`);
-`prepareAssets` fails when `backend/<arch>/` is empty. The version comes from `VERSION` at
+Run the first once before the first app build and again whenever `externals/` or the build
+scripts change, the second whenever `src/` changes; `prepareAssets` fails when
+`backend/<arch>/` is empty. The version comes from `VERSION` at
 the repository root. Bump it there, nowhere else. The build and CI
 details are in the Building section of How-It-Works.md.
 
@@ -159,7 +160,7 @@ is a bug, not a shortcut.
 - Binaries are fully static musl builds from the `externals/` submodules, both arches. Never
   a dynamically linked binary, never a prebuilt from elsewhere. A new tool is a new submodule
   plus a block in `scripts/build-in-container.sh`; `virtualap` is the one binary built from
-  this repository's own `src/`.
+  this repository's own `src/`, with musl-cross gcc and the root `Makefile`.
 - No new dependency when an installed one covers it. The app already has libsu, Compose,
   lifecycle, and zxing.
 - Samsung's Broadcom FullMAC driver is the floor for wireless assumptions, and MediaTek's

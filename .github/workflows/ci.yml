@@ -35,11 +35,11 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
-    # The binaries only depend on the three source submodules, the engine's
-    # sources and the build scripts, so most pushes can reuse the previous build.
+    # The binaries only depend on the three source submodules and the build
+    # scripts, so most pushes can reuse the previous build.
     - name: Hash the sources
       id: src
-      run: echo "hash=$(git ls-tree HEAD externals scripts src Makefile VERSION | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      run: echo "hash=$(git ls-tree HEAD externals scripts | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
     - name: Restore cached binaries
       id: cache
@@ -50,7 +50,7 @@ jobs:
 
     - name: Build static binaries from source
       if: steps.cache.outputs.cache-hit != 'true'
-      # Compiles hostapd/iw/dnsmasq and virtualap (+ busybox) in an Alpine container from the
+      # Compiles hostapd/iw/dnsmasq (+ busybox) in an Alpine container from the
       # externals/ submodules and stages them into backend/<arch>.
       run: bash scripts/build-static.sh ${{ matrix.arch }}
 
@@ -68,6 +68,8 @@ jobs:
     env:
       # The tag being released, if any
       TAG: ${{ inputs.tag_name || (github.ref_type == 'tag' && github.ref_name) || '' }}
+      # The Makefile finds the toolchains in ~/toolchains/<triplet>-cross/bin
+      TOOLCHAINS_URL: https://github.com/ravindu644/Droidspaces-OSS/releases/download/compilers-25843896720
     steps:
     - uses: actions/checkout@v5
       with:
@@ -91,6 +93,30 @@ jobs:
       with:
         pattern: '{aarch64,armhf}'
         path: backend
+
+    # virtualap links nothing but libc, so it is built here with the musl-cross
+    # toolchains Droidspaces publishes (x86 hosted, hence this job and not the
+    # ARM one). The release URL names a fixed set, so it is the whole cache key.
+    - name: Cache the musl toolchains
+      id: toolchains
+      uses: actions/cache@v4
+      with:
+        path: ~/toolchains
+        key: musl-toolchains-${{ env.TOOLCHAINS_URL }}
+
+    - name: Download the musl toolchains
+      if: steps.toolchains.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p ~/toolchains && cd ~/toolchains
+        for t in aarch64-linux-musl arm-linux-musleabihf; do
+          wget -q "$TOOLCHAINS_URL/$t-cross.tar.zst"
+          tar -xf "$t-cross.tar.zst" && rm "$t-cross.tar.zst"
+        done
+
+    - name: Build virtualap
+      run: |
+        make check
+        make aarch64 armhf WERROR=1
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
