@@ -42,9 +42,9 @@ static pid_t start(const char *const argv[], int in_fd, int out_fd,
   sigset_t none;
   sigemptyset(&none);
   sigprocmask(SIG_SETMASK, &none, NULL);
-  /* execvp's prototype predates const; it never writes through argv. A
-   * bare name (droidspaces outside its install path) is found in PATH. */
-  execvp(argv[0], (char *const *)(uintptr_t)argv);
+  /* execv's prototype predates const; it never writes through argv. Every
+   * program is named by its absolute path: nothing is looked up in PATH. */
+  execv(argv[0], (char *const *)(uintptr_t)argv);
   _exit(127);
 }
 

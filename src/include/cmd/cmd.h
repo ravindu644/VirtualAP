@@ -14,6 +14,5 @@ int cmd_status(struct vap_opts *o);
 void stop_ap(const struct vap_opts *o);
 int cmd_interfaces(struct vap_opts *o);
 int cmd_caps(struct vap_opts *o);
-int cmd_containers(struct vap_opts *o);
 
 #endif

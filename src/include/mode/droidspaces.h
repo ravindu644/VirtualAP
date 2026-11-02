@@ -11,9 +11,6 @@
  * (the name with spaces as '-') when that process is a container init, else
  * the CLI's `pid` answer. */
 pid_t ds_container_pid(const char *name);
-/* fn(name, pid) for each running container, from `droidspaces show --json`.
- * 0, or -1 when Droidspaces is not there. */
-int ds_list(void (*fn)(const char *name, pid_t pid, void *arg), void *arg);
 /* script on sh's stdin inside the container, args as its $1..: values never
  * pass through a shell's quoting. line(text) for each line it prints. The
  * container's own namespaces, cgroup and limits apply, as droidspaces run

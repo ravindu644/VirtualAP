@@ -14,7 +14,7 @@ int run_capture(const char *const argv[], char *out, size_t size);
  * it prints before daemonizing is kept). Exit code or -1. */
 int run_logged(const char *const argv[], const char *log);
 /* argv with input on its stdin, line(text, arg) for each line it prints
- * (stdout and stderr together). A bare name is looked up in PATH. Exit code
+ * (stdout and stderr together). argv[0] is an absolute path. Exit code
  * or -1. */
 int run_lines(const char *const argv[], const char *input,
               void (*line)(const char *text, void *arg), void *arg);

@@ -22,7 +22,6 @@ static const struct command {
     {"status", cmd_status},
     {"interfaces", cmd_interfaces},
     {"caps", cmd_caps},
-    {"containers", cmd_containers},
 };
 
 int main(int argc, char **argv) {

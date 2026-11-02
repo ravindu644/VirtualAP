@@ -136,7 +136,7 @@ int opts_parse(struct vap_opts *o, int argc, char **argv) {
 }
 
 void print_usage(const char *prog) {
-  printf("Usage: %s <start|stop|status|interfaces|containers|caps> [options]\n"
+  printf("Usage: %s <start|stop|status|interfaces|caps> [options]\n"
          "\nstart options:\n",
          prog);
   /* Start order, the one people read, not ap.conf's. */
