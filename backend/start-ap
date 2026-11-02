@@ -61,6 +61,10 @@ PRIO_V6_SINK=7001     # from all iif <upstream> to <our /64> blackhole
 PRIO_V6_LINK=7002     # from all oif ap0 lookup main
 # NAT66 only: sockets of hev-socks5-server (fwmark) leave through the upstream.
 PRIO_V6_MARK=7003     # from all fwmark <NAT6_MARK> lookup <upstream table>
+PRIO_N6_FROM_AP=900   # from all iif ap0 lookup <NAT6_TABLE>
+PRIO_N6_TO_NET=901    # from all to <our /64> lookup main (replies to a client)
+PRIO_N6_LINK=902      # from all oif ap0 lookup main
+PRIO_N6_MARK=903      # from all fwmark <NAT6_MARK> lookup <upstream table>
 
 # Android's local_network table (constant since Android 5). We mirror the AP
 # subnet here so container reply packets (src 172.28.0.0/16) hit Droidspaces'
@@ -104,10 +108,6 @@ NAT6_TABLE=7166               # default route into the TUN, for traffic from ap0
 NAT6_MARK="0x7a000000"        # SO_MARK of the server's sockets (high byte: netd keeps clear)
 NAT6_MARK_MASK="0xff000000"
 NAT6_TUN_ADDR="fd76:6170:7636::1"
-PRIO_N6_FROM_AP=900   # from all iif ap0 lookup <NAT6_TABLE>
-PRIO_N6_TO_NET=901    # from all to <our /64> lookup main (replies to a client)
-PRIO_N6_LINK=902      # from all oif ap0 lookup main
-PRIO_N6_MARK=903      # from all fwmark <NAT6_MARK> lookup <upstream table>
 NAT6_TUN_LOG="${BASE_DIR}/logs/socks5-tunnel.log"
 NAT6_SRV_LOG="${BASE_DIR}/logs/socks5-server.log"
 
