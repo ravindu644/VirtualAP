@@ -137,6 +137,14 @@ int opts_parse(struct vap_opts *o, int argc, char **argv) {
 }
 
 void print_usage(const char *prog) {
+  /* Droidspaces' banner (print_usage), same layout. __DATE__ space-pads
+   * single-digit days ("Nov  3 2026"), so the pad is skipped. */
+  printf("\033[1mVirtualAP v" VAP_VERSION
+         " - Wi-Fi access point engine for rooted Android\033[0m\n");
+  printf("by \033[1;36mravindu644\033[0m\n");
+  printf("\n\033[1;34mhttps://github.com/ravindu644/VirtualAP\033[0m\n");
+  printf("\033[2mBuilt on: %.4s%s %s\033[0m\n\n", __DATE__,
+         __DATE__ + 4 + (__DATE__[4] == ' '), __TIME__);
   printf("Usage: %s <start|stop|status|interfaces|caps> [options]\n"
          "\nstart options:\n",
          prog);
