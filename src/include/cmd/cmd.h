@@ -15,6 +15,7 @@ int cmd_stop(struct vap_opts *o);
 /* status.c */
 
 int cmd_status(struct vap_opts *o);
+int cmd_clients(struct vap_opts *o);
 int cmd_interfaces(struct vap_opts *o);
 int cmd_caps(struct vap_opts *o);
 

@@ -195,6 +195,15 @@ MediaTek's gen4m driver has no `dump_station`, so the client count comes from `h
 own station list over its control socket, bound to an abstract address since Android has
 no `/tmp`, with a one second timeout so a hung `hostapd` cannot stall `status`.
 
+The `clients` command, which the app does not call yet, walks that same list and prints
+`mac ip name` for each station that finished its handshake, `-` for what is not known. The
+address and name come from the newest lease in the gateway's /24: our own `dnsmasq.leases`
+in routed mode, the container's `/tmp/dhcp.leases` in managed mode. That one is read through
+`/proc/<pid>/root`, since OpenWrt's `/tmp` is a tmpfs in the container's mount namespace, one
+component at a time and only as a regular file on a tmpfs, so a symlink, a FIFO or a bind
+mount the container left there is refused. A client that sends no hostname, or a container
+with no such file, leaves those fields `-`.
+
 ## On the phone
 
 Everything is under `/data/local/virtualap`:

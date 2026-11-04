@@ -7,6 +7,8 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <linux/magic.h>
 #include <net/if.h>
 #include <sched.h>
 #include <stdint.h>
@@ -18,6 +20,7 @@
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -36,6 +39,43 @@ pid_t ds_container_pid(const char *name) {
   const char *const argv[] = {DROIDSPACES_BIN, "-n", name, "pid", NULL};
   long pid = run_capture(argv, buf, sizeof(buf)) == 0 ? atol(buf) : 0;
   return pid > 1 ? (pid_t)pid : 0;
+}
+
+int leases_read_under(const char *root, long fs_type, char *buf, size_t size) {
+  /* The container picks what these two names are, and this runs as root: a
+   * symlink would resolve against the host, a FIFO would hang the read, and so
+   * would a bind mount of /proc/kmsg, which also eats the host's kernel log.
+   * O_PATH opens each without touching it and O_NOFOLLOW keeps a symlink a
+   * symlink. Only a regular file on the expected filesystem is then read. */
+  int rootfd = open(root, O_PATH | O_DIRECTORY | O_CLOEXEC);
+  int tmp =
+      openat(rootfd, "tmp", O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  int fd = openat(tmp, "dhcp.leases", O_PATH | O_NOFOLLOW | O_CLOEXEC);
+  struct stat sb;
+  struct statfs fs;
+  int ret = -1;
+  if (fd >= 0 && fstat(fd, &sb) == 0 && S_ISREG(sb.st_mode) &&
+      fstatfs(fd, &fs) == 0 && (long)fs.f_type == fs_type) {
+    char path[32];
+    snprintf(path, sizeof(path), "/proc/self/fd/%d", fd);
+    ret = read_file(path, buf, size);
+  }
+  close(fd);
+  close(tmp);
+  close(rootfd);
+  return ret;
+}
+
+int ds_read_leases(const char *name, char *buf, size_t size) {
+  /* Not /mnt/Droidspaces/<name>/tmp: OpenWrt's /tmp is a tmpfs in the
+   * container's mount namespace, and from the host that path is the empty
+   * directory under it. A tmpfs file also cannot block. */
+  pid_t pid = ds_container_pid(name);
+  if (!pid)
+    return -1;
+  char root[32];
+  snprintf(root, sizeof(root), "/proc/%ld/root", (long)pid);
+  return leases_read_under(root, TMPFS_MAGIC, buf, size);
 }
 
 /* script on sh's stdin inside the container, args as its $1..: values never

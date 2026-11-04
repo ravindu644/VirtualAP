@@ -31,6 +31,10 @@
  * copy is Constants.DROIDSPACES. */
 #define DROIDSPACES_BIN "/data/local/Droidspaces/bin/droidspaces"
 
+/* managed.c: ds_read_leases with the container's root as a path, and the
+ * filesystem the file must be on as statfs names it. */
+int leases_read_under(const char *root, long fs_type, char *buf, size_t size);
+
 /* ipv6.c: NAT66 the Droidspaces way: a private /64 on ap0, masqueraded out
  * of whatever the upstream is. Survives an upstream or prefix change
  * untouched. */

@@ -77,6 +77,31 @@ int cmd_status(struct vap_opts *o) {
   return 0;
 }
 
+/* One "mac ip name" line per connected client, "-" for what is not known.
+ * hostapd says who is connected; the leases only name them. Not part of status:
+ * in managed mode it starts droidspaces, too much for every 3 s. */
+int cmd_clients(struct vap_opts *o) {
+  (void)o;
+  struct state st;
+  if (!state_load(VAP_STATE, &st))
+    return 0;
+  char mac[18];
+  if (!hostapd_station(NULL, mac))
+    return 0;
+  char leases[16384] = "";
+  /* Missing, or past this much, leaves a client with its MAC alone. */
+  if (!strcmp(state_get(&st, "mode"), "bridged"))
+    ds_read_leases(state_get(&st, "container"), leases, sizeof(leases));
+  else
+    read_file(DNSMASQ_LEASES, leases, sizeof(leases));
+  do {
+    char ip[16], name[64];
+    lease_find(leases, mac, state_get(&st, "gateway"), ip, name);
+    printf("%s %s %s\n", mac, ip, name);
+  } while (hostapd_station(mac, mac));
+  return 0;
+}
+
 #define MAX_IFACES 128
 
 struct iface {

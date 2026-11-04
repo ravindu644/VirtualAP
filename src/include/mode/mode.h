@@ -104,12 +104,22 @@ void v6disc_refresh(void);
  * driver's is always empty there). 0 when hostapd does not answer within 1 s:
  * a hung hostapd must not stall the status the app polls every 3 s. */
 int hostapd_clients(void);
+/* The next station past `after` in that list that finished its handshake, NULL
+ * for the first; after and mac may be the same buffer. false at the end of the
+ * list, or with no hostapd. */
+bool hostapd_station(const char *after, char mac[18]);
+/* The address and hostname of mac from dnsmasq's lease file, which holds every
+ * lease of the last 12 hours, whoever is still here. Only a lease in gw's /24
+ * counts, the newest of them. "-" for whatever is not known. */
+void lease_find(const char *leases, const char *mac, const char *gw,
+                char ip[16], char name[64]);
 
 /* ap.c: dnsmasq: DHCP and DNS for the clients, and the IPv6 router
  * advertisements. */
 
 #define DNSMASQ_CONF VAP_RUN "/dnsmasq.conf"
 #define DNSMASQ_PID VAP_RUN "/dnsmasq.pid"
+#define DNSMASQ_LEASES VAP_RUN "/dnsmasq.leases"
 
 /* The router advertisement for the clients' IPv6, NULL for IPv4 only. */
 struct ra {
@@ -177,6 +187,9 @@ void routed_teardown(const struct vap_opts *o);
 /* The running container's init as `droidspaces -n name pid` reports it, 0
  * when it is not running. */
 pid_t ds_container_pid(const char *name);
+/* OpenWrt's /tmp/dhcp.leases from the running container, cut to fit. Its
+ * length, or -1 with the container stopped or the file not there. */
+int ds_read_leases(const char *name, char *buf, size_t size);
 
 /* managed.c: Receive packet steering on the managed-mode veth. */
 

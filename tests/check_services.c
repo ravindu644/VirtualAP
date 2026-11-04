@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/vfs.h>
 #include <unistd.h>
 
 #include "../src/mode/internal.h"
@@ -66,4 +68,65 @@ void test_services(void) {
   CHECK(read_file(path, c, sizeof(c)) > 0 && !strstr(c, "enable-ra"));
   unlink(path);
   CHECK(!dns_any(" , ,") && dns_any("8.8.8.8"));
+
+  /* A real OpenWrt file: other LANs share it, and a MAC can be on two. */
+  static const char leases[] =
+      "1793831268 02:7c:8a:96:37:58 192.168.41.175 pine ff:8a:96\n"
+      "1793846000 fc:93:6b:c2:3c:20 192.168.41.9 stale 01:fc:93\n"
+      "1793846097 fc:93:6b:c2:3c:20 192.168.100.100 Ravindu-s-A16 01:fc:93\n"
+      "1793848377 96:5a:64:7a:d0:d7 192.168.100.200 * 01:96:5a\n"
+      "1793848378 96:5a:64:7a:d0:d8 192.168.100.201 b\x1b"
+      "d 01:96:5a\n"
+      "1793848379 96:5a:64:7a:d0:d9 192.168.100.evil x 01:96:5a\n"
+      "1793848400 96:5a:64:7a:d0:da 192.168.100.2000 x 01:96:5a\n"
+      "1793848401 96:5a:64:7a:d0:db 192.168.100.77\n"
+      "1793848402 96:5a:64:7a:d0:dc 192.168.100.30 older 01:aa\n"
+      "1793848403 96:5a:64:7a:d0:dc 192.168.100.31 newer 01:bb\n"
+      "1793848401 96:5a:64:7a:d0:dc 192.168.100.32 oldest 01:cc\n"
+      "duid 00:01:00:01:32:79:a0:de\n";
+  const char *gw = "192.168.100.1";
+  char ip[16], name[64];
+  lease_find(leases, "fc:93:6b:c2:3c:20", gw, ip, name);
+  CHECK(!strcmp(ip, "192.168.100.100") && !strcmp(name, "Ravindu-s-A16"));
+  lease_find(leases, "96:5a:64:7a:d0:d7", gw, ip, name);
+  CHECK(!strcmp(ip, "192.168.100.200") && !strcmp(name, "-"));
+  lease_find(leases, "96:5a:64:7a:d0:d8", gw, ip, name);
+  CHECK(!strcmp(ip, "192.168.100.201") && !strcmp(name, "-"));
+  lease_find(leases, "96:5a:64:7a:d0:d9", gw, ip, name);
+  CHECK(!strcmp(ip, "-") && !strcmp(name, "-"));
+  lease_find(leases, "02:7c:8a:96:37:58", gw, ip, name);
+  CHECK(!strcmp(ip, "-") && !strcmp(name, "-"));
+  lease_find(leases, "96:5a:64:7a:d0:da", gw, ip, name);
+  CHECK(!strcmp(ip, "-") && !strcmp(name, "-"));
+  lease_find(leases, "96:5a:64:7a:d0:db", gw, ip, name);
+  CHECK(!strcmp(ip, "-") && !strcmp(name, "-"));
+  lease_find(leases, "96:5a:64:7a:d0:dc", gw, ip, name);
+  CHECK(!strcmp(ip, "192.168.100.31") && !strcmp(name, "newer"));
+  lease_find("", "02:7c:8a:96:37:58", gw, ip, name);
+  CHECK(!strcmp(ip, "-"));
+
+  /* What the container may leave in place of the file. */
+  char root[256], tmp[300], file[320], back[32];
+  tmp_path(root, sizeof(root));
+  CHECK(mkdtemp(root));
+  struct statfs fs;
+  CHECK(statfs(root, &fs) == 0);
+  snprintf(tmp, sizeof(tmp), "%s/tmp", root);
+  snprintf(file, sizeof(file), "%s/dhcp.leases", tmp);
+  CHECK(leases_read_under(root, fs.f_type, back, sizeof(back)) == -1);
+  CHECK(mkdir(tmp, 0755) == 0);
+  CHECK(leases_read_under(root, fs.f_type, back, sizeof(back)) == -1);
+  FILE *f = fopen(file, "w");
+  CHECK(f && fputs("lease\n", f) >= 0 && fclose(f) == 0);
+  CHECK(leases_read_under(root, fs.f_type, back, sizeof(back)) == 5 &&
+        !strcmp(back, "lease"));
+  CHECK(leases_read_under(root, fs.f_type + 1, back, sizeof(back)) == -1);
+  CHECK(unlink(file) == 0 && symlink("/proc/version", file) == 0);
+  CHECK(leases_read_under(root, fs.f_type, back, sizeof(back)) == -1);
+  CHECK(unlink(file) == 0 && mkfifo(file, 0600) == 0);
+  CHECK(leases_read_under(root, fs.f_type, back, sizeof(back)) == -1);
+  CHECK(unlink(file) == 0 && rmdir(tmp) == 0);
+  CHECK(symlink("/", tmp) == 0);
+  CHECK(leases_read_under(root, fs.f_type, back, sizeof(back)) == -1);
+  CHECK(unlink(tmp) == 0 && rmdir(root) == 0);
 }

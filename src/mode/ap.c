@@ -3,11 +3,13 @@
 #include "internal.h"
 #include "mode/mode.h"
 
+#include <ctype.h>
 #include <net/if.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -51,7 +53,7 @@ static void dnsmasq_body(FILE *f, const void *arg) {
             "enable-ra\ndhcp-range=%s,ra-only,%s64,12h\n"
             "dhcp-option=option6:dns-server,[%s]\n",
             c->ra->prefix, c->ra->off_link ? "off-link," : "", c->ra->dns);
-  fprintf(f, "dhcp-leasefile=%s/dnsmasq.leases\nno-resolv\n", VAP_RUN);
+  fprintf(f, "dhcp-leasefile=%s\nno-resolv\n", DNSMASQ_LEASES);
   csv_each(c->dns, server_line, f);
   fprintf(f, "no-hosts\npid-file=%s\nuser=root\nlog-facility=%s\nlog-dhcp\n",
           DNSMASQ_PID, VAP_DNSMASQ_LOG);
@@ -201,6 +203,64 @@ int hostapd_clients(void) {
   /* num_sta[0]= counts hostapd's sta_list, the list list_sta walks. */
   const char *n = strstr(reply, "\nnum_sta[0]=");
   return n ? atoi(n + 12) : 0;
+}
+
+bool hostapd_station(const char *after, char mac[18]) {
+  char cmd[32] = "STA-FIRST", reply[4096];
+  if (after)
+    snprintf(cmd, sizeof(cmd), "STA-NEXT %s", after);
+  /* The MAC is the reply's first line. An empty reply is the end of the list.
+   * FAIL is a station that left between two calls, and it ends the walk early;
+   * the count changed with it, so the app asks again. */
+  while (wpa_ctrl_request(HOSTAPD_CTRL "/" AP_IFACE, cmd, reply, sizeof(reply),
+                          1000) > 0 &&
+         mac_take(reply, mac)) {
+    /* hostapd lists a station from its association, so one with the wrong
+     * password is here too, with no [AUTHORIZED] and no keys. */
+    if (strstr(reply, "[AUTHORIZED]"))
+      return true;
+    snprintf(cmd, sizeof(cmd), "STA-NEXT %s", mac);
+  }
+  return false;
+}
+
+void lease_find(const char *leases, const char *mac, const char *gw,
+                char ip[16], char name[64]) {
+  strcpy(ip, "-");
+  strcpy(name, "-");
+  const char *dot = strrchr(gw, '.');
+  if (!dot)
+    return;
+  long long newest = -1;
+  for (const char *l = leases, *nl; l; l = nl ? nl + 1 : NULL) {
+    nl = strchr(l, '\n');
+    /* One line at a time, or a short line borrows its fields from the next.
+     * The fields sit first, so a long client id cut off here costs nothing. */
+    char line[128], m[19], a[17], n[64];
+    long long expiry;
+    size_t len = strcspn(l, "\n");
+    if (len >= sizeof(line))
+      len = sizeof(line) - 1;
+    memcpy(line, l, len);
+    line[len] = '\0';
+    /* Each width is one past the longest good value, so a longer one fails the
+     * checks below instead of splitting into the next field. A /24 always, so
+     * the prefix up to the last dot is the subnet: a lease this MAC still holds
+     * on another of the router's LANs must not show the wrong address. A client
+     * that changed its client id holds two here, the newer one is its own. */
+    if (sscanf(line, "%lld %18s %16s %63s", &expiry, m, a, n) != 4 ||
+        strcasecmp(m, mac) || !valid_ip4(a) ||
+        strncmp(a, gw, (size_t)(dot - gw) + 1) || expiry <= newest)
+      continue;
+    newest = expiry;
+    strcpy(ip, a);
+    /* dnsmasq writes * for no hostname. In managed mode the container wrote
+     * this file, so nothing but printable ASCII reaches the app. */
+    bool ok = strcmp(n, "*") != 0;
+    for (const char *c = n; *c; c++)
+      ok = ok && isgraph((unsigned char)*c);
+    strcpy(name, ok ? n : "-");
+  }
 }
 
 void ap_iface_del(void) {
