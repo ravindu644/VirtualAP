@@ -83,6 +83,8 @@ void test_services(void) {
       "1793848402 96:5a:64:7a:d0:dc 192.168.100.30 older 01:aa\n"
       "1793848403 96:5a:64:7a:d0:dc 192.168.100.31 newer 01:bb\n"
       "1793848401 96:5a:64:7a:d0:dc 192.168.100.32 oldest 01:cc\n"
+      "0 96:5a:64:7a:d0:dd 192.168.100.40 forever 01:aa\n"
+      "1793848403 96:5a:64:7a:d0:dd 192.168.100.41 finite 01:bb\n"
       "duid 00:01:00:01:32:79:a0:de\n";
   const char *gw = "192.168.100.1";
   char ip[16], name[64];
@@ -102,6 +104,8 @@ void test_services(void) {
   CHECK(!strcmp(ip, "-") && !strcmp(name, "-"));
   lease_find(leases, "96:5a:64:7a:d0:dc", gw, ip, name);
   CHECK(!strcmp(ip, "192.168.100.31") && !strcmp(name, "newer"));
+  lease_find(leases, "96:5a:64:7a:d0:dd", gw, ip, name);
+  CHECK(!strcmp(ip, "192.168.100.40") && !strcmp(name, "forever"));
   lease_find("", "02:7c:8a:96:37:58", gw, ip, name);
   CHECK(!strcmp(ip, "-"));
 

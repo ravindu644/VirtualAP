@@ -37,7 +37,10 @@ pid_t ds_container_pid(const char *name) {
    * container prints NONE and exits 1. */
   char buf[32];
   const char *const argv[] = {DROIDSPACES_BIN, "-n", name, "pid", NULL};
-  long pid = run_capture(argv, buf, sizeof(buf)) == 0 ? atol(buf) : 0;
+  /* The clients command gets here on the app's one root shell, where a wedged
+   * droidspaces would hold up status and Stop behind it. */
+  long pid =
+      run_capture_within(argv, buf, sizeof(buf), 5000) == 0 ? atol(buf) : 0;
   return pid > 1 ? (pid_t)pid : 0;
 }
 

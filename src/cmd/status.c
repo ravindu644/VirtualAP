@@ -78,8 +78,9 @@ int cmd_status(struct vap_opts *o) {
 }
 
 /* One "mac ip name" line per connected client, "-" for what is not known.
- * hostapd says who is connected; the leases only name them. Not part of status:
- * in managed mode it starts droidspaces, too much for every 3 s. */
+ * hostapd says who is connected; the leases only name them. Not part of status,
+ * which runs for as long as the screen is open: in managed mode this starts
+ * droidspaces, so the app asks only while its list is open. */
 int cmd_clients(struct vap_opts *o) {
   (void)o;
   struct state st;

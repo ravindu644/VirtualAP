@@ -4,6 +4,7 @@
 #include "mode/mode.h"
 
 #include <ctype.h>
+#include <limits.h>
 #include <net/if.h>
 #include <signal.h>
 #include <stdio.h>
@@ -248,8 +249,12 @@ void lease_find(const char *leases, const char *mac, const char *gw,
      * the prefix up to the last dot is the subnet: a lease this MAC still holds
      * on another of the router's LANs must not show the wrong address. A client
      * that changed its client id holds two here, the newer one is its own. */
-    if (sscanf(line, "%lld %18s %16s %63s", &expiry, m, a, n) != 4 ||
-        strcasecmp(m, mac) || !valid_ip4(a) ||
+    if (sscanf(line, "%lld %18s %16s %63s", &expiry, m, a, n) != 4)
+      continue;
+    /* dnsmasq writes 0 for a lease that never expires. */
+    if (!expiry)
+      expiry = LLONG_MAX;
+    if (strcasecmp(m, mac) || !valid_ip4(a) ||
         strncmp(a, gw, (size_t)(dot - gw) + 1) || expiry <= newest)
       continue;
     newest = expiry;
