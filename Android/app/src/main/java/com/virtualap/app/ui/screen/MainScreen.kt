@@ -460,11 +460,13 @@ private fun UpstreamCard(vm: APViewModel) {
             Caption(stringResource(R.string.container_upstream_desc))
         } else {
             val autoLabel = stringResource(R.string.upstream_auto)
-            val ifaces = vm.interfaces.filter { it.name != "ap0" }
+            val ifaces = vm.interfaces
             DsDropdown(
                 label = stringResource(R.string.upstream_interface_label),
                 selected = vm.config.upstream,
-                options = listOf("auto") + ifaces.map { it.name },
+                // The saved name stays listed while it is down: the engine wires it
+                // when it comes back.
+                options = (listOf("auto", vm.config.upstream) + ifaces.map { it.name }).distinct(),
                 displayName = { name ->
                     if (name == "auto") autoLabel
                     else ifaces.find { it.name == name }?.ip?.let { "$name ($it)" } ?: name

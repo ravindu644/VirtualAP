@@ -70,15 +70,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun applyInterfaceList(ifaces: List<NetworkIface>) {
-        interfaces = ifaces
-        // If the saved upstream is gone (e.g. WireGuard tunnel stopped), reset to
-        // auto so a stale iface name isn't sent to the backend.
-        if (config.upstream != "auto" && ifaces.none { it.name == config.upstream }) {
-            config = config.copy(upstream = "auto")
-        }
-    }
-
     /** Re-fetch status, interfaces and containers in parallel and suspend until
      *  they all land (so a pull-to-refresh spinner reflects real work). Root
      *  status is refreshed separately by the caller. */
@@ -87,7 +78,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         val ifs = async { APManager.getInterfaces() }
         val cs = async { APManager.getContainers() }
         s.await()
-        applyInterfaceList(ifs.await())
+        interfaces = ifs.await()
         // null: Droidspaces could not be asked this time; keep what we had.
         cs.await()?.let(::applyContainerList)
     }
