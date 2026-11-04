@@ -207,6 +207,13 @@ component at a time and only as a regular file on a tmpfs, so a symlink, a FIFO 
 mount the container left there is refused. A client that sends no hostname, or a container
 with no such file, leaves those fields `-`.
 
+A device on a static address keeps the lease of the address it had, so the kernel's ARP table
+corrects it: `/proc/net/arp` in routed mode, `/proc/<pid>/net/arp` in managed mode, where the
+clients' LAN ends in the container. A lease stands while the table confirms it or knows no
+other address for that MAC, and the table can give an address to a device with no lease. It
+only has a device that has sent something, and it marks a stale entry complete too, so a
+device can show an address it just left.
+
 ## On the phone
 
 Everything is under `/data/local/virtualap`:

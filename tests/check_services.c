@@ -109,6 +109,41 @@ void test_services(void) {
   lease_find("", "02:7c:8a:96:37:58", gw, ip, name);
   CHECK(!strcmp(ip, "-"));
 
+  /* A real table: the lease's address unresolved, its MAC on another address. */
+  static const char arp[] =
+      "IP address       HW type     Flags       HW address            Mask     "
+      "Device\n"
+      "192.168.100.101  0x1         0x0         76:c7:48:c1:7d:6e     *        "
+      "vaplan0\n"
+      "192.168.100.69   0x1         0x2         76:c7:48:c1:7d:6e     *        "
+      "vaplan0\n"
+      "192.168.41.175   0x1         0x2         96:5a:64:7a:d0:d7     *        "
+      "eth1\n"
+      "192.168.100.200  0x1         0x2         96:5a:64:7a:d0:d7     *        "
+      "vaplan0\n"
+      "192.168.100.201  0x1         0x2         96:5a:64:7a:d0:d7     *        "
+      "vaplan0\n"
+      "192.168.100.50   0x1         0x0         02:00:00:00:00:01     *        "
+      "vaplan0\n";
+  strcpy(ip, "192.168.100.101");
+  arp_find(arp, "76:c7:48:c1:7d:6e", gw, ip);
+  CHECK(!strcmp(ip, "192.168.100.69"));
+  /* No lease at all, or the lease confirmed among several. */
+  strcpy(ip, "-");
+  arp_find(arp, "76:c7:48:c1:7d:6e", gw, ip);
+  CHECK(!strcmp(ip, "192.168.100.69"));
+  strcpy(ip, "192.168.100.201");
+  arp_find(arp, "96:5a:64:7a:d0:d7", gw, ip);
+  CHECK(!strcmp(ip, "192.168.100.201"));
+  /* Unresolved, not in the table, or no table: the lease stands. */
+  strcpy(ip, "192.168.100.50");
+  arp_find(arp, "02:00:00:00:00:01", gw, ip);
+  CHECK(!strcmp(ip, "192.168.100.50"));
+  arp_find(arp, "02:00:00:00:00:02", gw, ip);
+  CHECK(!strcmp(ip, "192.168.100.50"));
+  arp_find("", "76:c7:48:c1:7d:6e", gw, ip);
+  CHECK(!strcmp(ip, "192.168.100.50"));
+
   /* What the container may leave in place of the file. */
   char root[256], tmp[300], file[320], back[32];
   tmp_path(root, sizeof(root));

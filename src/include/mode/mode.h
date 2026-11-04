@@ -114,6 +114,10 @@ bool hostapd_station(const char *after, char mac[18]);
  * counts, the newest of them. "-" for whatever is not known. */
 void lease_find(const char *leases, const char *mac, const char *gw,
                 char ip[16], char name[64]);
+/* Correct ip from the kernel's ARP table: a device on a static address keeps
+ * the lease of the address it had. The lease stands while the table confirms
+ * it, or knows nothing else for mac in gw's /24. */
+void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]);
 
 /* ap.c: dnsmasq: DHCP and DNS for the clients, and the IPv6 router
  * advertisements. */
@@ -188,9 +192,9 @@ void routed_teardown(const struct vap_opts *o);
 /* The running container's init as `droidspaces -n name pid` reports it, 0
  * when it is not running. */
 pid_t ds_container_pid(const char *name);
-/* OpenWrt's /tmp/dhcp.leases from the running container, cut to fit. Its
- * length, or -1 with the container stopped or the file not there. */
-int ds_read_leases(const char *name, char *buf, size_t size);
+/* OpenWrt's /tmp/dhcp.leases from the container whose init is pid, cut to fit.
+ * Its length, or -1 with the file not there. */
+int ds_read_leases(pid_t pid, char *buf, size_t size);
 
 /* managed.c: Receive packet steering on the managed-mode veth. */
 

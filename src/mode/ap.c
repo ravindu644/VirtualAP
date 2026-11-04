@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -228,13 +229,16 @@ bool hostapd_station(const char *after, char mac[18]) {
   return false;
 }
 
+/* A /24 always, so the prefix up to the last dot is the subnet. */
+static bool on_gw_lan(const char *ip, const char *gw) {
+  const char *dot = strrchr(gw, '.');
+  return dot && valid_ip4(ip) && !strncmp(ip, gw, (size_t)(dot - gw) + 1);
+}
+
 void lease_find(const char *leases, const char *mac, const char *gw,
                 char ip[16], char name[64]) {
   strcpy(ip, "-");
   strcpy(name, "-");
-  const char *dot = strrchr(gw, '.');
-  if (!dot)
-    return;
   long long newest = -1;
   for (const char *l = leases, *nl; l; l = nl ? nl + 1 : NULL) {
     nl = strchr(l, '\n');
@@ -248,17 +252,16 @@ void lease_find(const char *leases, const char *mac, const char *gw,
     memcpy(line, l, len);
     line[len] = '\0';
     /* Each width is one past the longest good value, so a longer one fails the
-     * checks below instead of splitting into the next field. A /24 always, so
-     * the prefix up to the last dot is the subnet: a lease this MAC still holds
-     * on another of the router's LANs must not show the wrong address. A client
-     * that changed its client id holds two here, the newer one is its own. */
+     * checks below instead of splitting into the next field. A lease this MAC
+     * still holds on another of the router's LANs must not show the wrong
+     * address. A client that changed its client id holds two here, the newer
+     * one is its own. */
     if (sscanf(line, "%lld %18s %16s %63s", &expiry, m, a, n) != 4)
       continue;
     /* dnsmasq writes 0 for a lease that never expires. */
     if (!expiry)
       expiry = LLONG_MAX;
-    if (strcasecmp(m, mac) || !valid_ip4(a) ||
-        strncmp(a, gw, (size_t)(dot - gw) + 1) || expiry <= newest)
+    if (strcasecmp(m, mac) || !on_gw_lan(a, gw) || expiry <= newest)
       continue;
     newest = expiry;
     strcpy(ip, a);
@@ -269,6 +272,27 @@ void lease_find(const char *leases, const char *mac, const char *gw,
       ok = ok && isgraph((unsigned char)*c);
     strcpy(name, ok ? n : "-");
   }
+}
+
+void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]) {
+  /* ponytail: /proc/net/arp marks a stale entry complete too, so a device can
+   * still show an address it just left; netlink's NUD state tells them apart,
+   * at the price of entering the container's namespace. */
+  char other[17] = "";
+  for (const char *l = arp, *nl; l; l = nl ? nl + 1 : NULL) {
+    nl = strchr(l, '\n');
+    char a[17], m[19];
+    unsigned flags;
+    if (sscanf(l, "%16s %*s %x %18s", a, &flags, m) != 3 ||
+        !(flags & ATF_COM) || strcasecmp(m, mac) || !on_gw_lan(a, gw))
+      continue;
+    if (!strcmp(a, ip))
+      return;
+    if (!*other)
+      strcpy(other, a);
+  }
+  if (*other)
+    strcpy(ip, other);
 }
 
 void ap_iface_del(void) {

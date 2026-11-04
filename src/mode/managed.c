@@ -69,13 +69,10 @@ int leases_read_under(const char *root, long fs_type, char *buf, size_t size) {
   return ret;
 }
 
-int ds_read_leases(const char *name, char *buf, size_t size) {
+int ds_read_leases(pid_t pid, char *buf, size_t size) {
   /* Not /mnt/Droidspaces/<name>/tmp: OpenWrt's /tmp is a tmpfs in the
    * container's mount namespace, and from the host that path is the empty
    * directory under it. A tmpfs file also cannot block. */
-  pid_t pid = ds_container_pid(name);
-  if (!pid)
-    return -1;
   char root[32];
   snprintf(root, sizeof(root), "/proc/%ld/root", (long)pid);
   return leases_read_under(root, TMPFS_MAGIC, buf, size);
