@@ -227,6 +227,8 @@ validated settings there through `virtualap save` without starting the AP. The f
 mode `0600` because it contains the password. The boot flag is `0` or `1` and mode `0666`
 so the app's setting can update it through a root shell. The module does not read
 app-private credential-encrypted storage or start Android's built-in tethering service.
+After the first unlock, the Android boot receiver refreshes status and starts VirtualAP
+from the saved app configuration if the module did not bring it up.
 
 ## Building
 
