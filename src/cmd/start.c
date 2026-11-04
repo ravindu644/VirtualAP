@@ -71,11 +71,7 @@ static void check_channel(struct vap_opts *o) {
   }
 }
 
-int cmd_start(struct vap_opts *o) {
-  if (vap_lock() < 0)
-    return 1;
-  log_truncate();
-
+static int validate_config(struct vap_opts *o) {
   if (!*o->ssid) {
     vap_error("SSID not set (use -s or save a config first)");
     return 1;
@@ -101,6 +97,27 @@ int cmd_start(struct vap_opts *o) {
     return 1;
   }
   check_channel(o);
+  return 0;
+}
+
+int cmd_save(struct vap_opts *o) {
+  if (vap_lock() < 0)
+    return 1;
+  if (validate_config(o))
+    return 1;
+  if (conf_save(VAP_CONF, o) < 0) {
+    vap_error("Could not save %s.", VAP_CONF);
+    return 1;
+  }
+  return 0;
+}
+
+int cmd_start(struct vap_opts *o) {
+  if (vap_lock() < 0)
+    return 1;
+  log_truncate();
+  if (validate_config(o))
+    return 1;
 
   /* Saved now, before the channel policy rewrites band and channel and
    * before anything can fail: a failed attempt must not lose the config. */

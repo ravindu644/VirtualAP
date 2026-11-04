@@ -15,7 +15,7 @@ static const struct command {
   const char *name;
   int (*fn)(struct vap_opts *);
 } commands[] = {
-    {"start", cmd_start},           {"stop", cmd_stop}, {"status", cmd_status},
+    {"start", cmd_start},           {"save", cmd_save}, {"stop", cmd_stop}, {"status", cmd_status},
     {"interfaces", cmd_interfaces}, {"caps", cmd_caps},
 };
 
