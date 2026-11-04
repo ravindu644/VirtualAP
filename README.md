@@ -71,6 +71,7 @@ need to share a VPN or to repeat Wi-Fi.
 - A rooted phone
 - Android 8.0 or newer
 - An ARM phone, 64-bit or 32-bit. One APK covers both.
+- For access point auto-start: Magisk or KernelSU.
 - For managed mode: Droidspaces and its OpenWrt container (see above)
 - For the TTL fix: a kernel that supports it. The app tests for it and greys the option out
   when it is missing, and the hotspot works the same without it.
@@ -79,12 +80,14 @@ need to share a VPN or to repeat Wi-Fi.
 
 1. Download the latest APK from [Releases](https://github.com/ravindu644/VirtualAP/releases)
    and install it.
-2. Open the app and grant root. It sets up everything it needs by itself. There is no
-   Magisk module to flash and no reboot.
+2. Open the app and grant root. It sets up everything it needs by itself, including the
+   optional Magisk/KernelSU boot module. There is nothing to flash or reboot.
 3. Enter a network name and a password.
 4. Choose the upstream: an **interface** (or Auto), or your OpenWrt **container** for
    managed mode.
 5. Start the hotspot and connect your devices.
+
+Enable **Start access point at startup** in Settings to bring it back after a reboot.
 
 In managed mode, open `http://<your gateway address>` from a connected device to reach
 LuCI.
