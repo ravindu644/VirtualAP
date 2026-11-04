@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +84,7 @@ fun SettingsScreen(
     val themeState = rememberThemeState()
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
+    var chosenLanguage by remember { mutableStateOf<String?>(null) }
     val languages = remember { LocaleHelper.availableLanguages(context) }
 
     Scaffold(
@@ -200,7 +202,20 @@ fun SettingsScreen(
         AboutDialog(onDismiss = { showAboutDialog = false })
     }
     if (showLanguageDialog) {
-        LanguagePickerDialog(languages, onDismiss = { showLanguageDialog = false })
+        LanguagePickerDialog(
+            languages,
+            onDismiss = { showLanguageDialog = false },
+            onConfirm = { tag ->
+                showLanguageDialog = false
+                chosenLanguage = tag
+            }
+        )
+    }
+    // Not from the OK button: below Android 13 the change recreates the activity at once. On Android
+    // 12 a dialog removed during that relaunch stays on screen for 2 s and keeps the window manager's
+    // focus, so the next Back is an ANR. An effect runs after the frame that removed the dialog.
+    LaunchedEffect(chosenLanguage) {
+        chosenLanguage?.let { LocaleHelper.changeLanguage(it) }
     }
 }
 
@@ -252,7 +267,7 @@ private fun NavRow(icon: ImageVector, title: String, value: String, onClick: () 
 }
 
 @Composable
-private fun LanguagePickerDialog(languages: List<Pair<String, String>>, onDismiss: () -> Unit) {
+private fun LanguagePickerDialog(languages: List<Pair<String, String>>, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     val options = listOf(LocaleHelper.SYSTEM to stringResource(R.string.system_default)) + languages
     val current = LocaleHelper.currentLanguage()
     var selected by rememberSaveable { mutableStateOf(if (options.any { it.first == current }) current else LocaleHelper.SYSTEM) }
@@ -265,10 +280,7 @@ private fun LanguagePickerDialog(languages: List<Pair<String, String>>, onDismis
                 dismissLabel = stringResource(R.string.cancel),
                 confirmLabel = stringResource(R.string.ok),
                 onDismiss = onDismiss,
-                onConfirm = {
-                    LocaleHelper.changeLanguage(selected)
-                    onDismiss()
-                }
+                onConfirm = { onConfirm(selected) }
             )
         }
     ) {
