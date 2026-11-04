@@ -100,7 +100,12 @@ Dialogs and sheets:
   square in a header row, for content that closes from the top.
 - `LogActionRow(logs, isBlocking, onClear)` in `ui/component/LogActionRow.kt`: the Clear and
   Copy row above a log console; `onClear = null` gives Copy alone.
-- The Wi-Fi QR sheet, the connected devices sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
+- `DeviceRow`, `DeviceSheet(title, onDismiss, content)`, `BlockedList(list, onUnblock)`,
+  `BlockedDevicesSheet(blocked, onUnblock, onDismiss)` and `rememberDeviceAction(reload)` in
+  `ui/component/DeviceList.kt`: a device with its action, the sheet they sit in, the blocked
+  devices, and running a block or an unblock with the failure said out loud.
+- `Caption(text)` in `ui/component/Caption.kt`: a line of secondary text.
+- The Wi-Fi QR sheet, the devices sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
   dialog and the language picker to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 
 Bars, setup, feedback:

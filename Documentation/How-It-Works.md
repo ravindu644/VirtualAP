@@ -228,7 +228,9 @@ file is `hostapd`'s own `deny_mac_file`, named in its config only when it exists
 `hostapd` will not start on a list it cannot open. A line is `mac #name`: `hostapd` reads what
 follows a MAC as a VLAN id through `atoi`, and `#` makes that 0, no VLAN. A hotspot that is
 running hears it over the control socket, and `DENY_ACL ADD_MAC` drops the device if it is
-connected. A block only holds that MAC, so a device that changes its own gets past it. A start
+connected. The app blocks from its devices sheet with no confirmation, because Unblock sits
+beside it, and lists them in Settings too, for when the hotspot is off. A block only holds that
+MAC, so a device that changes its own gets past it. A start
 rewrites the file first, logging and dropping any line it is not sure `hostapd` can read, and
 it holds about 400 devices.
 

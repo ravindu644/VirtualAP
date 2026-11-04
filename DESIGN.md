@@ -262,9 +262,10 @@ misses.
   it opens nothing. It is the card a user prods to check the app is alive, so it ripples and drops
   field focus instead of sitting dead under a finger. The cost is that TalkBack reads it as one
   actionable node.
-- **The Wi-Fi QR sheet, the connected devices sheet and the logs sheet** in
-  `ui/screen/MainScreen.kt` stay Material `ModalBottomSheet`s rather than
-  `Dialog { Surface { } }`. All three are drag-dismiss content that
+- **The Wi-Fi QR sheet, the devices sheet and the logs sheet** in
+  `ui/screen/MainScreen.kt`, and the blocked devices sheet in `ui/component/DeviceList.kt`,
+  stay Material `ModalBottomSheet`s rather than
+  `Dialog { Surface { } }`. All four are drag-dismiss content that
   belongs at the bottom edge, and the logs sheet blocks gesture dismissal while a command is
   running so the sheet cannot leave a touch-eating scrim behind. Their shell is
   `surfaceContainer` with 24dp top corners, matching the shape table.

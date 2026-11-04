@@ -143,6 +143,25 @@ object APManager {
         }
     }
 
+    /** The engine's `mac name` lines, as a client with no address; null when it could not be asked. */
+    suspend fun getBlocked(): List<ApClient>? = withContext(Dispatchers.IO) {
+        val result = Shell.cmd("${Backend.startAp} blocked 2>/dev/null").exec()
+        if (!result.isSuccess) return@withContext null
+        result.out.mapNotNull { line ->
+            val parts = line.trim().split(" ")
+            if (parts.size != 2) null else ApClient(parts[0], null, parts[1].takeIf { it != "-" })
+        }
+    }
+
+    suspend fun block(mac: String, name: String?): Boolean = withContext(Dispatchers.IO) {
+        val label = name?.let { " " + Backend.quote(it) }.orEmpty()
+        Shell.cmd("${Backend.startAp} block ${Backend.quote(mac)}$label >/dev/null 2>&1").exec().isSuccess
+    }
+
+    suspend fun unblock(mac: String): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("${Backend.startAp} unblock ${Backend.quote(mac)} >/dev/null 2>&1").exec().isSuccess
+    }
+
     suspend fun getInterfaces(): List<NetworkIface> = withContext(Dispatchers.IO) {
         val result = Shell.cmd("${Backend.startAp} interfaces 2>/dev/null").exec()
         if (!result.isSuccess) return@withContext emptyList()

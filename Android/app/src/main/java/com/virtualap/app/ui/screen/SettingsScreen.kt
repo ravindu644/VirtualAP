@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ColorLens
@@ -57,18 +58,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
 import com.virtualap.app.ui.component.AccentColorPicker
+import com.virtualap.app.ui.component.BlockedDevicesSheet
 import com.virtualap.app.ui.component.DialogCloseButton
 import com.virtualap.app.ui.component.DialogFooterRow
 import com.virtualap.app.ui.component.DsDialog
 import com.virtualap.app.ui.component.SectionHeader
 import com.virtualap.app.ui.component.SwitchItem
+import com.virtualap.app.ui.component.rememberDeviceAction
 import com.virtualap.app.ui.theme.rememberThemeState
+import com.virtualap.app.util.APManager
+import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.LocaleHelper
 import com.virtualap.app.util.PreferencesManager
 
@@ -86,6 +92,13 @@ fun SettingsScreen(
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var chosenLanguage by remember { mutableStateOf<String?>(null) }
     val languages = remember { LocaleHelper.availableLanguages(context) }
+    var showBlocked by rememberSaveable { mutableStateOf(false) }
+    var blocked by remember { mutableStateOf<List<ApClient>?>(null) }
+    // A failed call keeps the count it has.
+    val reloadBlocked: suspend () -> Unit = { APManager.getBlocked()?.let { blocked = it } }
+    val act = rememberDeviceAction(reloadBlocked)
+    // Each time the sheet opens too, so one that could not read the list can try again.
+    LaunchedEffect(showBlocked) { reloadBlocked() }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -112,6 +125,22 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
         ) {
+            SectionHeader(
+                text = stringResource(R.string.hotspot_header),
+                modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
+            )
+            SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
+                NavRow(
+                    icon = Icons.Default.Block,
+                    title = stringResource(R.string.blocked_title),
+                    value = blocked?.let { list ->
+                        if (list.isEmpty()) stringResource(R.string.blocked_none)
+                        else pluralStringResource(R.plurals.blocked_count, list.size, list.size)
+                    }.orEmpty(),
+                    onClick = { showBlocked = true }
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             SectionHeader(
                 text = stringResource(R.string.appearance_header),
                 modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
@@ -198,6 +227,13 @@ fun SettingsScreen(
         }
     }
 
+    if (showBlocked) {
+        BlockedDevicesSheet(
+            blocked,
+            onUnblock = { device -> act { APManager.unblock(device.mac) } },
+            onDismiss = { showBlocked = false }
+        )
+    }
     if (showAboutDialog) {
         AboutDialog(onDismiss = { showAboutDialog = false })
     }

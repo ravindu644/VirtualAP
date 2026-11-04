@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The running notification and the connected devices list: how many devices are on the hotspot -->
+    <!-- The running notification: how many devices are on the hotspot -->
     <plurals name="notification_clients">
         <item quantity="one">%1$d device connected</item>
         <item quantity="other">%1$d devices connected</item>
+    </plurals>
+    <!-- Settings, under Blocked devices -->
+    <plurals name="blocked_count">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
     </plurals>
 </resources>
