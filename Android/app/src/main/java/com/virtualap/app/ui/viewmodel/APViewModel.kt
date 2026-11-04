@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.snapshotFlow
 import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.APManager
+import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
@@ -114,6 +115,8 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     fun stop() {
         if (Hotspot.stop() != null) showActionLogs = true
     }
+
+    suspend fun fetchClients(): List<ApClient>? = APManager.getClients()
 
     fun clearLog() {
         Hotspot.actionLogs.clear()

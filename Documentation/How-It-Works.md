@@ -3,7 +3,7 @@
 VirtualAP creates a virtual AP interface, `ap0`, on the phone's Wi-Fi chip, runs `hostapd`
 on it, and then works in one of two modes. Everything below is done by `virtualap`, a
 static C binary running as root, built from `src/`; the app only calls its commands
-(`start`, `stop`, `status`, `interfaces`, `caps`). It talks to the kernel directly over
+(`start`, `stop`, `status`, `clients`, `interfaces`, `caps`). It talks to the kernel directly over
 netlink (rtnetlink for links, addresses, routes and rules; nl80211 for the radio) and over
 the raw `ip_tables` socket. It spawns `hostapd` and `dnsmasq`, `iptables` for the TTL fix
 only, and, in managed mode, `droidspaces` to find the container and run the OpenWrt setup
@@ -195,8 +195,11 @@ MediaTek's gen4m driver has no `dump_station`, so the client count comes from `h
 own station list over its control socket, bound to an abstract address since Android has
 no `/tmp`, with a one second timeout so a hung `hostapd` cannot stall `status`.
 
-The `clients` command, which the app does not call yet, walks that same list and prints
-`mac ip name` for each station that finished its handshake, `-` for what is not known. The
+`clients` walks that same list and prints `mac ip name` for each station that finished its
+handshake, `-` for what is not known. The count in `status` is the same walk, so a device
+with the wrong password is in neither. The app asks
+only while its connected devices sheet is open, since managed mode spawns `droidspaces`, and
+that spawn has a five second limit because libsu runs one command at a time. The
 address and name come from the newest lease in the gateway's /24: our own `dnsmasq.leases`
 in routed mode, the container's `/tmp/dhcp.leases` in managed mode. That one is read through
 `/proc/<pid>/root`, since OpenWrt's `/tmp` is a tmpfs in the container's mount namespace, one

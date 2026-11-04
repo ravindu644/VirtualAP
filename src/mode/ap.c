@@ -197,13 +197,16 @@ int hostapd_start(const struct vap_opts *o, struct plan *p) {
 }
 
 int hostapd_clients(void) {
-  char reply[4096];
-  if (wpa_ctrl_request(HOSTAPD_CTRL "/" AP_IFACE, "STATUS", reply,
-                       sizeof(reply), 1000) <= 0)
-    return 0;
-  /* num_sta[0]= counts hostapd's sta_list, the list list_sta walks. */
-  const char *n = strstr(reply, "\nnum_sta[0]=");
-  return n ? atoi(n + 12) : 0;
+  /* Not STATUS's num_sta, which counts a device with the wrong password too.
+   * ponytail: a station leaving in the middle of this walk ends it short, for
+   * the one poll until the next; restart the walk on FAIL if that ever shows.
+   */
+  char mac[18];
+  int n = 0;
+  for (bool more = hostapd_station(NULL, mac); more;
+       more = hostapd_station(mac, mac))
+    n++;
+  return n;
 }
 
 bool hostapd_station(const char *after, char mac[18]) {

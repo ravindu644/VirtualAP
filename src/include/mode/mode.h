@@ -100,9 +100,10 @@ void v6disc_refresh(void);
 #define HOSTAPD_PID VAP_RUN "/hostapd.pid"
 #define HOSTAPD_CTRL VAP_RUN "/hostapd"
 
-/* hostapd's own station list (MediaTek's gen4m has no dump_station, so the
- * driver's is always empty there). 0 when hostapd does not answer within 1 s:
- * a hung hostapd must not stall the status the app polls every 3 s. */
+/* The stations in hostapd's own list that finished their handshake (MediaTek's
+ * gen4m has no dump_station, so the driver's is always empty there). A hostapd
+ * that does not answer within 1 s ends the count: a hung one must not stall the
+ * status the app polls every 3 s. */
 int hostapd_clients(void);
 /* The next station past `after` in that list that finished its handshake, NULL
  * for the first; after and mac may be the same buffer. false at the end of the

@@ -143,6 +143,12 @@
     <string name="upstream_managed_by">Managed by %1$s</string>
     <string name="interface_label">Interface</string>
     <string name="clients_label">Clients</string>
+    <!-- What tapping the number of clients does, read out by a screen reader -->
+    <string name="clients_show">Show connected devices</string>
+    <string name="clients_title">Connected devices</string>
+    <string name="clients_empty">No devices connected</string>
+    <!-- In the connected devices list, for a device that did not send a name -->
+    <string name="client_unnamed">Unnamed device</string>
     <string name="dns_label" translatable="false">DNS</string>
     <string name="qr_title">Wi-Fi QR code</string>
     <string name="qr_scan_hint">Scan with a phone camera to join</string>

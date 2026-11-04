@@ -7,23 +7,30 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -55,6 +62,7 @@ import com.virtualap.app.ui.theme.JetBrainsMono
 import com.virtualap.app.ui.viewmodel.APViewModel
 import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.AnimationUtils
+import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.QrCodeGenerator
 import kotlinx.coroutines.delay
@@ -673,6 +681,7 @@ private fun AdvancedCard(vm: APViewModel) {
 private fun ActiveNetworkCard(vm: APViewModel) {
     val status = vm.status
     var showQr by remember { mutableStateOf(false) }
+    var showClients by remember { mutableStateOf(false) }
     val cardShape = RoundedCornerShape(20.dp)
     val focusManager = LocalFocusManager.current
 
@@ -761,14 +770,24 @@ private fun ActiveNetworkCard(vm: APViewModel) {
 
             StatGrid(
                 left = {
-                    StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
+                    // With nobody connected there is nothing to open, so it is a plain stat.
+                    StatRow(
+                        Icons.Default.Devices,
+                        stringResource(R.string.clients_label),
+                        status.clients.toString(),
+                        Modifier.heightIn(min = 48.dp),
+                        onClick = if (status.clients > 0) ({ showClients = true }) else null,
+                        onClickLabel = stringResource(R.string.clients_show)
+                    )
                 },
                 right = {
+                    // The same height as Clients beside it, so the two stay on one line.
                     StatRow(
                         Icons.Default.Dns,
                         stringResource(R.string.dns_label),
                         if (bridged) status.container ?: stringResource(R.string.unknown)
-                        else status.dnsServers ?: stringResource(R.string.unknown)
+                        else status.dnsServers ?: stringResource(R.string.unknown),
+                        Modifier.heightIn(min = 48.dp)
                     )
                 }
             )
@@ -777,6 +796,9 @@ private fun ActiveNetworkCard(vm: APViewModel) {
 
     if (showQr) {
         WifiQrSheet(vm = vm, onDismiss = { showQr = false })
+    }
+    if (showClients) {
+        ClientsSheet(vm = vm, onDismiss = { showClients = false })
     }
 }
 
@@ -789,8 +811,27 @@ private fun StatGrid(left: @Composable ColumnScope.() -> Unit, right: @Composabl
 }
 
 @Composable
-private fun StatRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun StatRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null
+) {
+    Row(
+        // No padding and no background, so the icon stays under the ones above it.
+        modifier = if (onClick == null) modifier else modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                onClickLabel = onClickLabel,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -799,7 +840,117 @@ private fun StatRow(icon: ImageVector, label: String, value: String) {
         )
         Column {
             Caption(label)
-            Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (onClick != null) MaterialTheme.colorScheme.primary else Color.Unspecified
+                )
+                if (onClick != null) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ClientsSheet(vm: APViewModel, onDismiss: () -> Unit) {
+    // Asked again while open, not only when the count moves: a client is counted
+    // at its handshake, and its address and name come with the DHCP lease after.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val clients by produceState<List<ApClient>?>(null) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                // A failed call keeps the rows it has rather than blanking them.
+                vm.fetchClients()?.let { value = it }
+                delay(3000)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.clients_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            val list = clients
+            when {
+                list == null -> Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LoadingIndicator(size = LoadingSize.Medium, color = MaterialTheme.colorScheme.primary)
+                }
+                // The last one left while the sheet was open.
+                list.isEmpty() -> Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Caption(stringResource(R.string.clients_empty))
+                }
+                else -> {
+                    Spacer(Modifier.height(4.dp))
+                    Caption(pluralStringResource(R.plurals.notification_clients, list.size, list.size))
+                    Spacer(Modifier.height(12.dp))
+                    list.forEachIndexed { i, client ->
+                        if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        ClientRow(client)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClientRow(client: ApClient) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Devices,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+            modifier = Modifier.size(20.dp)
+        )
+        Column {
+            Text(
+                text = client.name ?: stringResource(R.string.client_unnamed),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = listOfNotNull(client.ip, client.mac).joinToString(" \u00B7 "),
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = JetBrainsMono,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
         }
     }
 }

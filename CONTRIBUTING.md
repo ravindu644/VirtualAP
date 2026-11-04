@@ -100,7 +100,7 @@ Dialogs and sheets:
   square in a header row, for content that closes from the top.
 - `LogActionRow(logs, isBlocking, onClear)` in `ui/component/LogActionRow.kt`: the Clear and
   Copy row above a log console; `onClear = null` gives Copy alone.
-- The Wi-Fi QR sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
+- The Wi-Fi QR sheet, the connected devices sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
   dialog and the language picker to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 
 Bars, setup, feedback:
@@ -202,7 +202,7 @@ Engine (`src/`):
   the OpenWrt provisioning, the RPS masks).
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`).
 - `cmd/`: the commands the app calls, dispatched from `main.c`: `start` (`start` and
-  `stop`) and `status` (the read-only ones: `status`, `interfaces`, `caps`).
+  `stop`) and `status` (the read-only ones: `status`, `clients`, `interfaces`, `caps`).
 
 ## Opening a PR
 
