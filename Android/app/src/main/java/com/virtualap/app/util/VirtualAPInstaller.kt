@@ -102,6 +102,9 @@ object VirtualAPInstaller {
                 Exception(context.getString(R.string.setup_verify_failed))
             )
 
+            // Auto-start is optional; rooted phones without a module manager still use the AP.
+            installBootModule(context)
+
             // Record which payload is now deployed so future APK updates with
             // changed binaries can trigger a re-install.
             bundledPayloadVersion(context)?.let { PreferencesManager.payloadVersion = it }
@@ -110,6 +113,55 @@ object VirtualAPInstaller {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun installBootModule(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val files = listOf("module.prop", "service.sh", "install_module.sh").associateWith { name ->
+                val tmp = File(context.cacheDir, "virtualap-$name")
+                context.assets.open("bootmodule/$name").use { input ->
+                    tmp.outputStream().use { input.copyTo(it) }
+                }
+                tmp
+            }
+            val result = Shell.cmd(
+                "sh ${Backend.quote(files.getValue("install_module.sh").absolutePath)} " +
+                    "${Backend.quote(files.getValue("module.prop").absolutePath)} " +
+                    Backend.quote(files.getValue("service.sh").absolutePath)
+            ).exec()
+            files.values.forEach { it.delete() }
+            if (!result.isSuccess) return@withContext Result.failure(
+                Exception("Could not install VirtualAP boot module: ${result.out.joinToString("\n")}")
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun configureAutoStart(context: Context, config: APConfig, enabled: Boolean): Result<Unit> {
+        if (!enabled) return setBootMode(false)
+        if (!config.isValid()) return Result.failure(IllegalArgumentException("Invalid AP configuration"))
+        installBootModule(context).getOrElse { return Result.failure(it) }
+        if (!APManager.save(config)) return Result.failure(Exception("Could not save VirtualAP settings"))
+        return setBootMode(true)
+    }
+
+    suspend fun setBootMode(enabled: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val mode = if (enabled) "1" else "0"
+        val flag = "${Constants.BOOT_STATE_DIR}/.boot_mode"
+        val result = Shell.cmd(
+            "mkdir -p ${Backend.quote(Constants.BOOT_STATE_DIR)} && " +
+                "printf '%s\\n' $mode > ${Backend.quote(flag)} && " +
+                "chmod 755 ${Backend.quote(Constants.BOOT_STATE_DIR)} && chmod 666 ${Backend.quote(flag)}"
+        ).exec()
+        if (result.isSuccess) Result.success(Unit)
+        else Result.failure(Exception("Could not update VirtualAP boot mode: ${result.out.joinToString("\n")}"))
+    }
+
+    suspend fun bootModeEnabled(): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("cat ${Backend.quote("${Constants.BOOT_STATE_DIR}/.boot_mode")} 2>/dev/null || echo 0")
+            .exec().out.any { it.trim() == "1" }
     }
 
     private fun deployAsset(context: Context, assetPath: String, destPath: String, cacheDir: File): Exception? {

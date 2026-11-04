@@ -1,0 +1,6 @@
+id=virtualap
+name=VirtualAP Native Boot Service
+version=1.0.0
+versionCode=1
+author=VirtualAP
+description=Starts the saved VirtualAP access point during late boot.

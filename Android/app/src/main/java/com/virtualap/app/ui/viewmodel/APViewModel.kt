@@ -14,6 +14,7 @@ import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 
 class APViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,7 +45,14 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            snapshotFlow { config }.collect { prefs.apConfig = it }
+            snapshotFlow { config }.collect {
+                prefs.apConfig = it
+            }
+        }
+        viewModelScope.launch {
+            snapshotFlow { config }.debounce(500).collect {
+                if (prefs.rootAvailable) APManager.save(it)
+            }
         }
         // One parallel initial load, gate the UI on it so everything appears at
         // once (no status flicker, no late-popping container toggle).

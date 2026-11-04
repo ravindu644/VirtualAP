@@ -168,8 +168,9 @@ Shell, root and the backend:
 - `BackendLogger` and `classifyLine(line)` in `util/BackendLogger.kt`: the log sink the AP
   calls take, and the `[ERROR]`/`[WARN]` level tagging.
 - `PreferencesManager` with `apConfig` in `util/PreferencesManager.kt`: all settings; the
-  hotspot config is read and written whole. `Constants` in `util/Constants.kt`: every path
-  and preference key.
+  hotspot config is read and written whole. `VirtualAPInstaller` in `util/VirtualAPInstaller.kt`
+  deploys the backend and the Magisk/KernelSU boot module. `Constants` in
+  `util/Constants.kt`: every path and preference key.
 - `RootChecker.checkRootAccess(reprompt)` and `RootStatus` in `util/RootChecker.kt`;
   `VirtualAPInstaller.deviceArch/bundledPayloadVersion/payloadUpdateAvailable/install` in
   `util/VirtualAPInstaller.kt`; `QrCodeGenerator.wifiPayload/encode` in

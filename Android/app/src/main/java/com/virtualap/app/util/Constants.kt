@@ -2,6 +2,7 @@ package com.virtualap.app.util
 
 object Constants {
     const val VAP_DIR = "/data/local/virtualap"
+    const val BOOT_STATE_DIR = "/data/local/VirtualAP"
     /** The engine; Backend.startAp is how the app runs it. */
     const val ENGINE = "$VAP_DIR/bin/virtualap"
     /** Droidspaces' CLI, asked for its running containers; only ever run from
@@ -34,4 +35,5 @@ object Constants {
     const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
     const val KEY_HAS_SEEN_ROOT_CHECK = "has_seen_root_check"
     const val KEY_PAYLOAD_VERSION = "payload_version"
+    const val KEY_LEGACY_START_AT_BOOT = "start_at_boot"
 }
