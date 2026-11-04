@@ -102,7 +102,8 @@ object VirtualAPInstaller {
                 Exception(context.getString(R.string.setup_verify_failed))
             )
 
-            installBootModule(context).getOrElse { return@withContext Result.failure(it) }
+            // Auto-start is optional; rooted phones without a module manager still use the AP.
+            installBootModule(context)
 
             // Record which payload is now deployed so future APK updates with
             // changed binaries can trigger a re-install.

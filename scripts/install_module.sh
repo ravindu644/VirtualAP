@@ -2,6 +2,7 @@
 set -e
 
 MOD_PATH=/data/adb/modules/virtualap
+MODULES_DIR=/data/adb/modules
 STATE_DIR=/data/local/VirtualAP
 MODULE_PROP=${1:?module.prop path required}
 SERVICE=${2:?service.sh path required}
@@ -10,6 +11,10 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "VirtualAP module installation requires root." >&2
     exit 1
 fi
+[ -d "$MODULES_DIR" ] || {
+    echo "Magisk/KernelSU module directory not found: $MODULES_DIR" >&2
+    exit 1
+}
 [ -f "$MODULE_PROP" ] && [ -f "$SERVICE" ]
 
 rm -rf "$MOD_PATH"
