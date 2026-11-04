@@ -29,6 +29,10 @@ object PreferencesManager {
         get() = bool(Constants.KEY_HAS_SEEN_ROOT_CHECK, false)
         set(value) = prefs.edit { putBoolean(Constants.KEY_HAS_SEEN_ROOT_CHECK, value) }
 
+    var startAtBoot: Boolean
+        get() = bool(Constants.KEY_START_AT_BOOT, false)
+        set(value) = prefs.edit { putBoolean(Constants.KEY_START_AT_BOOT, value) }
+
     /** Hash of the static-binary payload last deployed (see VirtualAPInstaller). */
     var payloadVersion: String
         get() = str(Constants.KEY_PAYLOAD_VERSION, "")

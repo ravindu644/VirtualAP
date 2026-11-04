@@ -162,6 +162,9 @@
 
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
+    <string name="startup_header">Startup</string>
+    <string name="start_at_boot_label">Start access point at startup</string>
+    <string name="start_at_boot_desc">Start the saved access point after the phone restarts</string>
     <string name="appearance_header">Appearance</string>
     <string name="language">Language</string>
     <!-- The first choice in the language list: use the phone's language -->

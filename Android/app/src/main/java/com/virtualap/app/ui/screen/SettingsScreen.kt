@@ -82,6 +82,7 @@ fun SettingsScreen(
     // rememberThemeState() feeds them back into the theme, no restart needed.
     val prefs = PreferencesManager
     val themeState = rememberThemeState()
+    var startAtBoot by remember { mutableStateOf(prefs.startAtBoot) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var chosenLanguage by remember { mutableStateOf<String?>(null) }
@@ -170,6 +171,24 @@ fun SettingsScreen(
                         onPaletteSelected = { prefs.themePalette = it.name }
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(
+                text = stringResource(R.string.startup_header),
+                modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
+            )
+            SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
+                SwitchItem(
+                    icon = Icons.Default.BrightnessAuto,
+                    title = stringResource(R.string.start_at_boot_label),
+                    summary = stringResource(R.string.start_at_boot_desc),
+                    checked = startAtBoot,
+                    onCheckedChange = {
+                        startAtBoot = it
+                        prefs.startAtBoot = it
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
