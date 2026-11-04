@@ -8,7 +8,7 @@ name: VirtualAP CI
 # request).
 on:
   push:
-    branches: [ "run-at-start" ]
+    branches: [ "main" ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ "main" ]
