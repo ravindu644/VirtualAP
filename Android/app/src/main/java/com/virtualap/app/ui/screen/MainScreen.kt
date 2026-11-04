@@ -7,23 +7,29 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -36,17 +42,23 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.virtualap.app.R
+import com.virtualap.app.ui.component.BlockedList
+import com.virtualap.app.ui.component.Caption
 import com.virtualap.app.ui.component.CardContentPadding
 import com.virtualap.app.ui.component.CardHeaderHeight
 import com.virtualap.app.ui.component.DialogCloseButton
+import com.virtualap.app.ui.component.DeviceRow
+import com.virtualap.app.ui.component.DeviceSheet
 import com.virtualap.app.ui.component.DsDropdown
 import com.virtualap.app.ui.component.DsTextFieldDefaults
 import com.virtualap.app.ui.component.LogActionRow
 import com.virtualap.app.ui.component.PrimaryActionBottomBar
 import com.virtualap.app.ui.component.PullToRefreshWrapper
+import com.virtualap.app.ui.component.SectionHeader
 import com.virtualap.app.ui.component.StatusPill
 import com.virtualap.app.ui.component.TerminalConsole
 import com.virtualap.app.ui.component.ToggleCard
+import com.virtualap.app.ui.component.rememberDeviceAction
 import com.virtualap.app.ui.util.ClearFocusOnClickOutside
 import com.virtualap.app.ui.util.FullScreenLoading
 import com.virtualap.app.ui.util.LoadingIndicator
@@ -55,6 +67,8 @@ import com.virtualap.app.ui.theme.JetBrainsMono
 import com.virtualap.app.ui.viewmodel.APViewModel
 import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.AnimationUtils
+import com.virtualap.app.util.APManager
+import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.QrCodeGenerator
 import kotlinx.coroutines.delay
@@ -293,15 +307,6 @@ private fun SegmentedSelector(
             }
         }
     }
-}
-
-@Composable
-private fun Caption(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-    )
 }
 
 @Composable
@@ -673,6 +678,7 @@ private fun AdvancedCard(vm: APViewModel) {
 private fun ActiveNetworkCard(vm: APViewModel) {
     val status = vm.status
     var showQr by remember { mutableStateOf(false) }
+    var showClients by remember { mutableStateOf(false) }
     val cardShape = RoundedCornerShape(20.dp)
     val focusManager = LocalFocusManager.current
 
@@ -761,14 +767,24 @@ private fun ActiveNetworkCard(vm: APViewModel) {
 
             StatGrid(
                 left = {
-                    StatRow(Icons.Default.Devices, stringResource(R.string.clients_label), status.clients.toString())
+                    // With nobody connected there is nothing to open, so it is a plain stat.
+                    StatRow(
+                        Icons.Default.Devices,
+                        stringResource(R.string.clients_label),
+                        status.clients.toString(),
+                        Modifier.heightIn(min = 48.dp),
+                        onClick = if (status.clients > 0) ({ showClients = true }) else null,
+                        onClickLabel = stringResource(R.string.clients_show)
+                    )
                 },
                 right = {
+                    // The same height as Clients beside it, so the two stay on one line.
                     StatRow(
                         Icons.Default.Dns,
                         stringResource(R.string.dns_label),
                         if (bridged) status.container ?: stringResource(R.string.unknown)
-                        else status.dnsServers ?: stringResource(R.string.unknown)
+                        else status.dnsServers ?: stringResource(R.string.unknown),
+                        Modifier.heightIn(min = 48.dp)
                     )
                 }
             )
@@ -777,6 +793,9 @@ private fun ActiveNetworkCard(vm: APViewModel) {
 
     if (showQr) {
         WifiQrSheet(vm = vm, onDismiss = { showQr = false })
+    }
+    if (showClients) {
+        ClientsSheet(onDismiss = { showClients = false })
     }
 }
 
@@ -789,8 +808,27 @@ private fun StatGrid(left: @Composable ColumnScope.() -> Unit, right: @Composabl
 }
 
 @Composable
-private fun StatRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun StatRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null
+) {
+    Row(
+        // No padding and no background, so the icon stays under the ones above it.
+        modifier = if (onClick == null) modifier else modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                onClickLabel = onClickLabel,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -799,7 +837,92 @@ private fun StatRow(icon: ImageVector, label: String, value: String) {
         )
         Column {
             Caption(label)
-            Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (onClick != null) MaterialTheme.colorScheme.primary else Color.Unspecified
+                )
+                if (onClick != null) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClientsSheet(onDismiss: () -> Unit) {
+    var clients by remember { mutableStateOf<List<ApClient>?>(null) }
+    var blocked by remember { mutableStateOf<List<ApClient>?>(null) }
+    // A failed call keeps the rows it has rather than blanking them.
+    val reloadClients: suspend () -> Unit = { APManager.getClients()?.let { clients = it } }
+    val reloadBlocked: suspend () -> Unit = { APManager.getBlocked()?.let { blocked = it } }
+    val act = rememberDeviceAction {
+        reloadClients()
+        reloadBlocked()
+    }
+    LaunchedEffect(Unit) { reloadBlocked() }
+    // Asked again while open, not only when the count moves: a client is counted
+    // at its handshake, and its address and name come with the DHCP lease after.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                reloadClients()
+                delay(3000)
+            }
+        }
+    }
+
+    DeviceSheet(stringResource(R.string.clients_title), onDismiss) {
+        val list = clients
+        if (list == null) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                LoadingIndicator(size = LoadingSize.Medium, color = MaterialTheme.colorScheme.primary)
+            }
+            return@DeviceSheet
+        }
+        SectionHeader(
+            text = stringResource(R.string.devices_connected, list.size),
+            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+        )
+        // Blocking the last one leaves the sheet open with nobody here.
+        if (list.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Caption(stringResource(R.string.clients_empty))
+            }
+        }
+        list.forEachIndexed { i, client ->
+            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            DeviceRow(
+                client = client,
+                icon = Icons.Default.Devices,
+                iconTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                actionLabel = stringResource(R.string.device_block),
+                actionDescription = R.string.device_block_named,
+                actionColor = MaterialTheme.colorScheme.error,
+                onAction = { act { APManager.block(client.mac, client.name) } }
+            )
+        }
+        blocked?.let { devices ->
+            SectionHeader(
+                text = stringResource(R.string.devices_blocked, devices.size),
+                modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+            )
+            BlockedList(devices) { device -> act { APManager.unblock(device.mac) } }
         }
     }
 }

@@ -7,6 +7,10 @@
 
 #include "mode/mode.h"
 
+/* ap.c: Printable ASCII with no blanks, all a name may be before it reaches the
+ * app or a file of ours. */
+bool name_printable(const char *s);
+
 /* Android's local_network table, constant since Android 5. The AP subnet is
  * mirrored there so container replies (from Droidspaces' 172.28.0.0/16) hit
  * its rule 6095 instead of leaking out the WAN via 6100. */
@@ -30,6 +34,10 @@
 /* Droidspaces is only ever run from here, never looked up in PATH. The app's
  * copy is Constants.DROIDSPACES. */
 #define DROIDSPACES_BIN "/data/local/Droidspaces/bin/droidspaces"
+
+/* managed.c: ds_read_leases with the container's root as a path, and the
+ * filesystem the file must be on as statfs names it. */
+int leases_read_under(const char *root, long fs_type, char *buf, size_t size);
 
 /* ipv6.c: NAT66 the Droidspaces way: a private /64 on ap0, masqueraded out
  * of whatever the upstream is. Survives an upstream or prefix change

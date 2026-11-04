@@ -100,16 +100,50 @@ void v6disc_refresh(void);
 #define HOSTAPD_PID VAP_RUN "/hostapd.pid"
 #define HOSTAPD_CTRL VAP_RUN "/hostapd"
 
-/* hostapd's own station list (MediaTek's gen4m has no dump_station, so the
- * driver's is always empty there). 0 when hostapd does not answer within 1 s:
- * a hung hostapd must not stall the status the app polls every 3 s. */
+/* The stations in hostapd's own list that finished their handshake (MediaTek's
+ * gen4m has no dump_station, so the driver's is always empty there). A hostapd
+ * that does not answer within 1 s ends the count: a hung one must not stall the
+ * status the app polls every 3 s. */
 int hostapd_clients(void);
+/* The next station past `after` in that list that finished its handshake, NULL
+ * for the first; after and mac may be the same buffer. false at the end of the
+ * list, or with no hostapd. */
+bool hostapd_station(const char *after, char mac[18]);
+/* The address and hostname of mac from dnsmasq's lease file, which holds every
+ * lease of the last 12 hours, whoever is still here. Only a lease in gw's /24
+ * counts, the newest of them. "-" for whatever is not known. */
+void lease_find(const char *leases, const char *mac, const char *gw,
+                char ip[16], char name[64]);
+/* Correct ip from the kernel's ARP table: a device on a static address keeps
+ * the lease of the address it had. The lease stands while the table confirms
+ * it, or knows nothing else for mac in gw's /24. */
+void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]);
+
+/* blocklist.c: The devices the hotspot refuses, kept across starts. hostapd
+ * reads this same file as its deny_mac_file. */
+
+#define BLOCKLIST VAP_BASE "/blocklist"
+
+/* The colon form, the one hostapd reads, up to a blank or the end. */
+bool blocklist_mac(const char *s, char mac[18]);
+/* mac from blocklist_mac, name a label or NULL. Adding one that is listed
+ * replaces it, and any edit drops what hostapd could not read. 0, or -1 after
+ * logging why, with the file as it was. */
+int blocklist_add(const char *path, const char *mac, const char *name);
+int blocklist_del(const char *path, const char *mac);
+/* One "mac name" line per entry on stdout, "-" for no name. 0, or -1 after
+ * logging why. A list that is not there is empty. */
+int blocklist_print(const char *path);
+/* Tell a running hostapd: deny drops the device if it is connected. 0 with no
+ * hostapd running, -1 if it did not take it. */
+int hostapd_deny(const char *mac, bool deny);
 
 /* ap.c: dnsmasq: DHCP and DNS for the clients, and the IPv6 router
  * advertisements. */
 
 #define DNSMASQ_CONF VAP_RUN "/dnsmasq.conf"
 #define DNSMASQ_PID VAP_RUN "/dnsmasq.pid"
+#define DNSMASQ_LEASES VAP_RUN "/dnsmasq.leases"
 
 /* The router advertisement for the clients' IPv6, NULL for IPv4 only. */
 struct ra {
@@ -177,6 +211,9 @@ void routed_teardown(const struct vap_opts *o);
 /* The running container's init as `droidspaces -n name pid` reports it, 0
  * when it is not running. */
 pid_t ds_container_pid(const char *name);
+/* OpenWrt's /tmp/dhcp.leases from the container whose init is pid, cut to fit.
+ * Its length, or -1 with the file not there. */
+int ds_read_leases(pid_t pid, char *buf, size_t size);
 
 /* managed.c: Receive packet steering on the managed-mode veth. */
 

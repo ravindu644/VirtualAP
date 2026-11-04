@@ -17,7 +17,7 @@ import com.virtualap.app.R
  * of the blended surfaces the others get, and its own [swatch] colours.
  */
 enum class ThemePalette(
-    @StringRes val nameRes: Int,
+    @param:StringRes val nameRes: Int,
     val primaryLight: Color,
     val secondaryLight: Color,
     val tertiaryLight: Color,

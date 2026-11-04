@@ -5,4 +5,9 @@
         <item quantity="one">%1$d device connected</item>
         <item quantity="other">%1$d devices connected</item>
     </plurals>
+    <!-- Settings, under Blocked devices -->
+    <plurals name="blocked_count">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
+    </plurals>
 </resources>

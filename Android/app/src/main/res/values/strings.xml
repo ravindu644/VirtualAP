@@ -143,6 +143,27 @@
     <string name="upstream_managed_by">Managed by %1$s</string>
     <string name="interface_label">Interface</string>
     <string name="clients_label">Clients</string>
+    <!-- What tapping the number of clients does, read out by a screen reader -->
+    <string name="clients_show">Show connected devices</string>
+    <string name="clients_title">Devices</string>
+    <string name="clients_empty">No devices connected</string>
+    <!-- Section headers in the devices list, with how many -->
+    <string name="devices_connected">Connected (%1$d)</string>
+    <string name="devices_blocked">Blocked (%1$d)</string>
+    <string name="device_block">Block</string>
+    <string name="device_unblock">Unblock</string>
+    <!-- The same buttons read out by a screen reader, with the device's name -->
+    <string name="device_block_named">Block %1$s</string>
+    <string name="device_unblock_named">Unblock %1$s</string>
+    <string name="block_failed">Could not change the blocked devices</string>
+    <string name="hotspot_header">Hotspot</string>
+    <string name="blocked_title">Blocked devices</string>
+    <string name="blocked_none">None</string>
+    <string name="blocked_empty">Nobody is blocked</string>
+    <string name="blocked_unreadable">Could not read the blocked devices</string>
+    <string name="blocked_note">A block holds that MAC address only. A device that changes its MAC can join again, and a new password stops that.</string>
+    <!-- In the connected devices list, for a device that did not send a name -->
+    <string name="client_unnamed">Unnamed device</string>
     <string name="dns_label" translatable="false">DNS</string>
     <string name="qr_title">Wi-Fi QR code</string>
     <string name="qr_scan_hint">Scan with a phone camera to join</string>

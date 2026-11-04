@@ -16,6 +16,9 @@
  * Returns the exit code, -1 when it could not run or was killed. musl's
  * popen() runs /bin/sh, which Android does not have. */
 int run_capture(const char *const argv[], char *out, size_t size);
+/* run_capture that gives up after ms: SIGKILL, and -1. */
+int run_capture_within(const char *const argv[], char *out, size_t size,
+                       int ms);
 /* argv with stdout and stderr appended to log (a daemon's own log, so an error
  * it prints before daemonizing is kept). Exit code or -1. */
 int run_logged(const char *const argv[], const char *log);

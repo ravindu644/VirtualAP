@@ -3,7 +3,7 @@
 VirtualAP creates a virtual AP interface, `ap0`, on the phone's Wi-Fi chip, runs `hostapd`
 on it, and then works in one of two modes. Everything below is done by `virtualap`, a
 static C binary running as root, built from `src/`; the app only calls its commands
-(`start`, `stop`, `status`, `interfaces`, `caps`). It talks to the kernel directly over
+(`start`, `stop`, `status`, `clients`, `interfaces`, `caps`). It talks to the kernel directly over
 netlink (rtnetlink for links, addresses, routes and rules; nl80211 for the radio) and over
 the raw `ip_tables` socket. It spawns `hostapd` and `dnsmasq`, `iptables` for the TTL fix
 only, and, in managed mode, `droidspaces` to find the container and run the OpenWrt setup
@@ -191,9 +191,48 @@ coexistence scan, which FullMAC chips cannot run on an AP interface; the
 asserts the patch is present. If `hostapd` refuses 40 MHz on 2.4 GHz, the backend retries
 at 20.
 
+The fork also never tells `hostapd` that a driver has a MAC ACL, and the build asserts that
+too. A driver's ACL can hold fewer addresses than the list, and past that `hostapd` skips its
+own check while the driver holds nothing. So the MAC lists are checked in `hostapd` on every
+chip: a listed device associates for a moment and is removed before its handshake. Samsung's
+Broadcom builds compile their ACL out and gen4m has none, so they already work this way.
+Qualcomm's qcacld has one, so it is the driver this changes, and no qcacld phone has run it.
+
 MediaTek's gen4m driver has no `dump_station`, so the client count comes from `hostapd`'s
 own station list over its control socket, bound to an abstract address since Android has
 no `/tmp`, with a one second timeout so a hung `hostapd` cannot stall `status`.
+
+`clients` walks that same list and prints `mac ip name` for each station that finished its
+handshake, `-` for what is not known. The count in `status` is the same walk, so a device
+with the wrong password is in neither. The app asks
+only while its connected devices sheet is open, since managed mode spawns `droidspaces`, and
+that spawn has a five second limit because libsu runs one command at a time. The
+address and name come from the newest lease in the gateway's /24: our own `dnsmasq.leases`
+in routed mode, the container's `/tmp/dhcp.leases` in managed mode. That one is read through
+`/proc/<pid>/root`, since OpenWrt's `/tmp` is a tmpfs in the container's mount namespace, one
+component at a time and only as a regular file on a tmpfs, so a symlink, a FIFO or a bind
+mount the container left there is refused. A client that sends no hostname, or a container
+with no such file, leaves those fields `-`.
+
+A device on a static address keeps the lease of the address it had, so the kernel's ARP table
+corrects it: `/proc/net/arp` in routed mode, `/proc/<pid>/net/arp` in managed mode, where the
+clients' LAN ends in the container. A lease stands while the table confirms it or knows no
+other address for that MAC, and the table can give an address to a device with no lease. It
+only has a device that has sent something, and it marks a stale entry complete too, so a
+device can show an address it just left.
+
+`block <mac> [name]` adds a device to `/data/local/virtualap/blocklist`, and `unblock <mac>`
+takes it off; `blocked` prints `mac name` for each, `-` for no name. They are outside `ap.conf`
+because they are a list the app edits one entry at a time, not a setting a start passes. The
+file is `hostapd`'s own `deny_mac_file`, named in its config only when it exists, since
+`hostapd` will not start on a list it cannot open. A line is `mac #name`: `hostapd` reads what
+follows a MAC as a VLAN id through `atoi`, and `#` makes that 0, no VLAN. A hotspot that is
+running hears it over the control socket, and `DENY_ACL ADD_MAC` drops the device if it is
+connected. The app blocks from its devices sheet with no confirmation, because Unblock sits
+beside it, and lists them in Settings too, for when the hotspot is off. A block only holds that
+MAC, so a device that changes its own gets past it. A start
+rewrites the file first, logging and dropping any line it is not sure `hostapd` can read, and
+it holds about 400 devices.
 
 ## On the phone
 
@@ -204,6 +243,8 @@ Everything is under `/data/local/virtualap`:
 - `ap.conf`: the last flags the app passed, as `KEY='value'` lines, so a flag that is
   omitted keeps its saved value. It holds the Wi-Fi password, so it is readable by root
   only.
+- `blocklist`: the blocked devices, see [above](#the-radio). There is none until the first
+  `block`.
 - `run.state`: what the running AP needs torn down, the gateway, the upstream, the IPv6
   mode and interface and the sysctl values to restore. `status` keys "running" off it and
   the `hostapd` pid file; `stop` removes it before it exits.

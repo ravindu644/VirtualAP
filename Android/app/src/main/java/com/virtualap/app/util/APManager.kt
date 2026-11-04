@@ -24,6 +24,9 @@ data class APStatus(
 
 data class NetworkIface(val name: String, val ip: String?)
 
+/** A device on the hotspot. ip and name are null when the leases do not say. */
+data class ApClient(val mac: String, val ip: String?, val name: String?)
+
 
 object APManager {
     suspend fun getStatus(): APStatus = withContext(Dispatchers.IO) {
@@ -132,6 +135,37 @@ object APManager {
             .map { it.trim().split("=", limit = 2) }
             .filter { it.size == 2 }
             .associate { it[0] to it[1] }
+    }
+
+    /** The engine's `mac ip name` lines, "-" for what it does not know; null
+     *  when it could not be asked, which is not the same as nobody connected. */
+    suspend fun getClients(): List<ApClient>? = withContext(Dispatchers.IO) {
+        val result = Shell.cmd("${Backend.startAp} clients 2>/dev/null").exec()
+        if (!result.isSuccess) return@withContext null
+        result.out.mapNotNull { line ->
+            val parts = line.trim().split(" ")
+            if (parts.size != 3) null
+            else ApClient(parts[0], parts[1].takeIf { it != "-" }, parts[2].takeIf { it != "-" })
+        }
+    }
+
+    /** The engine's `mac name` lines, as a client with no address; null when it could not be asked. */
+    suspend fun getBlocked(): List<ApClient>? = withContext(Dispatchers.IO) {
+        val result = Shell.cmd("${Backend.startAp} blocked 2>/dev/null").exec()
+        if (!result.isSuccess) return@withContext null
+        result.out.mapNotNull { line ->
+            val parts = line.trim().split(" ")
+            if (parts.size != 2) null else ApClient(parts[0], null, parts[1].takeIf { it != "-" })
+        }
+    }
+
+    suspend fun block(mac: String, name: String?): Boolean = withContext(Dispatchers.IO) {
+        val label = name?.let { " " + Backend.quote(it) }.orEmpty()
+        Shell.cmd("${Backend.startAp} block ${Backend.quote(mac)}$label >/dev/null 2>&1").exec().isSuccess
+    }
+
+    suspend fun unblock(mac: String): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("${Backend.startAp} unblock ${Backend.quote(mac)} >/dev/null 2>&1").exec().isSuccess
     }
 
     suspend fun getInterfaces(): List<NetworkIface> = withContext(Dispatchers.IO) {

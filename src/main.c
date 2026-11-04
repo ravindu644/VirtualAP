@@ -15,8 +15,12 @@ static const struct command {
   const char *name;
   int (*fn)(struct vap_opts *);
 } commands[] = {
-    {"start", cmd_start},           {"save", cmd_save}, {"stop", cmd_stop}, {"status", cmd_status},
+
+    {"start", cmd_start},           {"save", cmd_save}, {"stop", cmd_stop},
+    {"status", cmd_status},         {"clients", cmd_clients},
     {"interfaces", cmd_interfaces}, {"caps", cmd_caps},
+    {"block", cmd_block},           {"unblock", cmd_unblock},
+    {"blocked", cmd_blocked},
 };
 
 int main(int argc, char **argv) {

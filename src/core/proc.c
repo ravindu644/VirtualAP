@@ -6,7 +6,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,7 +117,42 @@ int run_logged(const char *const argv[], const char *log) {
   return pid < 0 ? -1 : wait_exit(pid);
 }
 
+static long long now_ms(void) {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (long long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+
+/* wait_exit that kills pid at end. One stuck in the kernel cannot die yet, and
+ * the caller must not stay with it: it is left behind after a last 200 ms. */
+static int wait_until(pid_t pid, long long end) {
+  bool killed = false;
+  for (;;) {
+    int status;
+    pid_t r = waitpid(pid, &status, WNOHANG);
+    if (r == pid)
+      return !killed && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    if (r < 0 && errno != EINTR)
+      return -1;
+    if (now_ms() >= end) {
+      if (killed)
+        return -1;
+      kill(pid, SIGKILL);
+      killed = true;
+      end += 200;
+    }
+    struct timespec tick = {0, 10 * 1000 * 1000};
+    nanosleep(&tick, NULL);
+  }
+}
+
 int run_capture(const char *const argv[], char *out, size_t size) {
+  return run_capture_within(argv, out, size, -1);
+}
+
+int run_capture_within(const char *const argv[], char *out, size_t size,
+                       int ms) {
+  long long end = now_ms() + ms;
   int pfd[2];
   if (size == 0 || pipe2(pfd, O_CLOEXEC) < 0)
     return -1;
@@ -130,8 +167,17 @@ int run_capture(const char *const argv[], char *out, size_t size) {
   char drain[256];
   /* Read to EOF even past size, so a chatty child never blocks on a full
    * pipe while we wait for it. */
-  while ((r = read(pfd[0], total < size - 1 ? out + total : drain,
-                   total < size - 1 ? size - 1 - total : sizeof(drain))) != 0) {
+  for (;;) {
+    if (ms >= 0) {
+      struct pollfd p = {pfd[0], POLLIN, 0};
+      long long left = end - now_ms();
+      if (left <= 0 || poll(&p, 1, (int)left) <= 0)
+        break;
+    }
+    r = read(pfd[0], total < size - 1 ? out + total : drain,
+             total < size - 1 ? size - 1 - total : sizeof(drain));
+    if (r == 0)
+      break;
     if (r < 0) {
       if (errno == EINTR)
         continue;
@@ -144,7 +190,7 @@ int run_capture(const char *const argv[], char *out, size_t size) {
   out[total] = '\0';
   while (total > 0 && (out[total - 1] == '\n' || out[total - 1] == '\r'))
     out[--total] = '\0';
-  return wait_exit(pid);
+  return ms < 0 ? wait_exit(pid) : wait_until(pid, end);
 }
 
 /* The exe check is USB-Arsenal's ua_read_our_pid. */

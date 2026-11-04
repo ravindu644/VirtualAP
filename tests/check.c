@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../src/cli/internal.h"
@@ -174,12 +175,29 @@ static void test_rps(void) {
   CHECK(!strcmp(tiny, ""));
 }
 
+/* Android keeps sleep and echo in /system/bin, and has no /bin. */
+static void test_capture_limit(void) {
+  const char *dir = access("/bin/sleep", X_OK) == 0 ? "/bin" : "/system/bin";
+  char sleep_bin[32], echo_bin[32], out[32];
+  snprintf(sleep_bin, sizeof(sleep_bin), "%s/sleep", dir);
+  snprintf(echo_bin, sizeof(echo_bin), "%s/echo", dir);
+  const char *const slow[] = {sleep_bin, "30", NULL};
+  const char *const quick[] = {echo_bin, "hello", NULL};
+  time_t began = time(NULL);
+  CHECK(run_capture_within(slow, out, sizeof(out), 100) == -1);
+  CHECK(time(NULL) - began < 5);
+  CHECK(run_capture_within(quick, out, sizeof(out), 5000) == 0 &&
+        !strcmp(out, "hello"));
+  CHECK(run_capture(quick, out, sizeof(out)) == 0 && !strcmp(out, "hello"));
+}
+
 int main(void) {
   log_set_file(NULL);
   /* opts_parse reports to stdout; keep the run quiet unless a check fails. */
   if (!freopen("/dev/null", "w", stdout))
     return 1;
   test_ip4();
+  test_capture_limit();
   test_conf();
   test_opts();
   test_state();

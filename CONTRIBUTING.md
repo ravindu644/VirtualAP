@@ -100,7 +100,12 @@ Dialogs and sheets:
   square in a header row, for content that closes from the top.
 - `LogActionRow(logs, isBlocking, onClear)` in `ui/component/LogActionRow.kt`: the Clear and
   Copy row above a log console; `onClear = null` gives Copy alone.
-- The Wi-Fi QR sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
+- `DeviceRow`, `DeviceSheet(title, onDismiss, content)`, `BlockedList(list, onUnblock)`,
+  `BlockedDevicesSheet(blocked, onUnblock, onDismiss)` and `rememberDeviceAction(reload)` in
+  `ui/component/DeviceList.kt`: a device with its action, the sheet they sit in, the blocked
+  devices, and running a block or an unblock with the failure said out loud.
+- `Caption(text)` in `ui/component/Caption.kt`: a line of secondary text.
+- The Wi-Fi QR sheet, the devices sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
   dialog and the language picker to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 
 Bars, setup, feedback:
@@ -200,10 +205,12 @@ Engine (`src/`):
   `hostapd` and `dnsmasq`: their configs and starts, the client count), `routed` (with the
   pinned policy rules both families use), `ipv6` (`ipv6_decide`, setup, teardown, NAT66 and
   the shared /64 with its client discovery), `managed` (the Droidspaces container: its pid,
-  the OpenWrt provisioning, the RPS masks).
+  the OpenWrt provisioning, the RPS masks), `blocklist` (the blocked devices' file, which is
+  `hostapd`'s `deny_mac_file`, and telling a running `hostapd`).
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`).
 - `cmd/`: the commands the app calls, dispatched from `main.c`: `start` (`start` and
-  `stop`) and `status` (the read-only ones: `status`, `interfaces`, `caps`).
+  `stop`), `status` (the read-only ones: `status`, `clients`, `interfaces`, `caps`) and
+  `block` (`block`, `unblock`, `blocked`).
 
 ## Opening a PR
 

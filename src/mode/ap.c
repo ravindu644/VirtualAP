@@ -3,11 +3,15 @@
 #include "internal.h"
 #include "mode/mode.h"
 
+#include <ctype.h>
+#include <limits.h>
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -51,7 +55,7 @@ static void dnsmasq_body(FILE *f, const void *arg) {
             "enable-ra\ndhcp-range=%s,ra-only,%s64,12h\n"
             "dhcp-option=option6:dns-server,[%s]\n",
             c->ra->prefix, c->ra->off_link ? "off-link," : "", c->ra->dns);
-  fprintf(f, "dhcp-leasefile=%s/dnsmasq.leases\nno-resolv\n", VAP_RUN);
+  fprintf(f, "dhcp-leasefile=%s\nno-resolv\n", DNSMASQ_LEASES);
   csv_each(c->dns, server_line, f);
   fprintf(f, "no-hosts\npid-file=%s\nuser=root\nlog-facility=%s\nlog-dhcp\n",
           DNSMASQ_PID, VAP_DNSMASQ_LOG);
@@ -138,6 +142,9 @@ static void body(FILE *f, const void *arg) {
   else if (strcmp(o->security, "open"))
     wpa_block(f, o->password, "WPA-PSK", !strcmp(o->pmf, "1"));
   fprintf(f, "ignore_broadcast_ssid=%s\n", o->hidden);
+  /* Only when it is there: hostapd will not start on a list it cannot open. */
+  if (access(BLOCKLIST, R_OK) == 0)
+    fputs("deny_mac_file=" BLOCKLIST "\n", f);
 }
 
 int hostapd_write_conf(const char *path, const struct vap_opts *o,
@@ -167,6 +174,10 @@ static int try_once(void) {
 }
 
 int hostapd_start(const struct vap_opts *o, struct plan *p) {
+  /* A line hostapd cannot read stops it starting, with an error that blames the
+   * band. Only a hand edit could put one there; the rewrite logs what it drops. */
+  if (access(BLOCKLIST, F_OK) == 0 && blocklist_del(BLOCKLIST, "") < 0)
+    vap_warn("The blocklist may stop hostapd from starting.");
   for (;;) {
     if (hostapd_write_conf(HOSTAPD_CONF, o, p) < 0) {
       vap_error("Cannot write %s.", HOSTAPD_CONF);
@@ -194,13 +205,105 @@ int hostapd_start(const struct vap_opts *o, struct plan *p) {
 }
 
 int hostapd_clients(void) {
-  char reply[4096];
-  if (wpa_ctrl_request(HOSTAPD_CTRL "/" AP_IFACE, "STATUS", reply,
-                       sizeof(reply), 1000) <= 0)
-    return 0;
-  /* num_sta[0]= counts hostapd's sta_list, the list list_sta walks. */
-  const char *n = strstr(reply, "\nnum_sta[0]=");
-  return n ? atoi(n + 12) : 0;
+  /* Not STATUS's num_sta, which counts a device with the wrong password too.
+   * ponytail: a station leaving in the middle of this walk ends it short, for
+   * the one poll until the next; restart the walk on FAIL if that ever shows.
+   */
+  char mac[18];
+  int n = 0;
+  for (bool more = hostapd_station(NULL, mac); more;
+       more = hostapd_station(mac, mac))
+    n++;
+  return n;
+}
+
+bool hostapd_station(const char *after, char mac[18]) {
+  char cmd[32] = "STA-FIRST", reply[4096];
+  if (after)
+    snprintf(cmd, sizeof(cmd), "STA-NEXT %s", after);
+  /* The MAC is the reply's first line. An empty reply is the end of the list.
+   * FAIL is a station that left between two calls, and it ends the walk early;
+   * the count changed with it, so the app asks again. */
+  while (wpa_ctrl_request(HOSTAPD_CTRL "/" AP_IFACE, cmd, reply, sizeof(reply),
+                          1000) > 0 &&
+         mac_take(reply, mac)) {
+    /* hostapd lists a station from its association, so one with the wrong
+     * password is here too, with no [AUTHORIZED] and no keys. */
+    if (strstr(reply, "[AUTHORIZED]"))
+      return true;
+    snprintf(cmd, sizeof(cmd), "STA-NEXT %s", mac);
+  }
+  return false;
+}
+
+/* A /24 always, so the prefix up to the last dot is the subnet. */
+static bool on_gw_lan(const char *ip, const char *gw) {
+  const char *dot = strrchr(gw, '.');
+  return dot && valid_ip4(ip) && !strncmp(ip, gw, (size_t)(dot - gw) + 1);
+}
+
+bool name_printable(const char *s) {
+  for (; *s; s++)
+    if (!isgraph((unsigned char)*s))
+      return false;
+  return true;
+}
+
+void lease_find(const char *leases, const char *mac, const char *gw,
+                char ip[16], char name[64]) {
+  strcpy(ip, "-");
+  strcpy(name, "-");
+  long long newest = -1;
+  for (const char *l = leases, *nl; l; l = nl ? nl + 1 : NULL) {
+    nl = strchr(l, '\n');
+    /* One line at a time, or a short line borrows its fields from the next.
+     * The fields sit first, so a long client id cut off here costs nothing. */
+    char line[128], m[19], a[17], n[64];
+    long long expiry;
+    size_t len = strcspn(l, "\n");
+    if (len >= sizeof(line))
+      len = sizeof(line) - 1;
+    memcpy(line, l, len);
+    line[len] = '\0';
+    /* Each width is one past the longest good value, so a longer one fails the
+     * checks below instead of splitting into the next field. A lease this MAC
+     * still holds on another of the router's LANs must not show the wrong
+     * address. A client that changed its client id holds two here, the newer
+     * one is its own. */
+    if (sscanf(line, "%lld %18s %16s %63s", &expiry, m, a, n) != 4)
+      continue;
+    /* dnsmasq writes 0 for a lease that never expires. */
+    if (!expiry)
+      expiry = LLONG_MAX;
+    if (strcasecmp(m, mac) || !on_gw_lan(a, gw) || expiry <= newest)
+      continue;
+    newest = expiry;
+    strcpy(ip, a);
+    /* dnsmasq writes * for no hostname. In managed mode the container wrote
+     * this file, so nothing but printable ASCII reaches the app. */
+    strcpy(name, strcmp(n, "*") && name_printable(n) ? n : "-");
+  }
+}
+
+void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]) {
+  /* ponytail: /proc/net/arp marks a stale entry complete too, so a device can
+   * still show an address it just left; netlink's NUD state tells them apart,
+   * at the price of entering the container's namespace. */
+  char other[17] = "";
+  for (const char *l = arp, *nl; l; l = nl ? nl + 1 : NULL) {
+    nl = strchr(l, '\n');
+    char a[17], m[19];
+    unsigned flags;
+    if (sscanf(l, "%16s %*s %x %18s", a, &flags, m) != 3 ||
+        !(flags & ATF_COM) || strcasecmp(m, mac) || !on_gw_lan(a, gw))
+      continue;
+    if (!strcmp(a, ip))
+      return;
+    if (!*other)
+      strcpy(other, a);
+  }
+  if (*other)
+    strcpy(ip, other);
 }
 
 void ap_iface_del(void) {
