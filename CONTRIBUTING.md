@@ -51,6 +51,25 @@ The four rules are in AGENTS.md, Style. On top of them:
 
 Commits are signed off and prefixed as AGENTS.md, Commits, says.
 
+## Translations
+
+Translators work on Weblate, which commits to the `values-<lang>/` folders; a pull request
+touches only the English in `res/values/`. How the components are set up is in the
+Translations section of [How-It-Works.md](./Documentation/How-It-Works.md).
+
+Adding a string:
+
+- Put it in `strings.xml` under the comment for its screen, or in `plurals.xml` if a count
+  changes its wording. Kotlin reads it with `stringResource`, or `getString` outside
+  composition.
+- Placeholders are positional, `%1$s`, so a translation can reorder them. Say what each one
+  is in a comment directly above the string, which Weblate shows to the translator; do the
+  same for a short word that could mean two things.
+- One whole phrase per string. Never glue translated pieces together.
+- Paths, commands, preference keys and what the engine prints stay in code, in English. A
+  value in the file that no language changes, a product name or an example address, is
+  `translatable="false"`.
+
 ## Reuse inventory
 
 Grep this list before you write anything new. If something close exists, extend it rather

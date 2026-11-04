@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
@@ -59,7 +60,7 @@ fun LogActionRow(
             LogActionButton(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Delete,
-                label = context.getString(R.string.clear_logs),
+                label = stringResource(R.string.clear_logs),
                 enabled = canAct,
                 fill = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
                 accent = MaterialTheme.colorScheme.error.copy(alpha = 0.4f),
@@ -70,7 +71,7 @@ fun LogActionRow(
         LogActionButton(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.ContentCopy,
-            label = context.getString(R.string.copy_logs),
+            label = stringResource(R.string.copy_logs),
             enabled = canAct,
             fill = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
             accent = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),

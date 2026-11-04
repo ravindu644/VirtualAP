@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -58,11 +59,12 @@ fun ColorPaletteSwatch(
     )
 
     val interactionSource = remember { MutableInteractionSource() }
+    val name = stringResource(palette.nameRes)
 
     Canvas(
         modifier = modifier
             .size(52.dp)
-            .semantics { contentDescription = palette.displayName }
+            .semantics { contentDescription = name }
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(bounded = false, radius = 30.dp),

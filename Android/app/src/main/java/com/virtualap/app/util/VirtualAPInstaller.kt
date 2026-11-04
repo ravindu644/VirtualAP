@@ -2,6 +2,7 @@ package com.virtualap.app.util
 
 import android.content.Context
 import android.os.Build
+import com.virtualap.app.R
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -88,7 +89,7 @@ object VirtualAPInstaller {
             val binaries = bundledBinaries(context)
             if (binaries.isEmpty())
                 return@withContext Result.failure(
-                    Exception("No binaries found in assets/bin/$arch/. Run scripts/build-static.sh and rebuild the APK.")
+                    Exception(context.getString(R.string.setup_no_binaries, arch))
                 )
             for (name in binaries) {
                 deployAsset(context, "bin/$arch/$name", "${Constants.VAP_DIR}/bin/$name", cacheDir)
@@ -98,7 +99,7 @@ object VirtualAPInstaller {
 
             // Step 3: Verify every binary is in place and executable.
             if (!APManager.isInstalled()) return@withContext Result.failure(
-                Exception("Verification failed: a binary is missing or not executable after install")
+                Exception(context.getString(R.string.setup_verify_failed))
             )
 
             // Record which payload is now deployed so future APK updates with
@@ -124,7 +125,7 @@ object VirtualAPInstaller {
             val copyResult = Shell.cmd("rm -f $dest && cp ${Backend.quote(tmpFile.absolutePath)} $dest 2>&1").exec()
             tmpFile.delete()
             // FLAG_REDIRECT_STDERR sends stderr to .out - .err is always empty.
-            if (!copyResult.isSuccess) Exception("Failed to deploy $assetPath: ${copyResult.out.joinToString("\n")}")
+            if (!copyResult.isSuccess) Exception(context.getString(R.string.setup_deploy_failed, assetPath, copyResult.out.joinToString("\n")))
             else null
         } catch (e: Exception) {
             e

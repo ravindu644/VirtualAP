@@ -163,6 +163,9 @@ is a bug, not a shortcut.
 - `Constants` holds every path and preference key on the app side, the engine's
   (`Constants.ENGINE`) included. `VirtualAPInstaller` deploys the binaries; it is not
   duplicated elsewhere.
+- No text in Kotlin. Every string the app shows is in `res/values/strings.xml` or
+  `plurals.xml`, read with `stringResource`, or `getString` outside composition, so Weblate
+  can translate it. The rules are in [CONTRIBUTING.md](./CONTRIBUTING.md), Translations.
 
 ## Hard constraints
 

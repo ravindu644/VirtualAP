@@ -49,7 +49,7 @@ fun AccentColorPicker(
             },
             supportingContent = {
                 Text(
-                    text = selectedPalette.displayName,
+                    text = stringResource(selectedPalette.nameRes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

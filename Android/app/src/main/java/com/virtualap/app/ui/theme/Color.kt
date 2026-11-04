@@ -1,9 +1,11 @@
 package com.virtualap.app.ui.theme
 
+import androidx.annotation.StringRes
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
+import com.virtualap.app.R
 
 /**
  * Pre-defined accent color palettes for the app, mimicking Android's
@@ -15,7 +17,7 @@ import androidx.compose.ui.graphics.Color
  * of the blended surfaces the others get, and its own [swatch] colours.
  */
 enum class ThemePalette(
-    val displayName: String,
+    @StringRes val nameRes: Int,
     val primaryLight: Color,
     val secondaryLight: Color,
     val tertiaryLight: Color,
@@ -33,7 +35,7 @@ enum class ThemePalette(
     // The Material You scheme One UI built from a green wallpaper, seed #8CB496 in the
     // Tonal Spot style, read off the phone's system_* colour resources
     BROCCOLI(
-        displayName = "Broccoli",
+        nameRes = R.string.palette_broccoli,
         swatch = listOf(Color(0xFF35C278), Color(0xFF7AB98E), Color(0xFF2EBAD8)),
         fixedLight = lightColorScheme(
             primary = Color(0xFF2D6A45), onPrimary = Color(0xFFFFFFFF),
@@ -75,7 +77,7 @@ enum class ThemePalette(
     // The Material You scheme One UI built from a gold wallpaper, seed #CFA369 in the
     // Tonal Spot style, read off the phone's system_* colour resources
     SAND(
-        displayName = "Sand",
+        nameRes = R.string.palette_sand,
         swatch = listOf(Color(0xFFEA9A00), Color(0xFFD7A157), Color(0xFF8BB85D)),
         fixedLight = lightColorScheme(
             primary = Color(0xFF805611), onPrimary = Color(0xFFFFFFFF),
@@ -117,7 +119,7 @@ enum class ThemePalette(
     // One UI's default theme with no wallpaper palette applied, at the lowest contrast
     // level, read off the phone's system_* colour resources
     ONE_UI(
-        displayName = "One UI",
+        nameRes = R.string.palette_one_ui,
         swatch = listOf(Color(0xFF86A9FF), Color(0xFF96AAE4), Color(0xFFDB92DD)),
         fixedLight = lightColorScheme(
             primary = Color(0xFF2A4174), onPrimary = Color(0xFFFFFFFF),
@@ -161,7 +163,7 @@ enum class ThemePalette(
     // chroma, so the containers land on the GNOME tile blue; Tonal Spot would mute it into
     // a near copy of One UI.
     FEDORA(
-        displayName = "Fedora",
+        nameRes = R.string.palette_fedora,
         swatch = listOf(Color(0xFF75ADFF), Color(0xFF8CACE2), Color(0xFFD594E4)),
         fixedLight = lightColorScheme(
             primary = Color(0xFF005CAE), onPrimary = Color(0xFFFFFFFF),
@@ -201,7 +203,7 @@ enum class ThemePalette(
         ),
     ),
     CATPPUCCIN(
-        displayName = "Catppuccin",
+        nameRes = R.string.palette_catppuccin,
         primaryLight = Color(0xFF8AADF4),   // Blue
         secondaryLight = Color(0xFFB7BDF8), // Lavender
         tertiaryLight = Color(0xFFA6DA95),  // Green
@@ -210,7 +212,7 @@ enum class ThemePalette(
         tertiaryDark = Color(0xFFA6DA95)    // Green
     ),
     OCEAN(
-        displayName = "Ocean",
+        nameRes = R.string.palette_ocean,
         primaryLight = Color(0xFF0277BD),   // Deep Blue
         secondaryLight = Color(0xFF00ACC1), // Cyan
         tertiaryLight = Color(0xFF26A69A),  // Teal
@@ -219,7 +221,7 @@ enum class ThemePalette(
         tertiaryDark = Color(0xFF80CBC4)    // Light Teal
     ),
     FOREST(
-        displayName = "Forest",
+        nameRes = R.string.palette_forest,
         primaryLight = Color(0xFF2E7D32),   // Deep Green
         secondaryLight = Color(0xFF558B2F), // Olive Green
         tertiaryLight = Color(0xFF8D6E63),  // Brown
@@ -228,7 +230,7 @@ enum class ThemePalette(
         tertiaryDark = Color(0xFFBCAAA4)    // Light Brown
     ),
     SUNSET(
-        displayName = "Sunset",
+        nameRes = R.string.palette_sunset,
         primaryLight = Color(0xFFD84315),   // Deep Orange
         secondaryLight = Color(0xFFF4511E), // Orange-Red
         tertiaryLight = Color(0xFFFFB300),  // Amber
@@ -237,7 +239,7 @@ enum class ThemePalette(
         tertiaryDark = Color(0xFFFFD54F)    // Light Amber
     ),
     AMETHYST(
-        displayName = "Amethyst",
+        nameRes = R.string.palette_amethyst,
         primaryLight = Color(0xFF6A1B9A),   // Deep Purple
         secondaryLight = Color(0xFF8E24AA), // Purple
         tertiaryLight = Color(0xFFAD1457),  // Deep Pink
@@ -246,7 +248,7 @@ enum class ThemePalette(
         tertiaryDark = Color(0xFFF48FB1)    // Light Pink
     ),
     SAKURA(
-        displayName = "Sakura",
+        nameRes = R.string.palette_sakura,
         primaryLight = Color(0xFFD81B60),   // Pink
         secondaryLight = Color(0xFFEC407A), // Rose
         tertiaryLight = Color(0xFF7E57C2),  // Violet
@@ -256,8 +258,8 @@ enum class ThemePalette(
     );
 
     /** A palette read off a real Material You scheme: its accents are the scheme's own. */
-    constructor(displayName: String, swatch: List<Color>, fixedLight: ColorScheme, fixedDark: ColorScheme) : this(
-        displayName,
+    constructor(@StringRes nameRes: Int, swatch: List<Color>, fixedLight: ColorScheme, fixedDark: ColorScheme) : this(
+        nameRes,
         fixedLight.primary, fixedLight.secondary, fixedLight.tertiary,
         fixedDark.primary, fixedDark.secondary, fixedDark.tertiary,
         fixedLight, fixedDark, swatch

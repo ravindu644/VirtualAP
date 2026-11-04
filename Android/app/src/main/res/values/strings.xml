@@ -1,33 +1,166 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VirtualAP</string>
-    <string name="root_check_body">VirtualAP needs root access to create virtual network interfaces and manage the AP.</string>
-    <string name="root_denied">Root access denied</string>
-    <string name="setup_title">Setting Up VirtualAP</string>
+    <!-- The product name and the maintainer's handle are never translated -->
+    <string name="app_name" translatable="false">VirtualAP</string>
+    <string name="maintainer_name" translatable="false">ravindu644</string>
 
-    <!-- Welcome pager -->
+    <!-- Tagline, on the welcome screen and in Settings -->
+    <string name="app_subtitle">Your phone, an actual router</string>
+    <!-- A value nothing could read, such as a band or a container's name -->
+    <string name="unknown">Unknown</string>
+    <!-- Close button of a sheet or dialog, read out by a screen reader -->
+    <string name="close">Close</string>
+    <!-- The back arrow, read out by a screen reader -->
+    <string name="back">Back</string>
+
+    <!-- Welcome pager, shown once on first launch -->
     <string name="welcome_body">A real access point on your phone\'s Wi-Fi chip, run by hostapd and dnsmasq. The same software a Linux router runs, on the phone\'s own kernel.</string>
     <string name="get_started">Get started</string>
     <string name="next">Next</string>
+    <!-- Which page of the pager this is: %1$d is the page, %2$d how many there are -->
     <string name="page_counter">%1$d of %2$d</string>
     <string name="feat_upstream_title">Share any connection</string>
     <string name="feat_upstream_desc">Mobile data, Wi-Fi or a VPN. Your devices leave through the upstream you pick, or follow whatever network the phone is using.</string>
+    <!-- OpenWrt and LuCI are product names, Droidspaces is the container app -->
     <string name="feat_openwrt_title">OpenWrt as the router</string>
     <string name="feat_openwrt_desc">Hand the hotspot to an OpenWrt container in Droidspaces. Firewall zones, port forwards, per-device limits and LuCI, all on the phone.</string>
     <string name="feat_radio_title">Tune the radio</string>
     <string name="feat_radio_desc">2.4 or 5 GHz, channel and width, WPA2 or WPA3, a hidden name and a fixed gateway, so saved addresses keep working.</string>
+
+    <!-- Root check screen -->
+    <string name="checking_root">Checking root access…</string>
+    <string name="root_access_title">Root access</string>
+    <string name="root_access_body">VirtualAP needs root to create the virtual interface and run the access point. Your root manager will ask you to allow it.</string>
+    <string name="root_check_body">VirtualAP needs root access to create virtual network interfaces and manage the AP.</string>
+    <string name="root_denied">Root access denied</string>
+    <string name="grant_root">Grant root access</string>
+    <string name="check_root_again">Check again</string>
+
+    <!-- Install screen, deploys the app's binaries to the phone -->
+    <string name="setup_title">Setting Up VirtualAP</string>
+    <string name="setup_installing_body">Deploying the static binaries. This takes a moment.</string>
+    <string name="installation_complete">Installation Complete</string>
+    <string name="setup_done_body">The backend is in place.</string>
+    <string name="installation_failed">Installation Failed</string>
     <string name="done">Done</string>
     <string name="retry">Retry</string>
+    <!-- A broken build, seen only by whoever built the APK -->
+    <string name="setup_no_binaries" translatable="false">No binaries found in assets/bin/%1$s/. Run scripts/build-static.sh and rebuild the APK.</string>
+    <string name="setup_verify_failed">Verification failed: a binary is missing or not executable after install</string>
+    <!-- %1$s is the file, %2$s what the copy command printed -->
+    <string name="setup_deploy_failed">Failed to deploy %1$s: %2$s</string>
+
+    <!-- Main screen: the Start and Stop button -->
+    <string name="start_ap">Start Access Point</string>
+    <string name="stop_ap">Stop Access Point</string>
+    <!-- Also the Quick Settings tile's subtitle while the access point starts -->
+    <string name="starting">Starting…</string>
+    <!-- Also the Quick Settings tile's subtitle while the access point stops -->
+    <string name="stopping">Stopping…</string>
+    <string name="enter_ssid_prompt">Enter a network name to get started</string>
+
+    <!-- Main screen: the Access Point card. SSID is the Wi-Fi term for a network's name -->
+    <string name="access_point_title">Access Point</string>
+    <string name="ssid_label">Network Name (SSID)</string>
+    <string name="password_label">Password (8-63 chars)</string>
+    <string name="password_length_error">Must be 8-63 characters</string>
+    <string name="hide_password_desc">Hide password</string>
+    <string name="show_password_desc">Show password</string>
+    <string name="band_label">Band</string>
+    <string name="channel_label">Channel</string>
+    <!-- Automatic: the app picks the channel, the width or the upstream -->
+    <string name="auto_label">Auto</string>
+    <string name="width_label">Channel Width</string>
+    <string name="security_label">Security</string>
+    <!-- A Wi-Fi network with no password -->
+    <string name="security_open">Open</string>
+    <!-- WPA2 and WPA3 are the standards' names; Personal is the password-based variant -->
+    <string name="security_wpa2">WPA2-Personal</string>
+    <string name="security_wpa2_wpa3">WPA2/WPA3-Personal</string>
+    <string name="security_wpa3">WPA3-Personal</string>
+    <string name="security_wpa3_hint">WPA3 may not work on every device. Some phones bring up the hotspot but clients fail to connect or get no IP, and older client devices may not join at all. Use WPA2-Personal for the best compatibility.</string>
+    <string name="band_2ghz">2.4 GHz</string>
+    <string name="band_5ghz">5 GHz</string>
+    <string name="width_20">20 MHz</string>
+    <string name="width_40">40 MHz</string>
+    <string name="width_80">80 MHz</string>
+
+    <!-- Main screen: the Upstream card. The upstream is the connection the hotspot's clients reach the internet through -->
+    <string name="upstream_card_title">Upstream</string>
+    <!-- A network interface of the phone, such as wlan0 or rmnet0 -->
+    <string name="upstream_interface_label">Upstream Interface</string>
+    <string name="upstream_auto">Auto (recommended)</string>
+    <!-- A running Droidspaces container -->
+    <string name="container_label">Container</string>
+    <string name="container_upstream_desc">This Droidspaces container manages DHCP, DNS and NAT for the hotspot.</string>
+    <string name="interface_upstream_desc">VirtualAP handles DHCP, DNS and NAT over this interface.</string>
+
+    <!-- Main screen: the Advanced card -->
+    <string name="advanced_settings_title">Advanced</string>
+    <string name="hidden_ssid_label">Hide SSID</string>
+    <string name="hidden_ssid_desc">Don\'t broadcast the network name, clients connect manually</string>
+    <string name="pmf_label">Protected Management Frames</string>
+    <string name="pmf_desc">Adds 802.11w protection to WPA2. Leave off if older devices fail to connect</string>
+    <!-- TTL is the IP header field, keep the abbreviation -->
+    <string name="ttl_fix_label">TTL fix</string>
+    <string name="ttl_fix_desc">Send clients\' traffic with the same TTL as the phone\'s own, so the operator cannot tell it is tethered</string>
+    <string name="ttl_fix_unsupported">Not supported by this kernel</string>
+    <string name="ipv6_label" translatable="false">IPv6</string>
+    <string name="ipv6_desc">Give clients IPv6 when the upstream has it. NAT66 on a private prefix where the kernel supports it, the upstream\'s own /64 otherwise</string>
+    <string name="gateway_mac_label">Gateway MAC</string>
+    <!-- Gateway MAC, a new random address on every start -->
+    <string name="mac_mode_random">Random every start</string>
+    <!-- Gateway MAC, an address picked at random one time and then kept -->
+    <string name="mac_mode_persistent">Random once</string>
+    <!-- Gateway MAC, an address that does not change -->
+    <string name="mac_mode_static">Static MAC</string>
+    <string name="mac_address_label">MAC address</string>
+    <string name="mac_random_desc">A new one on every start, so connected devices see a new network each time. Shown here while the hotspot runs</string>
+    <string name="mac_persistent_desc">Picked at random once and kept. You can type your own</string>
+    <string name="mac_static_desc">Starts as this phone\'s own Wi-Fi MAC. You can type your own</string>
+    <string name="mac_static_unknown">Could not read this phone\'s Wi-Fi MAC, enter one</string>
+    <string name="mac_error">Enter a unicast MAC, e.g. 02:1a:2b:3c:4d:5e</string>
+    <string name="gateway_ip_label">Gateway IP</string>
+    <string name="gateway_ip_desc">Leave blank to use the default (192.168.42.1)</string>
+    <string name="gateway_ip_placeholder" translatable="false">192.168.42.1</string>
+    <string name="gateway_ip_error">Enter a valid IPv4 address (e.g. 192.168.42.1)</string>
+    <string name="dns_servers_label">DNS Servers</string>
+    <string name="dns_servers_desc">Upstream DNS servers (comma-separated). Blank means 1.1.1.1 and 8.8.8.8.</string>
+    <string name="dns_servers_placeholder">e.g. 1.1.1.1, 8.8.8.8</string>
+    <string name="dns_servers_error">Enter valid IPv4 addresses separated by commas</string>
+
+    <!-- Main screen: the card of a running access point. Shown in capitals on a small status chip -->
+    <string name="status_running">Running</string>
+    <!-- When the access point came up. %1$s is the date and time the engine prints, such as 2026-11-04 14:05:33 -->
+    <string name="since_time">Since %1$s</string>
+    <!-- Beside the band, short for channel. %1$s is its number -->
+    <string name="channel_short">ch %1$s</string>
+    <!-- Beside the band. %1$s is the channel width -->
+    <string name="width_mhz">%1$s MHz</string>
+    <string name="gateway_label">Gateway</string>
+    <string name="upstream_label">Upstream</string>
+    <!-- Where the upstream would be, when a container runs the network. %1$s is the container's name -->
+    <string name="upstream_managed_by">Managed by %1$s</string>
+    <string name="interface_label">Interface</string>
+    <string name="clients_label">Clients</string>
+    <string name="dns_label" translatable="false">DNS</string>
+    <string name="qr_title">Wi-Fi QR code</string>
+    <string name="qr_scan_hint">Scan with a phone camera to join</string>
+
+    <!-- Logs: the sheet and its buttons. The log lines themselves come from the engine, in English -->
+    <string name="view_logs">View Logs</string>
+    <string name="logs_title">Logs</string>
+    <string name="running_log_title">Running…</string>
+    <string name="no_logs_msg">No log output yet.</string>
+    <!-- The label Android keeps with the copied log on the clipboard -->
+    <string name="terminal_logs">Terminal Logs</string>
     <string name="copy_logs">Copy Logs</string>
     <string name="logs_copied">Logs copied to clipboard</string>
     <string name="clear_logs">Clear logs</string>
-    <string name="terminal_logs">Terminal Logs</string>
-    <string name="close">Close</string>
-    <string name="back">Back</string>
-    <string name="start_ap">Start Access Point</string>
-    <string name="stop_ap">Stop Access Point</string>
+    <!-- Added to the log when a command fails without saying why. English, as the rest of the log -->
+    <string name="command_failed" translatable="false">Command exited with an error</string>
 
-    <!-- Settings Screen -->
+    <!-- Settings screen -->
     <string name="settings_title">Settings</string>
     <string name="appearance_header">Appearance</string>
     <string name="follow_system_theme_label">Follow system theme</string>
@@ -39,119 +172,28 @@
     <string name="dynamic_color_label">Dynamic color</string>
     <string name="dynamic_color_desc">Derive colors from your wallpaper (Material You)</string>
     <string name="color_palette_header">Color palette</string>
+    <!-- Names of the accent colour palettes -->
+    <string name="palette_broccoli">Broccoli</string>
+    <string name="palette_sand">Sand</string>
+    <string name="palette_ocean">Ocean</string>
+    <string name="palette_forest">Forest</string>
+    <string name="palette_sunset">Sunset</string>
+    <string name="palette_amethyst">Amethyst</string>
+    <string name="palette_sakura">Sakura</string>
+    <string name="palette_one_ui" translatable="false">One UI</string>
+    <string name="palette_fedora" translatable="false">Fedora</string>
+    <string name="palette_catppuccin" translatable="false">Catppuccin</string>
 
-    <!-- Main Screen -->
-    <string name="app_subtitle">Your phone, an actual router</string>
-    <string name="status_running">Running</string>
-    <string name="access_point_title">Access Point</string>
-    <string name="ssid_label">Network Name (SSID)</string>
-    <string name="password_label">Password (8-63 chars)</string>
-    <string name="password_length_error">Must be 8-63 characters</string>
-    <string name="hide_password_desc">Hide password</string>
-    <string name="show_password_desc">Show password</string>
-    <string name="band_label">Band</string>
-    <string name="channel_label">Channel</string>
-    <string name="width_label">Channel Width</string>
-    <string name="security_label">Security</string>
-    <string name="security_wpa3_hint">WPA3 may not work on every device. Some phones bring up the hotspot but clients fail to connect or get no IP, and older client devices may not join at all. Use WPA2-Personal for the best compatibility.</string>
-    <string name="upstream_interface_label">Upstream Interface</string>
-    <string name="upstream_auto">Auto (recommended)</string>
-    <string name="upstream_card_title">Upstream</string>
-    <string name="container_label">Container</string>
-    <string name="container_upstream_desc">This Droidspaces container manages DHCP, DNS and NAT for the hotspot.</string>
-    <string name="interface_upstream_desc">VirtualAP handles DHCP, DNS and NAT over this interface.</string>
-    <string name="starting">Starting…</string>
-    <string name="stopping">Stopping…</string>
-    <string name="view_logs">View Logs</string>
-    <string name="enter_ssid_prompt">Enter a network name to get started</string>
-    <string name="since_time">Since %s</string>
-    <string name="gateway_label">Gateway</string>
-    <string name="upstream_label">Upstream</string>
-    <string name="interface_label">Interface</string>
-    <string name="running_log_title">Running…</string>
-    <string name="logs_title">Logs</string>
-    <string name="no_logs_msg">No log output yet.</string>
-
-    <!-- Setup Screen -->
-    <string name="installation_complete">Installation Complete</string>
-    <string name="installation_failed">Installation Failed</string>
-    <string name="setup_installing_body">Deploying the static binaries. This takes a moment.</string>
-    <string name="setup_done_body">The backend is in place.</string>
-
-    <!-- Root Check Screen -->
-    <string name="checking_root">Checking root access…</string>
-    <string name="root_access_title">Root access</string>
-    <string name="root_access_body">VirtualAP needs root to create the virtual interface and run the access point. Your root manager will ask you to allow it.</string>
-    <string name="grant_root">Grant root access</string>
-    <string name="check_root_again">Check again</string>
-    <string name="auto_label">Auto</string>
-
-    <!-- About Section -->
+    <!-- Settings screen: About -->
     <string name="about_header">About</string>
     <string name="about_virtualap">About VirtualAP</string>
     <string name="about_description">Turn your rooted Android phone into a real wireless access point, powered by fully-static hostapd and dnsmasq binaries that run directly on Android.</string>
     <string name="maintainer_header">Maintainer</string>
-    <string name="maintainer_name">ravindu644</string>
     <string name="maintainer_role">Maintainer</string>
     <string name="source_code">Source Code</string>
-    <string name="unknown">Unknown</string>
 
-    <!-- Hotspot Settings / Advanced -->
-    <string name="advanced_settings_title">Advanced</string>
-    <string name="hidden_ssid_label">Hide SSID</string>
-    <string name="hidden_ssid_desc">Don\'t broadcast the network name, clients connect manually</string>
-    <string name="pmf_label">Protected Management Frames</string>
-    <string name="pmf_desc">Adds 802.11w protection to WPA2. Leave off if older devices fail to connect</string>
-    <string name="ttl_fix_label">TTL fix</string>
-    <string name="ttl_fix_desc">Send clients\' traffic with the same TTL as the phone\'s own, so the operator cannot tell it is tethered</string>
-    <string name="ttl_fix_unsupported">Not supported by this kernel</string>
-    <string name="ipv6_label">IPv6</string>
-    <string name="ipv6_desc">Give clients IPv6 when the upstream has it. NAT66 on a private prefix where the kernel supports it, the upstream\'s own /64 otherwise</string>
-    <string name="gateway_mac_label">Gateway MAC</string>
-    <string name="mac_mode_random">Random every start</string>
-    <string name="mac_mode_persistent">Random once</string>
-    <string name="mac_mode_static">Static MAC</string>
-    <string name="mac_address_label">MAC address</string>
-    <string name="mac_random_desc">A new one on every start, so connected devices see a new network each time. Shown here while the hotspot runs</string>
-    <string name="mac_persistent_desc">Picked at random once and kept. You can type your own</string>
-    <string name="mac_static_desc">Starts as this phone\'s own Wi-Fi MAC. You can type your own</string>
-    <string name="mac_static_unknown">Could not read this phone\'s Wi-Fi MAC, enter one</string>
-    <string name="mac_error">Enter a unicast MAC, e.g. 02:1a:2b:3c:4d:5e</string>
-    <string name="gateway_ip_label">Gateway IP</string>
-    <string name="gateway_ip_desc">Leave blank to use the default (192.168.42.1)</string>
-    <string name="gateway_ip_placeholder">192.168.42.1</string>
-    <string name="gateway_ip_error">Enter a valid IPv4 address (e.g. 192.168.42.1)</string>
-    <string name="dns_servers_label">DNS Servers</string>
-    <string name="dns_servers_desc">Upstream DNS servers (comma-separated). Blank means 1.1.1.1 and 8.8.8.8.</string>
-    <string name="dns_servers_placeholder">e.g. 1.1.1.1, 8.8.8.8</string>
-    <string name="dns_servers_error">Enter valid IPv4 addresses separated by commas</string>
-
-    <!-- Wi-Fi QR sheet -->
-    <string name="qr_title">Wi-Fi QR code</string>
-    <string name="qr_scan_hint">Scan with a phone camera to join</string>
-
-    <!-- Backend option labels -->
-    <string name="security_open">Open</string>
-    <string name="security_wpa2">WPA2-Personal</string>
-    <string name="security_wpa2_wpa3">WPA2/WPA3-Personal</string>
-    <string name="security_wpa3">WPA3-Personal</string>
-    <string name="band_2ghz">2.4 GHz</string>
-    <string name="band_5ghz">5 GHz</string>
-    <string name="width_20">20 MHz</string>
-    <string name="width_40">40 MHz</string>
-    <string name="width_80">80 MHz</string>
-    <string name="channel_short">ch %1$s</string>
-    <string name="width_mhz">%1$s MHz</string>
-    <string name="command_failed">Command exited with an error</string>
-
-    <!-- Quick Settings tile and running notification -->
+    <!-- Quick Settings tile and the running notification -->
     <string name="tile_configure_first">Set a network name and password in VirtualAP first</string>
+    <!-- The notification channel's name in Android's settings -->
     <string name="notification_channel">Hotspot status</string>
-    <plurals name="notification_clients">
-        <item quantity="one">%d device connected</item>
-        <item quantity="other">%d devices connected</item>
-    </plurals>
-    <string name="clients_label">Clients</string>
-    <string name="upstream_managed_by">Managed by %1$s</string>
-    <string name="dns_label">DNS</string>
 </resources>

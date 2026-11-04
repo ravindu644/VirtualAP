@@ -234,3 +234,21 @@ JDK 17. A pushed `v*` tag that matches `VERSION` publishes a release with the AP
 `SHA256SUMS` file and a changelog of every commit since the previous tag; the tag must
 match `VERSION` and the signing key must be present, or the run stops. CI runs no
 formatter and no linter.
+
+## Translations
+
+The app's text is in `Android/app/src/main/res/values/strings.xml` and its plurals in
+`plurals.xml` beside it, two Weblate components, `Strings` and `Plurals`, the same layout as
+Droidspaces. Both use the file format Android String Resource, the file mask
+`Android/app/src/main/res/values-*/strings.xml` or `plurals.xml`, the base file in `values/`
+as both the monolingual base language file and the template for new translations, and
+Android-style language codes (`values-pt-rBR`). Turn on Weblate's Cleanup translation files
+add-on: a key removed from a base file and left in a translation is lint's `ExtraTranslation`,
+which is fatal, so the release build fails until it goes. A missing translation only falls
+back to English.
+
+The app follows the system language, and on Android 13 and later it is in the system's
+per-app language list: `generateLocaleConfig` builds the list from the `values-*` folders, and
+`res/resources.properties` says `res/values` is English. The log stays in English, it is what
+the engine printed. JetBrains Mono, for that log and the password on the QR sheet, is the only
+bundled font; every translated label is in the system font, so any script draws.

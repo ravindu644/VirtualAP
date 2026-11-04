@@ -75,6 +75,13 @@ android {
         compose = true
     }
 
+    // res/xml/_generated_res_locale_config.xml, from the values-* folders Weblate adds and
+    // res/resources.properties' unqualifiedResLocale. AGP wires it into the manifest for
+    // Android 13's per-app language list.
+    androidResources {
+        generateLocaleConfig = true
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

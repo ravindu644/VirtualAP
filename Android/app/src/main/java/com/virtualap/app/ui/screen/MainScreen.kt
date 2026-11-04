@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -726,7 +727,7 @@ private fun ActiveNetworkCard(vm: APViewModel) {
                     status.started?.let { Caption(stringResource(R.string.since_time, it)) }
                 }
                 StatusPill(
-                    label = stringResource(R.string.status_running).uppercase(),
+                    label = stringResource(R.string.status_running).uppercase(LocalConfiguration.current.locales[0]),
                     color = MaterialTheme.colorScheme.primary
                 )
                 IconButton(onClick = { showQr = true }) {
