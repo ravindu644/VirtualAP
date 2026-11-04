@@ -7,10 +7,14 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fnmatch.h>
 #include <linux/fib_rules.h>
 #include <net/if.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "core/core.h"
 
@@ -130,8 +134,7 @@ static void iface_cb(const struct nlmsghdr *h, void *arg) {
   int table, oif;
   uint32_t metric;
   int len = route_fields(h, w->family, &table, &oif, &metric);
-  if (len < 0 || len >= w->best_len || oif != w->target ||
-      table == RT_TABLE_LOCAL)
+  if (len < 0 || len >= w->best_len || oif != w->target)
     return;
   w->table = table;
   w->best_len = len;
@@ -144,7 +147,9 @@ int route_iface_table(struct nl *nl, int family, const char *ifname,
   if (!idx)
     return -ENODEV;
   struct nl_req r;
-  struct walk w = {.family = family, .target = idx, .best_len = 129};
+  /* Carriers hand out a /8 and Wi-Fi a /24, and neither reaches the internet
+   * on its own, so only a prefix wider than any connected subnet counts. */
+  struct walk w = {.family = family, .target = idx, .best_len = 8};
   int ret = nl_dump(nl, route_dump_req(&r, family), iface_cb, &w);
   if (ret < 0)
     return ret;
@@ -345,41 +350,149 @@ int netd_default_table(struct nl *nl, int family, int *table) {
   return 0;
 }
 
-int upstream_resolve(struct nl *nl, const char *want, struct upstream *up,
-                     bool verbose) {
-  memset(up, 0, sizeof(*up));
-  if (!strcmp(want, "auto")) {
-    /* IPv6 only when there is no IPv4 rule at all; netd writes both. */
-    if (netd_default_table(nl, AF_INET, &up->table) < 0 &&
-        netd_default_table(nl, AF_INET6, &up->table) < 0) {
-      if (verbose) {
-        vap_error("Could not auto-detect the upstream network (no netd "
-                  "default-network rule).");
-        vap_error("Select an upstream interface explicitly with -o <iface>.");
-      }
-      return -1;
-    }
-    if (route_default_oif(nl, AF_INET, up->table, up->iface) < 0)
-      route_default_oif(nl, AF_INET6, up->table, up->iface);
-    if (verbose && up->iface[0])
-      vap_log("Auto upstream: table %d (%s)", up->table, up->iface);
-    else if (verbose)
-      vap_log("Auto upstream: table %d", up->table);
-    return 0;
-  }
+/* The rest is Droidspaces-OSS's src/net/route/uplink.c. */
 
-  if (strlen(want) >= IF_NAMESIZE || !if_nametoindex(want)) {
-    if (verbose)
-      vap_error("Upstream interface '%s' does not exist.", want);
+/* The only interface families that terminate internet access on Android,
+ * highest precedence first: Wi-Fi, ethernet, CLAT, Qualcomm's mobile data,
+ * MediaTek's. */
+static const char *const uplink_patterns[] = {
+    "wlan*", "eth*", "v4-*", "rmnet*", "*ccmni*",
+};
+
+/* Never an uplink. swlan, ap, usb, rndis and ncm share the phone's connection
+ * with clients instead of reaching the internet; tun and ppp are VPNs, which
+ * only an explicit -o goes through; the rest are loopback, placeholders and
+ * Droidspaces' own links. */
+static const char *const uplink_excludes[] = {
+    "ds-*",   "lo",   "dummy*", "swlan*", "ap*",  "usb*",
+    "rndis*", "ncm*", "p2p*",   "tun*",   "ppp*", "bt-pan",
+};
+
+static bool iface_running(const char *ifname) {
+  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  if (fd < 0)
+    return false;
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+  bool up = ioctl(fd, SIOCGIFFLAGS, &ifr) == 0 &&
+            (ifr.ifr_flags & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING);
+  close(fd);
+  return up;
+}
+
+static bool candidate_ok(const char *ifname) {
+  if (!ifname[0])
+    return false;
+  for (size_t i = 0; i < sizeof(uplink_excludes) / sizeof(uplink_excludes[0]);
+       i++)
+    if (fnmatch(uplink_excludes[i], ifname, 0) == 0)
+      return false;
+  return iface_running(ifname);
+}
+
+static bool scan_whitelist(struct nl *nl, struct upstream *up) {
+  struct if_nameindex *all = if_nameindex();
+  if (!all)
+    return false;
+  bool found = false;
+  for (size_t p = 0;
+       !found && p < sizeof(uplink_patterns) / sizeof(uplink_patterns[0]); p++)
+    for (struct if_nameindex *i = all; !found && i->if_index; i++)
+      if (fnmatch(uplink_patterns[p], i->if_name, 0) == 0 &&
+          candidate_ok(i->if_name) &&
+          route_iface_table(nl, AF_INET, i->if_name, &up->table) == 0) {
+        snprintf(up->iface, sizeof(up->iface), "%s", i->if_name);
+        found = true;
+      }
+  if_freenameindex(all);
+  return found;
+}
+
+/* -o's list in priority order: the first entry that is up with a route wins.
+ * No excludes, the user picked these, and no fallback to auto: traffic leaves
+ * through the list or not at all. */
+static const char *probe_pinned(struct nl *nl, int family, const char *want,
+                                struct upstream *up) {
+  for (const char *p = want + strspn(want, ", "); *p; p += strspn(p, ", ")) {
+    size_t n = strcspn(p, ", ");
+    if (n < IF_NAMESIZE) {
+      char name[IF_NAMESIZE];
+      memcpy(name, p, n);
+      name[n] = '\0';
+      if (iface_running(name) &&
+          route_iface_table(nl, family, name, &up->table) == 0) {
+        snprintf(up->iface, sizeof(up->iface), "%s", name);
+        return "pinned";
+      }
+    }
+    p += n;
+  }
+  return NULL;
+}
+
+/* One family's detection tiers, first hit wins: netd's default-network rule,
+ * the kernel's ground truth, swapped on every handoff and never pointing at
+ * IMS or MMS; the main table's default, for ROMs that populate it; a scan of
+ * the known uplink names. The scan is IPv4 only because a name match is a
+ * guess and the IMS bearer fits it, an rmnetX that is always up, IPv6, with a
+ * default route of its own. */
+static const char *probe_auto(struct nl *nl, int family, struct upstream *up) {
+  int table;
+  if (netd_default_table(nl, family, &table) == 0 &&
+      route_default_oif(nl, family, table, up->iface) == 0 &&
+      candidate_ok(up->iface)) {
+    up->table = table;
+    return "netd rule";
+  }
+  if (route_default_oif(nl, family, RT_TABLE_MAIN, up->iface) == 0 &&
+      candidate_ok(up->iface)) {
+    up->table = RT_TABLE_MAIN;
+    return "main table";
+  }
+  if (family == AF_INET && scan_whitelist(nl, up))
+    return "whitelist scan";
+  return NULL;
+}
+
+/* The start and every look of the monitor land here, and only what changed is
+ * logged: the last upstream named, and whether the lack of one was warned
+ * about. The monitor is forked from the start and inherits both. */
+int upstream_resolve(struct nl *nl, const char *want, struct upstream *up) {
+  static char last[IF_NAMESIZE];
+  static bool warned;
+  bool pinned = strcmp(want, "auto") != 0;
+  const char *how = NULL;
+  /* IPv4 through every tier first, so dual-stack and CLAT networks resolve to
+   * what carries IPv4. IPv6 only when nothing does. Trying it per tier would
+   * let the netd rule return rmnetX on a CLAT network before the scan finds
+   * v4-rmnetX, and cost the clients their IPv4. */
+  for (int i = 0; !how && i < 2; i++) {
+    int family = i ? AF_INET6 : AF_INET;
+    memset(up, 0, sizeof(*up));
+    how = pinned ? probe_pinned(nl, family, want, up)
+                 : probe_auto(nl, family, up);
+  }
+  if (!how) {
+    memset(up, 0, sizeof(*up));
+    last[0] = '\0';
+    if (!warned) {
+      if (pinned)
+        vap_warn("No upstream: none of '%s' is up with a route. Clients have "
+                 "no internet until one is, the monitor will wire it.",
+                 want);
+      else
+        vap_warn("No upstream network. Clients have no internet until one "
+                 "appears, the monitor will wire it.");
+      warned = true;
+    }
     return -1;
   }
-  snprintf(up->iface, sizeof(up->iface), "%s", want);
-  /* The table its internet routes live in, else main. */
-  if (route_iface_table(nl, AF_INET, want, &up->table) < 0 &&
-      route_iface_table(nl, AF_INET6, want, &up->table) < 0)
-    up->table = RT_TABLE_MAIN;
-  if (verbose)
-    vap_log("Upstream: %s (table %d)", up->iface, up->table);
+  warned = false;
+  if (strcmp(last, up->iface)) {
+    vap_log("Upstream: %s (table %d) [%s]", up->iface, up->table, how);
+    snprintf(last, sizeof(last), "%s", up->iface);
+  }
   return 0;
 }
 

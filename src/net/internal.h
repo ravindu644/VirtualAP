@@ -17,11 +17,10 @@ void *nl_reserve(struct nl_req *r, size_t len);
 /* route.c: Routes and the routing-table lookups the upstream is resolved
  * with. */
 
-/* The table carrying ifname's routes: the one with the shortest prefix out
- * of it, so a default route wins, then a split-tunnel VPN's 0.0.0.0/5 and
- * friends, then whatever subnet an interface with neither reaches (a
- * corporate VPN's 10.0.0.0/16, USB Ethernet's own LAN). The local table's
- * own-address routes do not count. 0, -ENODEV or -ENOENT. */
+/* The table carrying ifname's internet routes: the one with the shortest
+ * prefix out of it, so a default route wins, then a split-tunnel VPN's
+ * 0.0.0.0/5 and friends. Nothing as narrow as a /8 counts: an interface with
+ * only a subnet has no internet route. 0, -ENODEV or -ENOENT. */
 int route_iface_table(struct nl *nl, int family, const char *ifname,
                       int *table);
 

@@ -191,13 +191,14 @@ int rule_del_prio(struct nl *nl, int family, int prio);
  * netd sees it. */
 
 struct upstream {
-  int table;
-  char iface[IF_NAMESIZE]; /* empty when auto found a table with no default */
+  int table; /* 0: none, the network has not arrived */
+  char iface[IF_NAMESIZE];
 };
-/* want is "auto" or an interface name. With verbose, logs what it found and
- * why when it found nothing; -1 then. The monitor asks quietly. */
-int upstream_resolve(struct nl *nl, const char *want, struct upstream *up,
-                     bool verbose);
+/* want is "auto" or -o's comma-separated list. 0, or -1 with up zeroed when
+ * nothing qualifies, which is a normal state: the start goes on without one and
+ * the monitor wires it when one appears. Logs a change, and warns once about
+ * having none. */
+int upstream_resolve(struct nl *nl, const char *want, struct upstream *up);
 
 /* The interface IPv6 leaves through: on an IPv6-only network the IPv4
  * upstream is the CLAT interface v4-<iface>, which carries no IPv6. */

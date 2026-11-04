@@ -30,10 +30,20 @@ client -> ap0
 reply  -> ip rule pref 7000: to <subnet> lookup main -> ap0
 ```
 
-The upstream table comes from the interface you chose, or, on Auto, from Android's netd
-default-network rule, which always points at the network that has internet right now. It
-is read from the kernel's rule list, the form Android 15 writes it in (a uid range over
-every uid) included. The firewall rules go in through the raw `ip_tables` socket under
+On Auto the upstream is the first of these whose interface is up: Android's netd
+default-network rule, the network that has internet right now, read from the kernel's rule
+list, the form Android 15 writes it in (a uid range over every uid) included; the main
+table's default route, for ROMs that populate it; a scan of the known uplink names (`wlan*`,
+`eth*`, `v4-*`, `rmnet*`, `*ccmni*`), IPv4 only because the always-up IMS bearer matches them
+over IPv6. IPv4 goes through all three before IPv6 is tried. Hotspot, tether and VPN
+interfaces are never picked on Auto. `-o` turns all of that off and takes a comma-separated
+list in priority order instead, with no excludes: the first entry that is up and has a route
+wins, IPv4 routes across the whole list before IPv6. A route counts only if it is wider than a /8, so a default route or a split-tunnel
+VPN's `0.0.0.0/5` does and an interface's own subnet does not.
+
+No upstream is a normal state, not an error: the AP comes up with rule 7000 alone, the
+clients are refused at once, and the monitor adds rule 7010 when one appears. The firewall
+rules go in through the raw `ip_tables` socket under
 Android's xtables lock, the same lock netd and `iptables -w` hold, so neither side ever
 overwrites the other's change.
 
@@ -76,9 +86,11 @@ listens for the kernel's link, address, route and rule events, looks 200 ms afte
 event of a burst, and looks every 3 seconds regardless, because netd rewrites `iptables`
 without an event. Each look:
 
-- re-resolves the upstream, and when a new one has been seen twice in a row (a DHCP
-  renewal drops the default route for a moment) moves rule 7010 and `run.state` to it, so
-  a Wi-Fi to mobile handoff does not leave the clients without internet;
+- re-resolves the upstream and moves rule 7010 and `run.state` to a new one, so a Wi-Fi to
+  mobile handoff does not leave the clients without internet, and a start with no network
+  gets its first upstream the same way. With nothing found, Auto leaves the rule alone,
+  there is nothing better to point it at, and `-o` removes it until a listed interface
+  returns, so its traffic never leaves through anything else;
 - puts back any rule or firewall entry netd flushed, and `ip_forward`, only when missing,
   so its own writes never wake it again;
 - redoes IPv6, `dnsmasq`'s advertisement and the TTL fix with it, when the upstream's IPv6

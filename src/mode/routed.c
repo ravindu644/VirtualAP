@@ -32,10 +32,14 @@ int rules_add(struct nl *nl, const struct upstream *up,
   if (net) {
     struct rule to = {AF_INET, NULL,          net->net,       NULL,
                       NULL,    RT_TABLE_MAIN, PRIO_TO_SUBNET, false};
-    struct rule from = {AF_INET, NULL,      NULL,         AP_IFACE,
-                        NULL,    up->table, PRIO_FROM_AP, false};
     add(nl, &to, verbose, &ret);
-    add(nl, &from, verbose, &ret);
+    /* Never table 0: the kernel would allocate an empty table for it. No rule
+     * means the clients are refused at once until the monitor wires one. */
+    if (up->table > 0) {
+      struct rule from = {AF_INET, NULL,      NULL,         AP_IFACE,
+                          NULL,    up->table, PRIO_FROM_AP, false};
+      add(nl, &from, verbose, &ret);
+    }
   }
   if (!v || !v->mode)
     return ret;
@@ -200,10 +204,9 @@ int routed_start(struct vap_opts *o, const struct subnet *lan,
     vap_error("Cannot open a netlink socket.");
     return -1;
   }
-  if (upstream_resolve(&nl, o->upstream, &up, true) < 0) {
-    nl_close(&nl);
-    return -1;
-  }
+  /* No network is not a failure: up stays zeroed, the AP comes up with 7000
+   * alone and the monitor adds 7010 when an upstream appears. */
+  upstream_resolve(&nl, o->upstream, &up);
   /* A -d with no address in it means the default pair; decided here so
    * dnsmasq and the state file agree. ap.conf keeps the value as given. */
   if (!dns_any(o->dns_servers))
@@ -229,8 +232,10 @@ int routed_start(struct vap_opts *o, const struct subnet *lan,
   vap_log("  SSID    : %s (%dGHz, channel %d, %dMHz)", o->ssid, p.band,
           p.channel, p.width);
   vap_log("  Gateway : %s (static - never changes)", net.gw);
-  vap_log("  Upstream: %s (table %d)", up.iface[0] ? up.iface : o->upstream,
-          up.table);
+  if (up.table)
+    vap_log("  Upstream: %s (table %d)", up.iface, up.table);
+  else
+    vap_log("  Upstream: none yet");
   if (v6.mode == V6_NAT66)
     vap_log("  IPv6    : %s, NAT66 out of %s", v6.net, v6.up);
   else if (v6.mode == V6_SHARED)

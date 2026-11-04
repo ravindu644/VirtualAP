@@ -30,6 +30,19 @@ static int ifreq_get(const char *name, unsigned long req, struct ifreq *ifr) {
   return ret;
 }
 
+/* IFF_RUNNING follows the carrier through the kernel's linkwatch work, a moment
+ * after the link changed. */
+static bool wait_running(const char *name, bool want) {
+  struct ifreq ifr;
+  for (int i = 0; i < 200; i++) {
+    if (ifreq_get(name, SIOCGIFFLAGS, &ifr) == 0 &&
+        !!(ifr.ifr_flags & IFF_RUNNING) == want)
+      return true;
+    usleep(10000);
+  }
+  return false;
+}
+
 /* Root already (a phone): a network namespace is all it takes, and uids
  * outside 0 stay valid, which the Android 15 netd rule needs. */
 static bool real_root;
@@ -225,6 +238,9 @@ static void test_netlink(void) {
    * namespace, so the kernel refuses Android 15's 0-2147483647 range here;
    * that one is checked on a phone. */
   CHECK(netd_default_table(&nl, AF_INET, &table) == -ENOENT);
+  /* No rule, no main default, no known name: none, and nothing half filled. */
+  struct upstream up;
+  CHECK(upstream_resolve(&nl, "auto", &up) < 0 && !up.table && !up.iface[0]);
   if (!ip_bin()) {
     fprintf(stderr, "check: no iproute2 ip, netd rules skipped\n");
     goto proxy;
@@ -253,17 +269,91 @@ static void test_netlink(void) {
     CHECK(run_quiet(del) == 0);
   }
 
-  struct upstream up;
-  CHECK(upstream_resolve(&nl, "auto", &up, false) == 0 && up.table == 1031 &&
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1031 &&
         !strcmp(up.iface, "vt-p"));
-  CHECK(upstream_resolve(&nl, "vt-p", &up, false) == 0 && up.table == 1031);
-  /* No default anywhere: the table of whatever route it has. */
+  CHECK(upstream_resolve(&nl, "vt-p", &up) == 0 && up.table == 1031);
+
+  /* No upstream: 7000 alone. rule_exists compares tables, so it cannot see the
+   * rule a table 0 would make, which the kernel gives a table of its own. */
+  struct upstream none = {0};
+  CHECK(rules_add(&nl, &none, &sn, NULL, true) == 0);
+  CHECK(rule_exists(&nl, &want[0]));
+  const char *show[] = {ip_bin(), "rule", "show", "pref", "7010", NULL};
+  char shown[256];
+  CHECK(run_capture(show, shown, sizeof(shown)) == 0 && !shown[0]);
+  rules_del(&nl, AF_INET);
+
+  /* The tiers, on interfaces the names decide about. */
+  static const char *const names[][2] = {
+      {"wlan9", "vt-w"}, {"rmnet9", "vt-r"}, {"swlan9", "vt-s"}};
+  for (int i = 0; i < 3; i++) {
+    CHECK(link_add_veth(&nl, names[i][0], names[i][1], -1, mac, 1508) == 0);
+    CHECK(link_set_up(&nl, names[i][0], true) == 0);
+    CHECK(link_set_up(&nl, names[i][1], true) == 0);
+    CHECK(wait_running(names[i][0], true));
+  }
+  CHECK(ip("rule", "flush", NULL, NULL, NULL, NULL, NULL, NULL) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) < 0);
+  /* A sharing interface is never picked by the scan, and an IPv6-only name
+   * match, the IMS bearer, is not picked at all. */
+  struct route tether = {AF_INET, NULL, "swlan9", NULL, 1050, 0, RT_SCOPE_LINK};
+  struct route ims = {AF_INET6, NULL, "rmnet9", NULL, 1060, 0, 0};
+  CHECK(route_replace(&nl, &tether) == 0 && route_replace(&nl, &ims) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) < 0);
+  /* The scan, in the order of its patterns. */
+  struct route data = {AF_INET, NULL, "rmnet9", NULL, 1061, 0, RT_SCOPE_LINK};
+  CHECK(route_replace(&nl, &data) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1061 &&
+        !strcmp(up.iface, "rmnet9"));
+  struct route wifi = {AF_INET, NULL, "wlan9", NULL, 1062, 0, RT_SCOPE_LINK};
+  CHECK(route_replace(&nl, &wifi) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1062 &&
+        !strcmp(up.iface, "wlan9"));
+  /* No carrier: its routes stay, it is still not an upstream. */
+  CHECK(link_set_up(&nl, "vt-w", false) == 0 && wait_running("wlan9", false));
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1061);
+  CHECK(link_set_up(&nl, "vt-w", true) == 0 && wait_running("wlan9", true));
+  /* The main table's default beats the scan... */
+  struct route main_def = {AF_INET,       NULL, "vt-h",       NULL,
+                           RT_TABLE_MAIN, 0,    RT_SCOPE_LINK};
+  CHECK(route_replace(&nl, &main_def) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == RT_TABLE_MAIN &&
+        !strcmp(up.iface, "vt-h"));
+  /* ...and netd's rule beats that, unless it points at a sharing interface. */
+  bare[10] = "1050";
+  CHECK(run_quiet(bare) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == RT_TABLE_MAIN);
+  CHECK(rule_del_prio(&nl, AF_INET, 22000) == 0);
+  bare[10] = "1031";
+  CHECK(run_quiet(bare) == 0);
+  CHECK(upstream_resolve(&nl, "auto", &up) == 0 && up.table == 1031);
+  CHECK(rule_del_prio(&nl, AF_INET, 22000) == 0);
+  CHECK(route_del(&nl, &main_def) == 0);
+
+  /* -o: in the list's order, no excludes, and nothing outside the list. */
+  CHECK(upstream_resolve(&nl, "rmnet9,wlan9", &up) == 0 && up.table == 1061);
+  CHECK(upstream_resolve(&nl, "wlan9, rmnet9", &up) == 0 && up.table == 1062);
+  CHECK(upstream_resolve(&nl, "nope0,rmnet9", &up) == 0 && up.table == 1061);
+  CHECK(upstream_resolve(&nl, "swlan9", &up) == 0 && up.table == 1050);
+  CHECK(upstream_resolve(&nl, "nope0", &up) < 0 && !up.table && !up.iface[0]);
+  CHECK(upstream_resolve(&nl, "vt-h", &up) < 0);
+  CHECK(link_set_up(&nl, "vt-w", false) == 0 && wait_running("wlan9", false));
+  CHECK(upstream_resolve(&nl, "wlan9", &up) < 0);
+  CHECK(upstream_resolve(&nl, "wlan9,rmnet9", &up) == 0 && up.table == 1061);
+
+  /* No default anywhere: a split-tunnel VPN's wide route counts, a subnet does
+   * not, however the interface is pinned. */
   struct route lan = {AF_INET, "10.9.0.0/16", "vt-p", NULL, 1040,
                       0,       RT_SCOPE_LINK};
   CHECK(route_del(&nl, &def) == 0 && route_replace(&nl, &lan) == 0);
-  CHECK(route_iface_table(&nl, AF_INET, "vt-p", &table) == 0 &&
-        (table == 1040 || table == RT_TABLE_MAIN));
-  CHECK(upstream_resolve(&nl, "nope0", &up, false) < 0);
+  CHECK(route_iface_table(&nl, AF_INET, "vt-p", &table) == -ENOENT);
+  CHECK(upstream_resolve(&nl, "vt-p", &up) < 0);
+  struct route split = {AF_INET, "0.0.0.0/5", "vt-p",       NULL,
+                        1041,    0,           RT_SCOPE_LINK};
+  CHECK(route_replace(&nl, &split) == 0);
+  CHECK(route_iface_table(&nl, AF_INET, "vt-p", &table) == 0 && table == 1041);
+  CHECK(upstream_resolve(&nl, "vt-p", &up) == 0 && up.table == 1041);
+  CHECK(route_del(&nl, &split) == 0);
   snprintf(up.iface, sizeof(up.iface), "v4-rmnet_data1");
   CHECK(!strcmp(upstream_v6_iface(&up), "rmnet_data1"));
 

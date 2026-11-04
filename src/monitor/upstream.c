@@ -137,38 +137,25 @@ static bool redo_ipv6(struct nl *nl, const struct vap_opts *o,
   return true;
 }
 
-/* A change must be seen twice in a row before anything moves: a DHCP renew
- * or a reconnect drops the default route for a moment, and the in-between
- * answer (no interface, or the main fallback) is not a new upstream. */
-static bool settled(const struct upstream *now, const struct upstream *cur) {
-  static struct upstream pending;
-  static bool have;
-  if (now->table == cur->table && !strcmp(now->iface, cur->iface)) {
-    have = false;
-    return false;
-  }
-  if (!now->iface[0] ||
-      (now->table == RT_TABLE_MAIN && cur->table != RT_TABLE_MAIN))
-    return false;
-  if (have && pending.table == now->table &&
-      !strcmp(pending.iface, now->iface)) {
-    have = false;
-    return true;
-  }
-  pending = *now;
-  have = true;
-  return false;
-}
-
 bool reprobe(struct nl *nl, const struct vap_opts *o, struct routed *r) {
   struct upstream now;
   bool moved = false;
-  /* No network at all (airplane mode): the old rule stays, there is
-   * nothing better to point it at. */
-  if (upstream_resolve(nl, o->upstream, &now, false) == 0 &&
-      settled(&now, &r->up)) {
+  if (upstream_resolve(nl, o->upstream, &now) < 0) {
+    /* Auto keeps the old rule, there is nothing better to point it at and a
+     * reconnect should not flap it. A pinned upstream that is gone takes its
+     * rule with it: the table can be recycled for another network, and pinned
+     * traffic must not leave through anything else. */
+    if (strcmp(o->upstream, "auto") && r->up.table) {
+      vap_log("Pinned upstream %s is gone - clients have no internet until it "
+              "returns.",
+              r->up.iface);
+      rules_del_upstream(nl);
+      memset(&r->up, 0, sizeof(r->up));
+      moved = true;
+    }
+  } else if (now.table != r->up.table || strcmp(now.iface, r->up.iface)) {
     vap_log("Upstream changed: %s (table %d) -> %s (table %d)",
-            r->up.iface[0] ? r->up.iface : "?", r->up.table, now.iface,
+            r->up.table ? r->up.iface : "none", r->up.table, now.iface,
             now.table);
     /* IPv4 swapped back to back, as Droidspaces' monitor does; IPv6 follows
      * in redo_ipv6 once it knows what the new upstream offers. */

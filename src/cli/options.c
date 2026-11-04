@@ -16,8 +16,8 @@
 const struct vap_key vap_keys[] = {
     {'w', "PHY_IFACE", F(phy_iface), "wlan0", "<iface>",
      "Physical WiFi interface (default: wlan0)", 0},
-    {'o', "UPSTREAM", F(upstream), "auto", "<iface>",
-     "Upstream interface, or 'auto' (default: auto)", 0},
+    {'o', "UPSTREAM", F(upstream), "auto", "<iface,...>",
+     "Upstream interfaces in priority order, or 'auto' (default: auto)", 0},
     {'s', "SSID", F(ssid), "", "<SSID>", "AP name", 0},
     {'p', "PASSWORD", F(password), "", "<password>", "AP password (8-63 chars)",
      0},
