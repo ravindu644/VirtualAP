@@ -51,7 +51,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             snapshotFlow { config }.debounce(500).collect {
-                if (prefs.rootAvailable && it.isValid()) APManager.save(it)
+                if (prefs.rootAvailable) APManager.save(it)
             }
         }
         // One parallel initial load, gate the UI on it so everything appears at

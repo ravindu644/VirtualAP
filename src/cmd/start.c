@@ -71,13 +71,12 @@ static void check_channel(struct vap_opts *o) {
   }
 }
 
-static int validate_config(struct vap_opts *o) {
+static int validate_config(struct vap_opts *o, struct subnet *net) {
   if (!*o->ssid) {
     vap_error("SSID not set (use -s or save a config first)");
     return 1;
   }
-  struct subnet net;
-  if (!subnet_from_gw(o->ip_gw, &net)) {
+  if (!subnet_from_gw(o->ip_gw, net)) {
     vap_error("Invalid gateway IP address: '%s'", o->ip_gw);
     return 1;
   }
@@ -103,7 +102,8 @@ static int validate_config(struct vap_opts *o) {
 int cmd_save(struct vap_opts *o) {
   if (vap_lock() < 0)
     return 1;
-  if (validate_config(o))
+  struct subnet net;
+  if (validate_config(o, &net))
     return 1;
   if (conf_save(VAP_CONF, o) < 0) {
     vap_error("Could not save %s.", VAP_CONF);
@@ -116,7 +116,8 @@ int cmd_start(struct vap_opts *o) {
   if (vap_lock() < 0)
     return 1;
   log_truncate();
-  if (validate_config(o))
+  struct subnet net;
+  if (validate_config(o, &net))
     return 1;
 
   /* Saved now, before the channel policy rewrites band and channel and
