@@ -139,47 +139,11 @@ object VirtualAPInstaller {
         }
     }
 
-    suspend fun saveBootConfig(config: APConfig): Result<Unit> = withContext(Dispatchers.IO) {
-        if (!config.isValid()) return@withContext Result.failure(IllegalArgumentException("Invalid AP configuration"))
-        val values = listOf(
-            "-s" to config.ssid,
-            "-p" to config.password,
-            "-o" to config.upstream,
-            "-b" to config.band,
-            "-c" to config.channel,
-            "-W" to config.width,
-            "-g" to config.gateway,
-            "-d" to config.dnsServers,
-            "-H" to if (config.hidden) "1" else "0",
-            "-A" to config.security,
-            "-M" to if (config.pmf) "1" else "0",
-            "-K" to if (config.containerMode) config.containerName else "",
-            "-T" to if (config.ttlFix) "1" else "0",
-            "-6" to if (config.ipv6) "1" else "0",
-            "-m" to if (config.macMode == "random") "" else config.gatewayMac
-        )
-        if (values.any { (_, value) -> '\n' in value || '\r' in value })
-            return@withContext Result.failure(IllegalArgumentException("AP values cannot contain line breaks"))
-
-        val argsFile = "${Constants.BOOT_STATE_DIR}/boot.args"
-        val tmpFile = "$argsFile.new"
-        val args = values.flatMap { listOf(it.first, it.second) }
-            .joinToString(" ") { Backend.quote(it) }
-        val result = Shell.cmd(
-            "mkdir -p ${Backend.quote(Constants.BOOT_STATE_DIR)} && " +
-                "printf '%s\\n' $args > ${Backend.quote(tmpFile)} && " +
-                "chmod 600 ${Backend.quote(tmpFile)} && " +
-                "mv ${Backend.quote(tmpFile)} ${Backend.quote(argsFile)}"
-        ).exec()
-        if (result.isSuccess) Result.success(Unit)
-        else Result.failure(Exception("Could not save VirtualAP boot configuration: ${result.out.joinToString("\n")}"))
-    }
-
     suspend fun configureAutoStart(context: Context, config: APConfig, enabled: Boolean): Result<Unit> {
         if (!enabled) return setBootMode(false)
         if (!config.isValid()) return Result.failure(IllegalArgumentException("Invalid AP configuration"))
         installBootModule(context).getOrElse { return Result.failure(it) }
-        saveBootConfig(config).getOrElse { return Result.failure(it) }
+        if (!APManager.save(config)) return Result.failure(Exception("Could not save VirtualAP settings"))
         return setBootMode(true)
     }
 

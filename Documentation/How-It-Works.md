@@ -222,14 +222,11 @@ each arch's binaries, next to them, and the app compares it with the one it last
 The backend installer also installs `/data/adb/modules/virtualap`, a small Magisk/KernelSU
 module whose `service.sh` runs in late-start. It waits for
 `sys.boot_completed`, reads `/data/local/VirtualAP/.boot_mode`, then starts the same
-`virtualap` engine with the saved app configuration. The argument snapshot is
-`/data/local/VirtualAP/boot.args`, owned by root with mode `0600`; it includes the AP
-password and stays readable only by root. The boot flag is `0` or `1` and mode `0666` so
-the app's setting can update it through a root shell. The app refreshes the module and its
-saved configuration when auto-start is enabled. The module does not read app-private
-credential-encrypted storage or start Android's built-in tethering service.
-If `boot.args` is absent, it starts the last configuration saved by the engine in
-`/data/local/virtualap/ap.conf`.
+`virtualap` engine with the settings in `/data/local/virtualap/ap.conf`. The app saves
+validated settings there through `virtualap save` without starting the AP. The file is
+mode `0600` because it contains the password. The boot flag is `0` or `1` and mode `0666`
+so the app's setting can update it through a root shell. The module does not read
+app-private credential-encrypted storage or start Android's built-in tethering service.
 
 ## Building
 

@@ -58,16 +58,22 @@ object APManager {
 
     private fun Boolean.flag() = if (this) "1" else "0"
 
-    suspend fun start(cfg: APConfig, logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
+    private fun configCommand(action: String, cfg: APConfig): String {
         val sq = Backend::quote
         // -K and -m are always passed (empty clears them) so a stale CONTAINER
         // or GW_MAC in ap.conf never silently comes back. An empty -g is the
         // script's default gateway.
         val container = if (cfg.containerMode) cfg.containerName else ""
         val mac = if (cfg.macMode == "random") "" else cfg.gatewayMac
-        val cmd = "${Backend.startAp} start -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(cfg.gateway)} -d ${sq(cfg.dnsServers)} -H ${cfg.hidden.flag()} -A ${sq(cfg.security)} -M ${cfg.pmf.flag()} -K ${sq(container)} -T ${cfg.ttlFix.flag()} -6 ${cfg.ipv6.flag()} -m ${sq(mac)}"
+        return "${Backend.startAp} $action -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(cfg.gateway)} -d ${sq(cfg.dnsServers)} -H ${cfg.hidden.flag()} -A ${sq(cfg.security)} -M ${cfg.pmf.flag()} -K ${sq(container)} -T ${cfg.ttlFix.flag()} -6 ${cfg.ipv6.flag()} -m ${sq(mac)}"
+    }
 
-        Shell.cmd(cmd).to(logSink(logger)).exec().isSuccess
+    suspend fun start(cfg: APConfig, logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd(configCommand("start", cfg)).to(logSink(logger)).exec().isSuccess
+    }
+
+    suspend fun save(cfg: APConfig): Boolean = withContext(Dispatchers.IO) {
+        cfg.isValid() && Shell.cmd(configCommand("save", cfg)).exec().isSuccess
     }
 
     suspend fun stop(logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {

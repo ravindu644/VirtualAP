@@ -1,7 +1,6 @@
 #!/system/bin/sh
 STATE_DIR=/data/local/VirtualAP
 FLAG_FILE="$STATE_DIR/.boot_mode"
-ARGS_FILE="$STATE_DIR/boot.args"
 LOG_FILE="$STATE_DIR/boot.log"
 ENGINE=/data/local/virtualap/bin/virtualap
 
@@ -35,30 +34,10 @@ if [ ! -x "$ENGINE" ]; then
     exit 1
 fi
 
-set --
-if [ -r "$ARGS_FILE" ]; then
-    while IFS= read -r option; do
-        if ! IFS= read -r value; then
-            log_msg "ERROR: Incomplete boot arguments."
-            exit 1
-        fi
-        case "$option" in
-            -s|-p|-o|-b|-c|-W|-g|-d|-H|-A|-M|-K|-T|-6|-m) ;;
-            *)
-                log_msg "ERROR: Invalid boot argument."
-                exit 1
-                ;;
-        esac
-        set -- "$@" "$option" "$value"
-    done < "$ARGS_FILE"
-else
-    log_msg "Boot arguments are missing; using the backend's saved configuration."
-fi
-
 log_msg "Starting the saved VirtualAP configuration."
 ATTEMPT=1
 while [ "$ATTEMPT" -le 6 ]; do
-    if "$ENGINE" start "$@" >> "$LOG_FILE" 2>&1; then
+    if "$ENGINE" start >> "$LOG_FILE" 2>&1; then
         log_msg "VirtualAP started."
         exit 0
     fi

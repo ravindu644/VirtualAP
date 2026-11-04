@@ -12,7 +12,6 @@ import com.virtualap.app.util.APManager
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
-import com.virtualap.app.util.VirtualAPInstaller
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.debounce
@@ -52,9 +51,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             snapshotFlow { config }.debounce(500).collect {
-                if (prefs.rootAvailable && VirtualAPInstaller.bootModeEnabled()) {
-                    VirtualAPInstaller.saveBootConfig(it)
-                }
+                if (prefs.rootAvailable && it.isValid()) APManager.save(it)
             }
         }
         // One parallel initial load, gate the UI on it so everything appears at
