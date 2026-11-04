@@ -62,7 +62,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             prefs.rootAvailable = status == RootStatus.Granted
             prefs.hasSeenRootCheck = true
             rootStatus = status
-            if (status == RootStatus.Granted) checkInstalled()
+            if (status == RootStatus.Granted) {
+                if (prefs.startAtBoot) {
+                    VirtualAPInstaller.configureAutoStart(getApplication(), prefs.apConfig, true)
+                }
+                checkInstalled()
+            }
         }
     }
 

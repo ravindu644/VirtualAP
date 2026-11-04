@@ -12,6 +12,7 @@ import com.virtualap.app.util.APManager
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
+import com.virtualap.app.util.VirtualAPInstaller
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -44,7 +45,10 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            snapshotFlow { config }.collect { prefs.apConfig = it }
+            snapshotFlow { config }.collect {
+                prefs.apConfig = it
+                if (prefs.startAtBoot) VirtualAPInstaller.saveBootConfig(it)
+            }
         }
         // One parallel initial load, gate the UI on it so everything appears at
         // once (no status flicker, no late-popping container toggle).
