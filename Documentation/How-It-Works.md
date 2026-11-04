@@ -191,6 +191,11 @@ coexistence scan, which FullMAC chips cannot run on an AP interface; the
 asserts the patch is present. If `hostapd` refuses 40 MHz on 2.4 GHz, the backend retries
 at 20.
 
+The fork also never tells `hostapd` that a driver has a MAC ACL, and the build asserts that
+too. Broadcom's holds 10 addresses, and past that `hostapd` skips its own check while the
+driver holds nothing. So the MAC lists are checked in `hostapd` on every chip: a listed device
+associates for a moment and is removed before its handshake.
+
 MediaTek's gen4m driver has no `dump_station`, so the client count comes from `hostapd`'s
 own station list over its control socket, bound to an abstract address since Android has
 no `/tmp`, with a one second timeout so a hung `hostapd` cannot stall `status`.

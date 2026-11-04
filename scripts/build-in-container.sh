@@ -60,6 +60,10 @@ cd "$SRC/hostapd/hostapd"
 # would silently reject the option and crash on 40/80MHz. (See externals/hostapd.)
 grep -q 'no_pri_sec_switch' config_file.c || {
     echo "hostapd source is missing the no_pri_sec_switch config patch - check externals/hostapd"; exit 1; }
+# And that it keeps the MAC lists away from the driver. Without this a blocklist
+# silently stops working past the 10 addresses Broadcom's ACL holds.
+grep -q 'drv_max_acl_mac_addrs stays 0' main.c || {
+    echo "hostapd source is missing the MAC list patch - check externals/hostapd"; exit 1; }
 cat > .config <<'EOF'
 CONFIG_DRIVER_NL80211=y
 CONFIG_LIBNL32=y
