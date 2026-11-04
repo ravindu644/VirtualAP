@@ -190,11 +190,11 @@ The title is `titleLarge` Bold, left aligned, and is the first thing in the cont
 
 ## Dialog actions
 
-The one dialog today, About, closes from its header with `DialogCloseButton`. The first dialog
-with a choice copies `DialogFooterRow` back from Droidspaces: two equal-weight 48dp buttons at
-radius 16, a quiet tonal dismiss and a filled confirm, `error` for a destructive one, one-line
-labels that ellipsize. It goes in a `footer` slot on `DsDialog`, measured before the scrolling
-body so landscape cannot squeeze it; the slot comes back with it.
+About, an info page, closes from its header with `DialogCloseButton`. A dialog with a choice,
+the language picker, ends with `DialogFooterRow`: two equal-weight 48dp buttons at radius 16, a
+quiet tonal dismiss and a filled confirm, one-line labels that ellipsize. It goes in `DsDialog`'s
+`footer` slot, measured before the scrolling body so landscape cannot squeeze it. The first
+destructive dialog copies Droidspaces' `error` confirm back.
 
 ## Icons and touch targets
 

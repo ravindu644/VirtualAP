@@ -4,10 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,7 +38,7 @@ import com.virtualap.app.util.RootStatus
 
 private enum class Screen { WELCOME, ROOT_CHECK, LOADING, SETUP, MAIN, SETTINGS }
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val askNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 

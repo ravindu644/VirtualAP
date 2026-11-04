@@ -23,22 +23,22 @@ import androidx.compose.ui.window.DialogProperties
  * The shell every dialog sits in: full width inside the 24dp gutters, bounded to the
  * screen height, and a body that scrolls. Callers do not set a width, their own padding
  * or their own scroll; [modifier] is for what is per-dialog, `imePadding()` or a
- * `heightIn` cap. The first dialog with a choice brings back Droidspaces' `footer`
- * slot, measured before the body so landscape cannot squeeze the buttons.
+ * `heightIn` cap. [footer] is not part of [content]: unweighted, it is measured before
+ * the body, which takes what is left and scrolls, so landscape cannot squeeze the buttons.
  */
 @Composable
 fun DsDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        // The activity handles configChanges itself, so a dialog that is open
-        // through a rotation keeps its stale window constraints. LocalConfiguration
-        // is live across rotation, so the shell bounds itself with it.
+        // The screen's height, not the window's, so a tall dialog keeps its gutters
+        // and its footer on a short landscape screen.
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
         Surface(
             modifier = Modifier
@@ -52,10 +52,16 @@ fun DsDialog(
             tonalElevation = 0.dp
         ) {
             Column(
-                modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                content = content
-            )
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    content = content
+                )
+                footer?.invoke()
+            }
         }
     }
 }

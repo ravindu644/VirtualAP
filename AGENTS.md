@@ -99,7 +99,7 @@ Work down this list and stop at the first answer that holds.
 3. Does the platform already do it? musl's libc and the kernel's own interfaces (netlink,
    `/proc/sys`) on the engine; the Kotlin and Java stdlib and the Android framework on the
    app side. Mind `minSdk = 26`.
-4. Does an installed dependency cover it? libsu, Compose, lifecycle, zxing on
+4. Does an installed dependency cover it? libsu, Compose, lifecycle, zxing, appcompat on
    the app side. Never add a new one for what a few lines can do.
 5. Can it be one line? Then it is one line.
 6. Only then write the smallest thing that works.
@@ -178,7 +178,7 @@ is a bug, not a shortcut.
   plus a block in `scripts/build-in-container.sh`; `virtualap` is the one binary built from
   this repository's own `src/`, with musl-cross gcc and the root `Makefile`.
 - No new dependency when an installed one covers it. The app already has libsu, Compose,
-  lifecycle, and zxing.
+  lifecycle, zxing and appcompat.
 - Samsung's Broadcom FullMAC driver is the floor for wireless assumptions, and MediaTek's
   gen4m the second; what each one lacks is in "The radio" in How-It-Works.md. A quirk fix
   that is not gated on runtime detection does not go in.

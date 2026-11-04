@@ -247,8 +247,15 @@ add-on: a key removed from a base file and left in a translation is lint's `Extr
 which is fatal, so the release build fails until it goes. A missing translation only falls
 back to English.
 
-The app follows the system language, and on Android 13 and later it is in the system's
-per-app language list: `generateLocaleConfig` builds the list from the `values-*` folders, and
-`res/resources.properties` says `res/values` is English. The log stays in English, it is what
+The app follows the system language until Settings' language picker says otherwise. The picker's
+list and Android 13's per-app language list are one file: `generateLocaleConfig` writes
+`res/xml/_generated_res_locale_config.xml` from the `values-*` folders, `res/resources.properties`
+says `res/values` is English, and `LocaleHelper` reads the result, so a language merged from
+Weblate is offered on the next build, however little of it is translated. The choice goes through
+AppCompat, which is why `MainActivity` is an `AppCompatActivity`: Android 13 and later keep it in
+the system, and on 8 to 12 AppCompat stores it itself and wraps the activity, not the application
+or services, so there the notification and the Quick Settings tile stay in the system language. On any
+version, a notification already up takes a new language at its next update.
+The log stays in English, it is what
 the engine printed. JetBrains Mono, for that log and the password on the QR sheet, is the only
 bundled font; every translated label is in the system font, so any script draws.

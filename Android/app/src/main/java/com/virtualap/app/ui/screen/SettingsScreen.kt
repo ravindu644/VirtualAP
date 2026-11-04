@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,6 +30,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,6 +38,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,22 +48,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.virtualap.app.R
 import com.virtualap.app.ui.component.AccentColorPicker
 import com.virtualap.app.ui.component.DialogCloseButton
+import com.virtualap.app.ui.component.DialogFooterRow
 import com.virtualap.app.ui.component.DsDialog
 import com.virtualap.app.ui.component.SectionHeader
 import com.virtualap.app.ui.component.SwitchItem
 import com.virtualap.app.ui.theme.rememberThemeState
+import com.virtualap.app.util.LocaleHelper
 import com.virtualap.app.util.PreferencesManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +82,8 @@ fun SettingsScreen(
     val prefs = PreferencesManager
     val themeState = rememberThemeState()
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
+    val languages = remember { LocaleHelper.availableLanguages(context) }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -102,6 +115,14 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
             )
             SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
+                val currentLanguage = LocaleHelper.currentLanguage()
+                NavRow(
+                    icon = Icons.Default.Translate,
+                    title = stringResource(R.string.language),
+                    value = languages.find { it.first == currentLanguage }?.second ?: stringResource(R.string.system_default),
+                    onClick = { showLanguageDialog = true }
+                )
+                GroupDivider()
                 SwitchItem(
                     icon = Icons.Default.BrightnessAuto,
                     title = stringResource(R.string.follow_system_theme_label),
@@ -178,6 +199,9 @@ fun SettingsScreen(
     if (showAboutDialog) {
         AboutDialog(onDismiss = { showAboutDialog = false })
     }
+    if (showLanguageDialog) {
+        LanguagePickerDialog(languages, onDismiss = { showLanguageDialog = false })
+    }
 }
 
 /** The grouped surface every settings section sits in (mirrors Droidspaces). */
@@ -200,6 +224,101 @@ private fun GroupDivider() {
         modifier = Modifier.padding(horizontal = 16.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
     )
+}
+
+/** SwitchItem's metrics, so the group keeps one rhythm, with the current value in place of a summary. */
+@Composable
+private fun NavRow(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 72.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = null)
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun LanguagePickerDialog(languages: List<Pair<String, String>>, onDismiss: () -> Unit) {
+    val options = listOf(LocaleHelper.SYSTEM to stringResource(R.string.system_default)) + languages
+    val current = LocaleHelper.currentLanguage()
+    var selected by rememberSaveable { mutableStateOf(if (options.any { it.first == current }) current else LocaleHelper.SYSTEM) }
+
+    DsDialog(
+        onDismiss = onDismiss,
+        modifier = Modifier.heightIn(max = 560.dp),
+        footer = {
+            DialogFooterRow(
+                dismissLabel = stringResource(R.string.cancel),
+                confirmLabel = stringResource(R.string.ok),
+                onDismiss = onDismiss,
+                onConfirm = {
+                    LocaleHelper.changeLanguage(selected)
+                    onDismiss()
+                }
+            )
+        }
+    ) {
+        Text(
+            text = stringResource(R.string.language),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            options.forEach { (tag, name) ->
+                val isSelected = selected == tag
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .selectable(selected = isSelected, role = Role.RadioButton, onClick = { selected = tag }),
+                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // onClick = null makes the row the one control for a screen reader, but
+                        // also drops the radio's 48dp, which sets the row's height as in Droidspaces.
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = null,
+                            modifier = Modifier.size(48.dp),
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = MaterialTheme.colorScheme.primary,
+                                unselectedColor = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

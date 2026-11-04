@@ -163,6 +163,12 @@
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
     <string name="appearance_header">Appearance</string>
+    <string name="language">Language</string>
+    <!-- The first choice in the language list: use the phone's language -->
+    <string name="system_default">System Default</string>
+    <!-- The language list's buttons -->
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
     <string name="follow_system_theme_label">Follow system theme</string>
     <string name="follow_system_theme_desc">Automatically match the system light/dark mode</string>
     <string name="dark_mode_label">Dark mode</string>

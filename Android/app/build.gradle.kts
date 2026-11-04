@@ -77,7 +77,7 @@ android {
 
     // res/xml/_generated_res_locale_config.xml, from the values-* folders Weblate adds and
     // res/resources.properties' unqualifiedResLocale. AGP wires it into the manifest for
-    // Android 13's per-app language list.
+    // Android 13's per-app language list, and LocaleHelper reads it for the picker.
     androidResources {
         generateLocaleConfig = true
     }
@@ -149,6 +149,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
+    // The in-app language on Android 8 to 12, which the framework only offers from 13
+    implementation("androidx.appcompat:appcompat:1.7.0")
 
     // Root execution
     implementation("com.github.topjohnwu.libsu:core:5.2.1")

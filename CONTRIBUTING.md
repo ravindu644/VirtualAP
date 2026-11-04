@@ -91,14 +91,17 @@ Forms and inputs:
 
 Dialogs and sheets:
 
-- `DsDialog(onDismiss, modifier) { }` in `ui/component/DsDialog.kt`: every dialog. Never set a
-  width, padding or scroll.
+- `DsDialog(onDismiss, modifier, footer) { }` in `ui/component/DsDialog.kt`: every dialog. Never
+  set a width, padding or scroll.
+- `DialogFooterRow(dismissLabel, confirmLabel, onDismiss, onConfirm)` in
+  `ui/component/DialogFooterRow.kt`: the two buttons in a dialog with a choice, in the `footer`
+  slot.
 - `DialogCloseButton(onClick, enabled)` in `ui/component/DialogCloseButton.kt`: the 36dp close
   square in a header row, for content that closes from the top.
 - `LogActionRow(logs, isBlocking, onClear)` in `ui/component/LogActionRow.kt`: the Clear and
   Copy row above a log console; `onClear = null` gives Copy alone.
 - The Wi-Fi QR sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
-  dialog to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
+  dialog and the language picker to `ui/screen/SettingsScreen.kt`. Do not import or copy them.
 
 Bars, setup, feedback:
 
@@ -168,6 +171,8 @@ Shell, root and the backend:
   `util/QrCodeGenerator.kt`, the only zxing caller.
 - `HotspotTileService` and `HotspotStopReceiver`: the Quick Settings toggle and the
   notification's Stop action. Both hold no state of their own.
+- `LocaleHelper.availableLanguages/currentLanguage/changeLanguage` in `util/LocaleHelper.kt`:
+  the app's language, the only caller of `AppCompatDelegate.setApplicationLocales`.
 - `AppViewModel` owns the welcome flag, root status and install state; `APViewModel` owns the editable config,
   the interface and container lists and the tailed log, and forwards start and stop to
   `Hotspot`. The 3 s status poll lives in `MainScreen`, bound to its lifecycle.
