@@ -109,6 +109,7 @@ android.sourceSets["main"].assets.srcDir(assetsDir)
 
 val prepareAssets = tasks.register<Sync>("prepareAssets") {
     for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); include(payload) }
+    from(rootProject.file("../scripts/install_module.sh")) { into("bootmodule") }
     into(assetsDir)
     doFirst {
         // Builds before 2026-10-31 staged these two under src/main; a leftover tree

@@ -29,9 +29,12 @@ object PreferencesManager {
         get() = bool(Constants.KEY_HAS_SEEN_ROOT_CHECK, false)
         set(value) = prefs.edit { putBoolean(Constants.KEY_HAS_SEEN_ROOT_CHECK, value) }
 
-    var startAtBoot: Boolean
-        get() = bool(Constants.KEY_START_AT_BOOT, false)
-        set(value) = prefs.edit { putBoolean(Constants.KEY_START_AT_BOOT, value) }
+    val legacyStartAtBoot: Boolean
+        get() = bool(Constants.KEY_LEGACY_START_AT_BOOT, false)
+
+    fun clearLegacyStartAtBoot() {
+        prefs.edit { remove(Constants.KEY_LEGACY_START_AT_BOOT) }
+    }
 
     /** Hash of the static-binary payload last deployed (see VirtualAPInstaller). */
     var payloadVersion: String

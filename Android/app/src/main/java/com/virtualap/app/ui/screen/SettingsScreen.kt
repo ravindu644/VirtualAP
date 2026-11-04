@@ -88,11 +88,15 @@ fun SettingsScreen(
     val prefs = PreferencesManager
     val themeState = rememberThemeState()
     val coroutineScope = rememberCoroutineScope()
-    var startAtBoot by remember { mutableStateOf(prefs.startAtBoot) }
+    var startAtBoot by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var chosenLanguage by remember { mutableStateOf<String?>(null) }
     val languages = remember { LocaleHelper.availableLanguages(context) }
+
+    LaunchedEffect(Unit) {
+        startAtBoot = VirtualAPInstaller.bootModeEnabled()
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -200,8 +204,8 @@ fun SettingsScreen(
                                 Toast.makeText(context, R.string.start_at_boot_invalid, Toast.LENGTH_LONG).show()
                             } else result.fold(
                                 onSuccess = {
-                                    prefs.startAtBoot = enabled
                                     startAtBoot = enabled
+                                    prefs.clearLegacyStartAtBoot()
                                 },
                                 onFailure = {
                                     Toast.makeText(context, R.string.start_at_boot_error, Toast.LENGTH_LONG).show()

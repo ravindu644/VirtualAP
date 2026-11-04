@@ -116,28 +116,22 @@ object VirtualAPInstaller {
 
     suspend fun installBootModule(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            for (name in listOf("module.prop", "service.sh")) {
+            val files = listOf("module.prop", "service.sh", "install_module.sh").associateWith { name ->
                 val tmp = File(context.cacheDir, "virtualap-$name")
                 context.assets.open("bootmodule/$name").use { input ->
                     tmp.outputStream().use { input.copyTo(it) }
                 }
-                val mode = if (name == "service.sh") "755" else "644"
-                val dest = "${Constants.BOOT_MODULE_DIR}/$name"
-                val result = Shell.cmd(
-                    "mkdir -p ${Backend.quote(Constants.BOOT_MODULE_DIR)} ${Backend.quote(Constants.BOOT_STATE_DIR)} && " +
-                        "cp ${Backend.quote(tmp.absolutePath)} ${Backend.quote("$dest.new")} && " +
-                        "chmod $mode ${Backend.quote("$dest.new")} && " +
-                        "mv ${Backend.quote("$dest.new")} ${Backend.quote(dest)} && " +
-                        "chmod 755 ${Backend.quote(Constants.BOOT_MODULE_DIR)} ${Backend.quote(Constants.BOOT_STATE_DIR)} && " +
-                        "if [ ! -f ${Backend.quote("${Constants.BOOT_STATE_DIR}/.boot_mode")} ]; then " +
-                        "printf '%s\\n' 0 > ${Backend.quote("${Constants.BOOT_STATE_DIR}/.boot_mode")}; fi && " +
-                        "chmod 666 ${Backend.quote("${Constants.BOOT_STATE_DIR}/.boot_mode")}"
-                ).exec()
-                tmp.delete()
-                if (!result.isSuccess) return@withContext Result.failure(
-                    Exception("Could not install VirtualAP boot module: ${result.out.joinToString("\n")}")
-                )
+                tmp
             }
+            val result = Shell.cmd(
+                "sh ${Backend.quote(files.getValue("install_module.sh").absolutePath)} " +
+                    "${Backend.quote(files.getValue("module.prop").absolutePath)} " +
+                    Backend.quote(files.getValue("service.sh").absolutePath)
+            ).exec()
+            files.values.forEach { it.delete() }
+            if (!result.isSuccess) return@withContext Result.failure(
+                Exception("Could not install VirtualAP boot module: ${result.out.joinToString("\n")}")
+            )
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -198,6 +192,11 @@ object VirtualAPInstaller {
         ).exec()
         if (result.isSuccess) Result.success(Unit)
         else Result.failure(Exception("Could not update VirtualAP boot mode: ${result.out.joinToString("\n")}"))
+    }
+
+    suspend fun bootModeEnabled(): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("cat ${Backend.quote("${Constants.BOOT_STATE_DIR}/.boot_mode")} 2>/dev/null || echo 0")
+            .exec().out.any { it.trim() == "1" }
     }
 
     private fun deployAsset(context: Context, assetPath: String, destPath: String, cacheDir: File): Exception? {

@@ -15,6 +15,7 @@ import com.virtualap.app.util.PreferencesManager
 import com.virtualap.app.util.VirtualAPInstaller
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 
 class APViewModel(application: Application) : AndroidViewModel(application) {
@@ -47,7 +48,13 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             snapshotFlow { config }.collect {
                 prefs.apConfig = it
-                if (prefs.startAtBoot) VirtualAPInstaller.saveBootConfig(it)
+            }
+        }
+        viewModelScope.launch {
+            snapshotFlow { config }.debounce(500).collect {
+                if (prefs.rootAvailable && VirtualAPInstaller.bootModeEnabled()) {
+                    VirtualAPInstaller.saveBootConfig(it)
+                }
             }
         }
         // One parallel initial load, gate the UI on it so everything appears at
