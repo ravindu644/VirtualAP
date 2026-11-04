@@ -133,6 +133,7 @@ int opts_parse(struct vap_opts *o, int argc, char **argv) {
     if (opt_set(o, k, optarg) < 0)
       return -1;
   }
+  o->args = argv + optind;
   return 0;
 }
 
@@ -146,8 +147,11 @@ void print_usage(const char *prog) {
   printf("\033[2mBuilt on: %.4s%s %s\033[0m\n\n", __DATE__,
          __DATE__ + 4 + (__DATE__[4] == ' '), __TIME__);
   printf("Usage: %s <start|stop|status|clients|interfaces|caps> [options]\n"
+         "       %s block <mac> [name]\n"
+         "       %s unblock <mac>\n"
+         "       %s blocked\n"
          "\nstart options:\n",
-         prog);
+         prog, prog, prog, prog);
   /* Start order, the one people read, not ap.conf's. */
   static const char order[] = "spobcWgdwHAMKmT6";
   for (const char *f = order; *f; f++) {

@@ -144,6 +144,79 @@ void test_services(void) {
   arp_find("", "76:c7:48:c1:7d:6e", gw, ip);
   CHECK(!strcmp(ip, "192.168.100.50"));
 
+  /* The blocklist, hostapd's own deny_mac_file. */
+  char list[256], got[512];
+  tmp_path(list, sizeof(list));
+  int lfd = mkstemp(list);
+  CHECK(lfd >= 0);
+  close(lfd);
+  unlink(list);
+  const char *m1 = "02:00:00:00:00:01", *m2 = "02:00:00:00:00:02";
+  CHECK(blocklist_del(list, m1) == 0);
+  CHECK(read_file(list, got, sizeof(got)) == 0);
+  CHECK(blocklist_add(list, m1, "phone") == 0);
+  CHECK(blocklist_add(list, m2, NULL) == 0);
+  CHECK(read_file(list, got, sizeof(got)) > 0 &&
+        !strcmp(got, "02:00:00:00:00:01 #phone\n02:00:00:00:00:02"));
+  /* Listed again it moves and takes the new name; a bad name is left out. */
+  CHECK(blocklist_add(list, m1, "two words") == 0);
+  CHECK(read_file(list, got, sizeof(got)) > 0 &&
+        !strcmp(got, "02:00:00:00:00:02\n02:00:00:00:00:01"));
+  char longname[80];
+  memset(longname, 'x', sizeof(longname) - 1);
+  longname[sizeof(longname) - 1] = '\0';
+  CHECK(blocklist_add(list, m2, longname) == 0);
+  CHECK(read_file(list, got, sizeof(got)) > 0 &&
+        !strcmp(got, "02:00:00:00:00:01\n02:00:00:00:00:02"));
+  CHECK(blocklist_del(list, m1) == 0);
+  CHECK(read_file(list, got, sizeof(got)) > 0 &&
+        !strcmp(got, "02:00:00:00:00:02"));
+  /* What hostapd could not read never survives a rewrite: it would not start. */
+  FILE *lf = fopen(list, "w");
+  CHECK(lf != NULL);
+  fputs("junk\n02:00:00:00:00:0\n020000000003\n020000000003-xxxx\n"
+        "02:00:00:00:00:04 #ok\n02:00:00:00:00:05xx\n"
+        "02:00:00:00:00:06 5\n",
+        lf);
+  fclose(lf);
+  CHECK(blocklist_del(list, m1) == 0);
+  CHECK(read_file(list, got, sizeof(got)) > 0 &&
+        !strcmp(got, "02:00:00:00:00:04 #ok\n02:00:00:00:00:06"));
+  /* A list cut to fit can read short: read_file strips trailing newlines. */
+  lf = fopen(list, "w");
+  CHECK(lf != NULL);
+  fprintf(lf, "%s\n", m1);
+  for (int i = 0; i < 32800; i++)
+    fputc('\n', lf);
+  fprintf(lf, "%s\n", m2);
+  fclose(lf);
+  CHECK(blocklist_del(list, m1) == -1);
+  char parsed[18];
+  CHECK(blocklist_mac("AA:BB:CC:DD:EE:0F #x", parsed) &&
+        !strcmp(parsed, "aa:bb:cc:dd:ee:0f"));
+  CHECK(!blocklist_mac("020000000003-xxxx", parsed));
+  CHECK(!blocklist_mac("00:00:00:00:00:00", parsed));
+  /* A full list refuses another entry and can still be unblocked from. A list
+   * past what fits is not read at all, so an edit cannot cut it short. */
+  lf = fopen(list, "w");
+  CHECK(lf != NULL);
+  for (int i = 0; i < 1815; i++)
+    fprintf(lf, "02:00:00:00:%02x:%02x\n", i >> 8, i & 0xff);
+  fclose(lf);
+  CHECK(blocklist_add(list, "02:00:00:00:ff:ff", NULL) == -1);
+  CHECK(blocklist_del(list, "02:00:00:00:00:00") == 0);
+  lf = fopen(list, "a");
+  CHECK(lf != NULL);
+  for (int i = 0; i < 200; i++)
+    fprintf(lf, "02:00:00:00:%02x:%02x\n", 0xf0, i);
+  fclose(lf);
+  struct stat before, after;
+  CHECK(stat(list, &before) == 0);
+  CHECK(blocklist_del(list, "02:00:00:00:00:01") == -1);
+  CHECK(blocklist_print(list) == -1);
+  CHECK(stat(list, &after) == 0 && after.st_size == before.st_size);
+  unlink(list);
+
   /* What the container may leave in place of the file. */
   char root[256], tmp[300], file[320], back[32];
   tmp_path(root, sizeof(root));

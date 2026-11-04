@@ -142,6 +142,9 @@ static void body(FILE *f, const void *arg) {
   else if (strcmp(o->security, "open"))
     wpa_block(f, o->password, "WPA-PSK", !strcmp(o->pmf, "1"));
   fprintf(f, "ignore_broadcast_ssid=%s\n", o->hidden);
+  /* Only when it is there: hostapd will not start on a list it cannot open. */
+  if (access(BLOCKLIST, R_OK) == 0)
+    fputs("deny_mac_file=" BLOCKLIST "\n", f);
 }
 
 int hostapd_write_conf(const char *path, const struct vap_opts *o,
@@ -171,6 +174,10 @@ static int try_once(void) {
 }
 
 int hostapd_start(const struct vap_opts *o, struct plan *p) {
+  /* A line hostapd cannot read stops it starting, with an error that blames the
+   * band. Only a hand edit could put one there; the rewrite logs what it drops. */
+  if (access(BLOCKLIST, F_OK) == 0 && blocklist_del(BLOCKLIST, "") < 0)
+    vap_warn("The blocklist may stop hostapd from starting.");
   for (;;) {
     if (hostapd_write_conf(HOSTAPD_CONF, o, p) < 0) {
       vap_error("Cannot write %s.", HOSTAPD_CONF);
@@ -235,6 +242,13 @@ static bool on_gw_lan(const char *ip, const char *gw) {
   return dot && valid_ip4(ip) && !strncmp(ip, gw, (size_t)(dot - gw) + 1);
 }
 
+bool name_printable(const char *s) {
+  for (; *s; s++)
+    if (!isgraph((unsigned char)*s))
+      return false;
+  return true;
+}
+
 void lease_find(const char *leases, const char *mac, const char *gw,
                 char ip[16], char name[64]) {
   strcpy(ip, "-");
@@ -267,10 +281,7 @@ void lease_find(const char *leases, const char *mac, const char *gw,
     strcpy(ip, a);
     /* dnsmasq writes * for no hostname. In managed mode the container wrote
      * this file, so nothing but printable ASCII reaches the app. */
-    bool ok = strcmp(n, "*") != 0;
-    for (const char *c = n; *c; c++)
-      ok = ok && isgraph((unsigned char)*c);
-    strcpy(name, ok ? n : "-");
+    strcpy(name, strcmp(n, "*") && name_printable(n) ? n : "-");
   }
 }
 

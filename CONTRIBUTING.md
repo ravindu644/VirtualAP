@@ -199,10 +199,12 @@ Engine (`src/`):
   `hostapd` and `dnsmasq`: their configs and starts, the client count), `routed` (with the
   pinned policy rules both families use), `ipv6` (`ipv6_decide`, setup, teardown, NAT66 and
   the shared /64 with its client discovery), `managed` (the Droidspaces container: its pid,
-  the OpenWrt provisioning, the RPS masks).
+  the OpenWrt provisioning, the RPS masks), `blocklist` (the blocked devices' file, which is
+  `hostapd`'s `deny_mac_file`, and telling a running `hostapd`).
 - `monitor/`: `monitor` (the daemon's loop), `upstream` (`reprobe`).
 - `cmd/`: the commands the app calls, dispatched from `main.c`: `start` (`start` and
-  `stop`) and `status` (the read-only ones: `status`, `clients`, `interfaces`, `caps`).
+  `stop`), `status` (the read-only ones: `status`, `clients`, `interfaces`, `caps`) and
+  `block` (`block`, `unblock`, `blocked`).
 
 ## Opening a PR
 

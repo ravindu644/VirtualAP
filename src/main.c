@@ -18,6 +18,8 @@ static const struct command {
     {"start", cmd_start},           {"stop", cmd_stop},
     {"status", cmd_status},         {"clients", cmd_clients},
     {"interfaces", cmd_interfaces}, {"caps", cmd_caps},
+    {"block", cmd_block},           {"unblock", cmd_unblock},
+    {"blocked", cmd_blocked},
 };
 
 int main(int argc, char **argv) {

@@ -221,6 +221,17 @@ other address for that MAC, and the table can give an address to a device with n
 only has a device that has sent something, and it marks a stale entry complete too, so a
 device can show an address it just left.
 
+`block <mac> [name]` adds a device to `/data/local/virtualap/blocklist`, and `unblock <mac>`
+takes it off; `blocked` prints `mac name` for each, `-` for no name. They are outside `ap.conf`
+because they are a list the app edits one entry at a time, not a setting a start passes. The
+file is `hostapd`'s own `deny_mac_file`, named in its config only when it exists, since
+`hostapd` will not start on a list it cannot open. A line is `mac #name`: `hostapd` reads what
+follows a MAC as a VLAN id through `atoi`, and `#` makes that 0, no VLAN. A hotspot that is
+running hears it over the control socket, and `DENY_ACL ADD_MAC` drops the device if it is
+connected. A block only holds that MAC, so a device that changes its own gets past it. A start
+rewrites the file first, logging and dropping any line it is not sure `hostapd` can read, and
+it holds about 400 devices.
+
 ## On the phone
 
 Everything is under `/data/local/virtualap`:
@@ -230,6 +241,8 @@ Everything is under `/data/local/virtualap`:
 - `ap.conf`: the last flags the app passed, as `KEY='value'` lines, so a flag that is
   omitted keeps its saved value. It holds the Wi-Fi password, so it is readable by root
   only.
+- `blocklist`: the blocked devices, see [above](#the-radio). There is none until the first
+  `block`.
 - `run.state`: what the running AP needs torn down, the gateway, the upstream, the IPv6
   mode and interface and the sysctl values to restore. `status` keys "running" off it and
   the `hostapd` pid file; `stop` removes it before it exits.

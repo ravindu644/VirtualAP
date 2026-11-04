@@ -7,6 +7,10 @@
 
 #include "mode/mode.h"
 
+/* ap.c: Printable ASCII with no blanks, all a name may be before it reaches the
+ * app or a file of ours. */
+bool name_printable(const char *s);
+
 /* Android's local_network table, constant since Android 5. The AP subnet is
  * mirrored there so container replies (from Droidspaces' 172.28.0.0/16) hit
  * its rule 6095 instead of leaking out the WAN via 6100. */
