@@ -8,8 +8,13 @@ import com.virtualap.app.util.PreferencesManager
 
 class HotspotBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED && PreferencesManager.startAtBoot) {
-            Hotspot.start(PreferencesManager.apConfig)
-        }
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED || !PreferencesManager.startAtBoot) return
+
+        val pendingResult = goAsync()
+        runCatching { Hotspot.start(PreferencesManager.apConfig) }
+            .onSuccess { job ->
+                job?.invokeOnCompletion { pendingResult.finish() } ?: pendingResult.finish()
+            }
+            .onFailure { pendingResult.finish() }
     }
 }
