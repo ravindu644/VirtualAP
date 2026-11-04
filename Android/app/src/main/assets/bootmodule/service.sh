@@ -56,9 +56,17 @@ else
 fi
 
 log_msg "Starting the saved VirtualAP configuration."
-if "$ENGINE" start "$@" >> "$LOG_FILE" 2>&1; then
-    log_msg "VirtualAP started."
-else
-    log_msg "ERROR: VirtualAP start failed."
-    exit 1
-fi
+ATTEMPT=1
+while [ "$ATTEMPT" -le 6 ]; do
+    if "$ENGINE" start "$@" >> "$LOG_FILE" 2>&1; then
+        log_msg "VirtualAP started."
+        exit 0
+    fi
+    if [ "$ATTEMPT" -eq 6 ]; then
+        log_msg "ERROR: VirtualAP failed to start after $ATTEMPT attempts."
+        exit 1
+    fi
+    log_msg "VirtualAP start failed on attempt $ATTEMPT; retrying in 10 seconds."
+    sleep 10
+    ATTEMPT=$((ATTEMPT + 1))
+done
