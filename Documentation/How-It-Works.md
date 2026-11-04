@@ -41,6 +41,10 @@ list in priority order instead, with no excludes: the first entry that is up and
 wins, IPv4 routes across the whole list before IPv6. A route counts only if it is wider than a /8, so a default route or a split-tunnel
 VPN's `0.0.0.0/5` does and an interface's own subnet does not.
 
+`interfaces`, which the app's dropdown shows, lists what `-o` would accept: the links with
+such a route in any table, either family, so the IMS bearer shows up too. It leaves out what
+VirtualAP, Droidspaces and USB Arsenal create and netd's `dummy0`.
+
 No upstream is a normal state, not an error: the AP comes up with rule 7000 alone, the
 clients are refused at once, and the monitor adds rule 7010 when one appears. The firewall
 rules go in through the raw `ip_tables` socket under

@@ -14,6 +14,7 @@
 #include "core/core.h"
 #include "mode/mode.h"
 #include "net/ipt/ipt.h"
+#include "net/net.h"
 #include "radio/radio.h"
 #include "virtualap.h"
 
@@ -88,20 +89,48 @@ static int by_name(const void *a, const void *b) {
                 ((const struct iface *)b)->name);
 }
 
+/* What Droidspaces' and USB Arsenal's pickers leave out, and our own: the
+ * links these three create to carry a hotspot, a tether or a container, and
+ * netd's placeholder, which has a default route of its own. */
+static bool hidden_iface(const char *name) {
+  static const char *const own[] = {AP_IFACE, "vap-", "vaplan",
+                                    "ds-",    "ua-",  "dummy"};
+  for (size_t i = 0; i < sizeof(own) / sizeof(own[0]); i++)
+    if (!strncmp(name, own[i], strlen(own[i])))
+      return true;
+  return false;
+}
+
+/* What -o would accept. Droidspaces lists default routes only and takes a typed
+ * name for anything else; the app has no such field, so a split-tunnel VPN has
+ * to be listed for it to be picked at all. */
+static bool has_internet_route(struct nl *nl, const char *name) {
+  int table;
+  return route_iface_table(nl, AF_INET, name, &table) == 0 ||
+         route_iface_table(nl, AF_INET6, name, &table) == 0;
+}
+
 /* Candidate upstreams for the app, "name:ip" or "name:no-ip" per line, in
- * name order. getifaddrs lists every link (AF_PACKET) and then the
+ * name order: the links with a route to the internet, in any table. A phone
+ * has dozens of others. getifaddrs lists every link (AF_PACKET) and then the
  * addresses, primary IPv4 address first. */
 int cmd_interfaces(struct vap_opts *o) {
   (void)o;
   struct ifaddrs *all;
+  struct nl nl;
+  if (nl_open(&nl) < 0) {
+    vap_error("Cannot open a netlink socket.");
+    return 1;
+  }
   if (getifaddrs(&all) < 0) {
     vap_error("Cannot list the network interfaces.");
+    nl_close(&nl);
     return 1;
   }
   static struct iface ifs[MAX_IFACES];
   int n = 0;
   for (struct ifaddrs *a = all; a; a = a->ifa_next) {
-    if (!strcmp(a->ifa_name, "lo") || !strcmp(a->ifa_name, AP_IFACE))
+    if (hidden_iface(a->ifa_name))
       continue;
     int i;
     for (i = 0; i < n && strcmp(ifs[i].name, a->ifa_name); i++)
@@ -119,7 +148,9 @@ int cmd_interfaces(struct vap_opts *o) {
   freeifaddrs(all);
   qsort(ifs, (size_t)n, sizeof(ifs[0]), by_name);
   for (int i = 0; i < n; i++)
-    printf("%s:%s\n", ifs[i].name, ifs[i].ip[0] ? ifs[i].ip : "no-ip");
+    if (has_internet_route(&nl, ifs[i].name))
+      printf("%s:%s\n", ifs[i].name, ifs[i].ip[0] ? ifs[i].ip : "no-ip");
+  nl_close(&nl);
   return 0;
 }
 

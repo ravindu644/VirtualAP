@@ -16,6 +16,7 @@
 #include "../src/mode/internal.h"
 #include "../src/net/internal.h"
 #include "check.h"
+#include "cmd/cmd.h"
 #include "core/core.h"
 #include "mode/mode.h"
 #include "net/ipt/ipt.h"
@@ -41,6 +42,24 @@ static bool wait_running(const char *name, bool want) {
     usleep(10000);
   }
   return false;
+}
+
+/* cmd_interfaces' stdout. Its lines fit a pipe's buffer. */
+static int interfaces_output(char *out, size_t size) {
+  int p[2], saved = dup(STDOUT_FILENO);
+  if (saved < 0 || pipe(p) < 0)
+    return -1;
+  fflush(stdout);
+  dup2(p[1], STDOUT_FILENO);
+  int ret = cmd_interfaces(NULL);
+  fflush(stdout);
+  dup2(saved, STDOUT_FILENO);
+  close(saved);
+  close(p[1]);
+  ssize_t n = read(p[0], out, size - 1);
+  close(p[0]);
+  out[n > 0 ? n : 0] = '\0';
+  return ret;
 }
 
 /* Root already (a phone): a network namespace is all it takes, and uids
@@ -340,6 +359,28 @@ static void test_netlink(void) {
   CHECK(link_set_up(&nl, "vt-w", false) == 0 && wait_running("wlan9", false));
   CHECK(upstream_resolve(&nl, "wlan9", &up) < 0);
   CHECK(upstream_resolve(&nl, "wlan9,rmnet9", &up) == 0 && up.table == 1061);
+
+  /* The app's list: what -o would accept, an IPv6 default included, without
+   * what this project, Droidspaces and USB Arsenal create. */
+  static const char *const own[] = {"ap0",    "vap-br0", "vap-v0", "vaplan0",
+                                    "ds-br0", "ua-usb",  "ua-gw",  "dummy9"};
+  for (int i = 0; i < 8; i++) {
+    char peer[IF_NAMESIZE];
+    snprintf(peer, sizeof(peer), "vt-o%d", i);
+    CHECK(link_add_veth(&nl, own[i], peer, -1, mac, 1508) == 0);
+    CHECK(link_set_up(&nl, own[i], true) == 0);
+    struct route r = {AF_INET, NULL, own[i], NULL, 1070 + i, 0, RT_SCOPE_LINK};
+    CHECK(route_replace(&nl, &r) == 0);
+  }
+  /* rmnet9 keeps its IPv6 default alone, as the IMS bearer has. */
+  CHECK(route_del(&nl, &data) == 0);
+  char listed[512] = "";
+  CHECK(interfaces_output(listed, sizeof(listed)) == 0);
+  CHECK(strstr(listed, "wlan9:no-ip\n") && strstr(listed, "rmnet9:no-ip\n") &&
+        strstr(listed, "swlan9:no-ip\n") && strstr(listed, "vt-p:"));
+  CHECK(!strstr(listed, "vt-h") && !strstr(listed, "lo:"));
+  for (int i = 0; i < 8; i++)
+    CHECK(!strstr(listed, own[i]));
 
   /* No default anywhere: a split-tunnel VPN's wide route counts, a subnet does
    * not, however the interface is pinned. */
