@@ -2,8 +2,9 @@ package com.virtualap.app.util
 
 import kotlin.random.Random
 
-/** The saved hotspot configuration, as the UI edits it and the tile reads it back. */
+/** The hotspot configuration: what the UI edits, and ap.conf once it is valid. */
 data class APConfig(
+    val phyIface: String = "wlan0",  // no field in the UI, kept for a hand edit
     val ssid: String = "",
     val password: String = "",
     val band: String = "2",
@@ -22,19 +23,83 @@ data class APConfig(
     val macMode: String = "random",  // random | persistent | static, managed mode only
     val gatewayMac: String = ""      // the MAC persistent and static send
 ) {
-    /** Open needs no passphrase; WPA (WPA-PSK/SAE) passphrases are 8-63 chars. */
-    fun passwordValid(): Boolean = security == "open" || password.length in 8..63
+    /** Open needs no passphrase; WPA (WPA-PSK/SAE) passphrases are 8-63 bytes, as the engine counts. */
+    fun passwordValid(): Boolean = security == "open" || password.toByteArray().size in 8..63
+
+    /** 802.11 gives a network name 32 bytes, which Sinhala fills in about 10 letters. */
+    fun ssidFits(): Boolean = ssid.toByteArray().size <= 32
 
     /** Random mode sends no MAC; the other two need one the kernel will take. */
     fun macValid(): Boolean = macMode == "random" || isValidMac(gatewayMac)
 
     /** Everything the engine will reject on its own, checked before we shell out. */
     fun isValid(): Boolean =
-        ssid.isNotBlank() && passwordValid() &&
+        ssid.isNotBlank() && ssidFits() && passwordValid() && (ssid + password).none { it == '\n' || it == '\r' } &&
             (gateway.isBlank() || isValidIpv4(gateway)) && isValidDnsList(dnsServers) &&
             (!containerMode || (containerName.isNotBlank() && macValid()))
 
+    /**
+     * ap.conf, KEY='value' per line. The engine and the boot module read it; MAC_MODE is the
+     * app's own, and the engine skips a key it does not know.
+     */
+    fun toConf(): String = listOf(
+        "PHY_IFACE" to phyIface,
+        "UPSTREAM" to upstream,
+        "SSID" to ssid,
+        "PASSWORD" to password,
+        "BAND" to band,
+        "CHANNEL" to channel,
+        "WIDTH" to width,
+        "IP_GW" to gateway,
+        "DNS_SERVERS" to dnsServers,
+        "HIDDEN" to hidden.flag(),
+        "SECURITY" to security,
+        "PMF" to pmf.flag(),
+        "TTL_FIX" to ttlFix.flag(),
+        "IPV6" to ipv6.flag(),
+        "CONTAINER" to if (containerMode) containerName else "",
+        "GW_MAC" to if (macMode == "random") "" else gatewayMac,
+        "MAC_MODE" to macMode
+    ).joinToString("") { (key, value) -> "$key=${Backend.quote(value)}\n" }
+
     companion object {
+        private fun Boolean.flag() = if (this) "1" else "0"
+
+        /** The reverse of [toConf]. A channel or width the band cannot carry comes back as auto. */
+        fun fromConf(lines: List<String>): APConfig {
+            val conf = lines.filter { '=' in it }.associate {
+                it.substringBefore('=') to it.substringAfter('=').removeSurrounding("'").replace("'\\''", "'")
+            }
+            val defaults = APConfig()
+            fun str(key: String, default: String) = conf[key] ?: default
+            fun bool(key: String, default: Boolean) = conf[key]?.let { it == "1" } ?: default
+            val band = str("BAND", defaults.band)
+            val container = str("CONTAINER", "")
+            val mac = str("GW_MAC", "")
+            return APConfig(
+                phyIface = str("PHY_IFACE", defaults.phyIface),
+                upstream = str("UPSTREAM", defaults.upstream),
+                ssid = str("SSID", ""),
+                password = str("PASSWORD", ""),
+                band = band,
+                channel = validChannelForBand(band, str("CHANNEL", "")),
+                width = validWidthForBand(band, str("WIDTH", defaults.width)),
+                // Blank shows the default as a hint, and the engine writes the default out.
+                gateway = str("IP_GW", "").takeUnless { it == DEFAULT_GATEWAY } ?: "",
+                dnsServers = str("DNS_SERVERS", ""),
+                hidden = bool("HIDDEN", defaults.hidden),
+                security = str("SECURITY", defaults.security),
+                pmf = bool("PMF", defaults.pmf),
+                ttlFix = bool("TTL_FIX", defaults.ttlFix),
+                ipv6 = bool("IPV6", defaults.ipv6),
+                containerMode = container.isNotEmpty(),
+                containerName = container,
+                // A file from before MAC_MODE: a kept MAC is what persistent means.
+                macMode = str("MAC_MODE", if (mac.isEmpty()) "random" else "persistent"),
+                gatewayMac = mac
+            )
+        }
+
         /** Default AP/LAN gateway when the gateway field is left blank. */
         const val DEFAULT_GATEWAY = "192.168.42.1"
 

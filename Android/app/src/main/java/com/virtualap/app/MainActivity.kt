@@ -80,6 +80,9 @@ class MainActivity : AppCompatActivity() {
                         settings -> Screen.SETTINGS
                         else -> Screen.MAIN
                     }
+                    LaunchedEffect(screen) {
+                        if (screen == Screen.MAIN || screen == Screen.SETTINGS) apVm.load()
+                    }
                     BackHandler(enabled = screen == Screen.SETTINGS) { settings = false }
                     // Pulled off Settings by the gate: come back to Main, not Settings.
                     LaunchedEffect(screen) {

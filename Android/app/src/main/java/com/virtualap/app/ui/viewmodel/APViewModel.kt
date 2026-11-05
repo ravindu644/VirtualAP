@@ -12,25 +12,23 @@ import com.virtualap.app.util.APManager
 import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
-import com.virtualap.app.util.PreferencesManager
 import com.virtualap.app.util.VirtualAPInstaller
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 class APViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = PreferencesManager
-
     /** Session state lives in [Hotspot] so the tile and the screen agree. */
     val status get() = Hotspot.status
     val phase get() = Hotspot.phase
     val actionLogs get() = Hotspot.actionLogs
-    var config by mutableStateOf(prefs.apConfig)
+    var config by mutableStateOf(APConfig())
     var interfaces by mutableStateOf<List<NetworkIface>>(emptyList())
         private set
-    /** Running Droidspaces containers; empty = hide the integration UI entirely. */
+    /** Running Droidspaces containers. A saved one that is not among them stays saved. */
     var containers by mutableStateOf<List<String>>(emptyList())
         private set
     /** Live answer from the backend; the toggle is greyed out while false. */
@@ -55,19 +53,16 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     var isReady by mutableStateOf(false)
         private set
 
-    init {
-        viewModelScope.launch {
-            snapshotFlow { config }.collect {
-                prefs.apConfig = it
-            }
-        }
-        viewModelScope.launch {
-            // A newer value cancels the wait, so typing saves once, after the last key.
-            snapshotFlow { config }.collectLatest {
-                delay(500)
-                if (prefs.rootAvailable) APManager.save(it)
-            }
-        }
+    private var loaded = false
+
+    /**
+     * Once the root and install gates have passed, and not from init: this view model exists
+     * before them, where a read fails and leaves defaults, and the next valid edit would write
+     * those over the real ap.conf.
+     */
+    fun load() {
+        if (loaded) return
+        loaded = true
         // Not part of the gate below: the main screen does not show them.
         viewModelScope.launch { refreshDeviceLists() }
         viewModelScope.launch { startAtBoot = VirtualAPInstaller.bootModeEnabled() }
@@ -75,6 +70,15 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         // once (no status flicker, no late-popping container toggle).
         viewModelScope.launch {
             val caps = async { APManager.getCaps() }
+            APManager.loadConfig()?.let { config = it }
+            // After the load, so the defaults never reach ap.conf. A newer value cancels the
+            // wait, so typing saves once, after the last key, and only what is valid is saved.
+            launch {
+                snapshotFlow { config }.drop(1).collectLatest {
+                    delay(500)
+                    APManager.saveConfig(it)
+                }
+            }
             refreshAllNow()
             val c = caps.await()
             ttlFixSupported = c["ttl"] == "1"
@@ -98,16 +102,6 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         return written
     }
 
-    private fun applyContainerList(list: List<String>) {
-        containers = list
-        // If the saved container vanished (stopped / Droidspaces gone), drop
-        // managed mode so we never send a stale -K to the backend.
-        val cfg = config
-        if (cfg.containerMode && cfg.containerName !in list) {
-            config = cfg.copy(containerMode = false, containerName = "")
-        }
-    }
-
     /** Re-fetch status, interfaces and containers in parallel and suspend until
      *  they all land (so a pull-to-refresh spinner reflects real work). Root
      *  status is refreshed separately by the caller. */
@@ -118,7 +112,7 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         s.await()
         interfaces = ifs.await()
         // null: Droidspaces could not be asked this time; keep what we had.
-        cs.await()?.let(::applyContainerList)
+        cs.await()?.let { containers = it }
     }
 
     /** Switch band: valid channels differ per band, so reset to Auto. A width

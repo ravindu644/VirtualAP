@@ -6,6 +6,7 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
+import com.virtualap.app.util.APManager
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.PreferencesManager
 import com.virtualap.app.util.VirtualAPInstaller
@@ -36,14 +37,16 @@ class HotspotTileService : TileService() {
             openApp()
             return
         }
-        val cfg = PreferencesManager.apConfig
-        if (!cfg.isValid()) {
-            Toast.makeText(this, R.string.tile_configure_first, Toast.LENGTH_LONG).show()
-            openApp()
-            return
+        Hotspot.scope.launch {
+            val cfg = APManager.loadConfig()
+            if (cfg?.isValid() != true) {
+                Toast.makeText(this@HotspotTileService, R.string.tile_configure_first, Toast.LENGTH_LONG).show()
+                openApp()
+                return@launch
+            }
+            Hotspot.start(cfg)
+            render()
         }
-        Hotspot.start(cfg)
-        render()
     }
 
     private fun render() {

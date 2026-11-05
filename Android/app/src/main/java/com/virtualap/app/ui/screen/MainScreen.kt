@@ -321,9 +321,16 @@ private fun AccessPointCard(vm: APViewModel) {
             value = vm.config.ssid,
             onValueChange = { vm.config = vm.config.copy(ssid = it) },
             label = { Text(stringResource(R.string.ssid_label)) },
-            supportingText = if (vm.config.ssid.isBlank() && editable) {
-                { Text(stringResource(R.string.enter_ssid_prompt)) }
-            } else null,
+            isError = !vm.config.ssidFits(),
+            supportingText = when {
+                !vm.config.ssidFits() -> {
+                    { Text(stringResource(R.string.ssid_length_error), color = MaterialTheme.colorScheme.error) }
+                }
+                vm.config.ssid.isBlank() && editable -> {
+                    { Text(stringResource(R.string.enter_ssid_prompt)) }
+                }
+                else -> null
+            },
             modifier = Modifier.fillMaxWidth(),
             shape = fieldShape,
             colors = DsTextFieldDefaults.colors(),
@@ -355,7 +362,7 @@ private fun AccessPointCard(vm: APViewModel) {
         if (vm.config.security != "open") {
             // WPA-PSK/SAE passphrase is 8-63 chars; flag an out-of-range value
             // once the user has started typing (blank stays neutral).
-            val pwLen = vm.config.password.length
+            val pwLen = vm.config.password.toByteArray().size
             val pwError = pwLen in 1..7 || pwLen > 63
             OutlinedTextField(
                 value = vm.config.password,
@@ -431,11 +438,12 @@ private fun AccessPointCard(vm: APViewModel) {
 private fun UpstreamCard(vm: APViewModel) {
     val status = vm.status
     val editable = !status.running
-    val hasContainers = vm.containers.isNotEmpty()
+    // A saved container that is not running keeps its place: the start says so, and the
+    // selector stays as the way to leave managed mode.
+    val hasContainers = vm.containers.isNotEmpty() || vm.config.containerMode
 
     ConfigCard(title = stringResource(R.string.upstream_card_title)) {
-        // Interface | Container selector, shown only when Droidspaces is present
-        // with at least one running container.
+        // Interface | Container selector, shown when there is a container to pick or one saved.
         if (hasContainers) {
             SegmentedSelector(
                 options = listOf(stringResource(R.string.interface_label), stringResource(R.string.container_label)),
@@ -456,7 +464,7 @@ private fun UpstreamCard(vm: APViewModel) {
             DsDropdown(
                 label = stringResource(R.string.container_label),
                 selected = vm.config.containerName.ifBlank { vm.containers.first() },
-                options = vm.containers,
+                options = (vm.containers + vm.config.containerName).filter { it.isNotBlank() }.distinct(),
                 displayName = { it },
                 onSelect = { vm.config = vm.config.copy(containerName = it) },
                 leadingIcon = ImageVector.vectorResource(R.drawable.ic_droidspaces),

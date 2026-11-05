@@ -59,24 +59,28 @@ object APManager {
         )
     }
 
-    private fun Boolean.flag() = if (this) "1" else "0"
-
-    private fun configCommand(action: String, cfg: APConfig): String {
-        val sq = Backend::quote
-        // -K and -m are always passed (empty clears them) so a stale CONTAINER
-        // or GW_MAC in ap.conf never silently comes back. An empty -g is the
-        // script's default gateway.
-        val container = if (cfg.containerMode) cfg.containerName else ""
-        val mac = if (cfg.macMode == "random") "" else cfg.gatewayMac
-        return "${Backend.startAp} $action -s ${sq(cfg.ssid)} -p ${sq(cfg.password)} -o ${sq(cfg.upstream)} -b ${sq(cfg.band)} -c ${sq(cfg.channel)} -W ${sq(cfg.width)} -g ${sq(cfg.gateway)} -d ${sq(cfg.dnsServers)} -H ${cfg.hidden.flag()} -A ${sq(cfg.security)} -M ${cfg.pmf.flag()} -K ${sq(container)} -T ${cfg.ttlFix.flag()} -6 ${cfg.ipv6.flag()} -m ${sq(mac)}"
-    }
-
     suspend fun start(cfg: APConfig, logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
-        Shell.cmd(configCommand("start", cfg)).to(logSink(logger)).exec().isSuccess
+        saveConfig(cfg) && Shell.cmd("${Backend.startAp} start").to(logSink(logger)).exec().isSuccess
     }
 
-    suspend fun save(cfg: APConfig): Boolean = withContext(Dispatchers.IO) {
-        cfg.isValid() && Shell.cmd(configCommand("save", cfg)).exec().isSuccess
+    /** Null when there is none to read yet. */
+    suspend fun loadConfig(): APConfig? = withContext(Dispatchers.IO) {
+        val result = Shell.cmd("cat ${Backend.quote(Constants.AP_CONF)} 2>/dev/null").exec()
+        if (result.isSuccess) APConfig.fromConf(result.out) else null
+    }
+
+    /**
+     * Only ever a valid config: this is what the boot module starts with nobody watching. A
+     * hard reboot leaves the old file or the new one, never an empty one, and the umask is in a
+     * subshell because libsu keeps the one shell. 0600: it holds the Wi-Fi password in the clear.
+     */
+    suspend fun saveConfig(cfg: APConfig): Boolean = withContext(Dispatchers.IO) {
+        val conf = Backend.quote(Constants.AP_CONF)
+        val tmp = Backend.quote("${Constants.AP_CONF}.new")
+        cfg.isValid() && Shell.cmd(
+            "mkdir -p ${Backend.quote(Constants.VAP_DIR)} && ( umask 077; printf '%s' ${Backend.quote(cfg.toConf())} > $tmp && " +
+                "sync && mv -f $tmp $conf && sync ) || { rm -f $tmp; false; }"
+        ).exec().isSuccess
     }
 
     suspend fun stop(logger: BackendLogger): Boolean = withContext(Dispatchers.IO) {
