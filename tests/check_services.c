@@ -109,7 +109,8 @@ void test_services(void) {
   lease_find("", "02:7c:8a:96:37:58", gw, ip, name);
   CHECK(!strcmp(ip, "-"));
 
-  /* A real table: the lease's address unresolved, its MAC on another address. */
+  /* A real table: the lease's address unresolved, its MAC on another address.
+   */
   static const char arp[] =
       "IP address       HW type     Flags       HW address            Mask     "
       "Device\n"
@@ -171,7 +172,8 @@ void test_services(void) {
   CHECK(maclist_del(list, m1) == 0);
   CHECK(read_file(list, got, sizeof(got)) > 0 &&
         !strcmp(got, "02:00:00:00:00:02"));
-  /* What hostapd could not read never survives a rewrite: it would not start. */
+  /* What hostapd could not read never survives a rewrite: it would not start.
+   */
   FILE *lf = fopen(list, "w");
   CHECK(lf != NULL);
   fputs("junk\n02:00:00:00:00:0\n020000000003\n020000000003-xxxx\n"
@@ -200,8 +202,8 @@ void test_services(void) {
   CHECK(!maclist_mac("01:00:5e:00:00:fb", parsed));
   CHECK(!maclist_mac("ff:ff:ff:ff:ff:ff", parsed));
   CHECK(maclist_mac("aa:00:5e:00:00:fb", parsed));
-  /* A rewrite leaves only entries, so an empty file is what says nobody is on it,
-   * which is what stops an empty allowlist locking everyone out. */
+  /* A rewrite leaves only entries, so an empty file is what says nobody is on
+   * it, which is what stops an empty allowlist locking everyone out. */
   lf = fopen(list, "w");
   CHECK(lf != NULL);
   fputs("\njunk\n", lf);

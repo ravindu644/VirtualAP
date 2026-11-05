@@ -179,7 +179,8 @@ static int try_once(void) {
 
 int hostapd_start(const struct vap_opts *o, struct plan *p) {
   /* A line hostapd cannot read stops it starting, with an error that blames the
-   * band. Only a hand edit could put one there; the rewrite logs what it drops. */
+   * band. Only a hand edit could put one there; the rewrite logs what it
+   * drops. */
   const char *const lists[] = {BLOCKLIST, ALLOWLIST};
   for (size_t i = 0; i < sizeof(lists) / sizeof(lists[0]); i++)
     if (access(lists[i], F_OK) == 0 && maclist_del(lists[i], "") < 0)

@@ -46,11 +46,12 @@ static int allow_only_follow(void) {
   return 0;
 }
 
-/* On one list only: hostapd reads the allowlist first, so a device on both would
- * get in though blocked. So the allowlist changes first, shrinking ahead of a
- * block and growing ahead of an unblock, in the file and in hostapd: nothing that
- * fails after it can let in a device still meant to be kept out. A hotspot that
- * does not answer does not stop the file edits, so the next start has it right. */
+/* On one list only: hostapd reads the allowlist first, so a device on both
+ * would get in though blocked. So the allowlist changes first, shrinking ahead
+ * of a block and growing ahead of an unblock, in the file and in hostapd:
+ * nothing that fails after it can let in a device still meant to be kept out. A
+ * hotspot that does not answer does not stop the file edits, so the next start
+ * has it right. */
 static int add(const struct vap_opts *o, const char *list, const char *other,
                const char *done) {
   char mac[18];
@@ -132,9 +133,9 @@ int cmd_allow_only(struct vap_opts *o) {
   if (vap_lock() < 0)
     return 1;
   /* With nobody on the list it would lock everyone out, the owner included. The
-   * rewrite first: hostapd reads this file next, and a line it cannot parse would
-   * fail that read after the list it has loaded is gone. It leaves only entries,
-   * so a file with anything in it has a device. */
+   * rewrite first: hostapd reads this file next, and a line it cannot parse
+   * would fail that read after the list it has loaded is gone. It leaves only
+   * entries, so a file with anything in it has a device. */
   if (on) {
     if (maclist_del(ALLOWLIST, "") < 0)
       return 1;

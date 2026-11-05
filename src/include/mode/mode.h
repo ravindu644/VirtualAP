@@ -119,8 +119,9 @@ void lease_find(const char *leases, const char *mac, const char *gw,
  * it, or knows nothing else for mac in gw's /24. */
 void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]);
 
-/* maclist.c: The devices the hotspot refuses and the ones it lets in, kept across
- * starts. hostapd reads these same files as its deny_mac_file and accept_mac_file. */
+/* maclist.c: The devices the hotspot refuses and the ones it lets in, kept
+ * across starts. hostapd reads these same files as its deny_mac_file and
+ * accept_mac_file. */
 
 #define BLOCKLIST VAP_BASE "/blocklist"
 #define ALLOWLIST VAP_BASE "/allowlist"
@@ -137,11 +138,11 @@ int maclist_del(const char *path, const char *mac);
 /* One "mac name" line per entry on stdout, "-" for no name. 0, or -1 after
  * logging why. A list that is not there is empty. */
 int maclist_print(const char *path);
-/* Tell a running hostapd about one of those two lists. 0 with no hostapd running,
- * -1 if it did not take it. */
+/* Tell a running hostapd about one of those two lists. 0 with no hostapd
+ * running, -1 if it did not take it. */
 int hostapd_maclist(const char *path, const char *mac, bool add);
-/* Turning it on drops every connected device not on the allowlist. 0, or -1 after
- * logging why. */
+/* Turning it on drops every connected device not on the allowlist. 0, or -1
+ * after logging why. */
 int allow_only_set(bool on);
 
 /* ap.c: dnsmasq: DHCP and DNS for the clients, and the IPv6 router

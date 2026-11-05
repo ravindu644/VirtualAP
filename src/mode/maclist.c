@@ -45,12 +45,12 @@ bool maclist_mac(const char *s, char mac[18]) {
          !strchr("13579bdf", mac[1]);
 }
 
-/* Each entry but skip's. Only what is sure to be read passes: hostapd refuses to
- * start on a line it cannot parse. It is more forgiving than this, a MAC with
- * junk after it is a block to hostapd, so a rewrite says what it drops. shown is
- * the blocked command's form, otherwise the file's: hostapd takes what follows
- * the MAC as a VLAN id through atoi, which reads the # as 0, no VLAN, so it
- * reads this same file. */
+/* Each entry but skip's. Only what is sure to be read passes: hostapd refuses
+ * to start on a line it cannot parse. It is more forgiving than this, a MAC
+ * with junk after it is a block to hostapd, so a rewrite says what it drops.
+ * shown is the blocked command's form, otherwise the file's: hostapd takes what
+ * follows the MAC as a VLAN id through atoi, which reads the # as 0, no VLAN,
+ * so it reads this same file. */
 static void entries(FILE *f, const char *list, const char *skip, bool shown) {
   for (const char *l = list, *nl; l; l = nl ? nl + 1 : NULL) {
     nl = strchr(l, '\n');
@@ -143,10 +143,11 @@ int hostapd_maclist(const char *path, const char *mac, bool add) {
   return hostapd_say(cmd);
 }
 
-/* The order matters when turning it on. CLEAR drops everyone while macaddr_acl is
- * 1, so it goes to 0 first, for a repeat or a retry that finds it on already. CLEAR
- * is there because the file read adds to what is loaded. The file comes last: that
- * read is what drops everyone not on it, which needs macaddr_acl=1 by then. */
+/* The order matters when turning it on. CLEAR drops everyone while macaddr_acl
+ * is 1, so it goes to 0 first, for a repeat or a retry that finds it on
+ * already. CLEAR is there because the file read adds to what is loaded. The
+ * file comes last: that read is what drops everyone not on it, which needs
+ * macaddr_acl=1 by then. */
 static int hostapd_allow_only(bool on) {
   if (!pidfile_ours(HOSTAPD_PID, "hostapd"))
     return 0;
@@ -160,11 +161,12 @@ static int hostapd_allow_only(bool on) {
              : 0;
 }
 
-/* A file beside the lists and not a setting in ap.conf: like them it changes one
- * command at a time, hotspot on or off, and is not something a start passes. It
- * goes ahead of tightening and behind loosening, so a start in between is strict.
- * Turning on that a hotspot does not take is undone: the app must not say only
- * allowed devices can join while everyone still can, and a tap can try again. */
+/* A file beside the lists and not a setting in ap.conf: like them it changes
+ * one command at a time, hotspot on or off, and is not something a start
+ * passes. It goes ahead of tightening and behind loosening, so a start in
+ * between is strict. Turning on that a hotspot does not take is undone: the app
+ * must not say only allowed devices can join while everyone still can, and a
+ * tap can try again. */
 int allow_only_set(bool on) {
   if (on) {
     int fd = open(ALLOW_ONLY, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
@@ -176,7 +178,8 @@ int allow_only_set(bool on) {
   }
   if (hostapd_allow_only(on) < 0) {
     if (on) {
-      /* It may have got as far as 1 with an empty list, which refuses everyone. */
+      /* It may have got as far as 1 with an empty list, which refuses everyone.
+       */
       hostapd_say("SET macaddr_acl 0");
       unlink(ALLOW_ONLY);
     }

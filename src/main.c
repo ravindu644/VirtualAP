@@ -16,13 +16,13 @@ static const struct command {
   int (*fn)(struct vap_opts *);
 } commands[] = {
 
-    {"start", cmd_start},           {"save", cmd_save}, {"stop", cmd_stop},
-    {"status", cmd_status},         {"clients", cmd_clients},
-    {"interfaces", cmd_interfaces}, {"caps", cmd_caps},
-    {"block", cmd_block},           {"unblock", cmd_unblock},
-    {"blocked", cmd_blocked},       {"allow", cmd_allow},
-    {"disallow", cmd_disallow},     {"allowed", cmd_allowed},
-    {"allow-only", cmd_allow_only},
+    {"start", cmd_start},     {"save", cmd_save},
+    {"stop", cmd_stop},       {"status", cmd_status},
+    {"clients", cmd_clients}, {"interfaces", cmd_interfaces},
+    {"caps", cmd_caps},       {"block", cmd_block},
+    {"unblock", cmd_unblock}, {"blocked", cmd_blocked},
+    {"allow", cmd_allow},     {"disallow", cmd_disallow},
+    {"allowed", cmd_allowed}, {"allow-only", cmd_allow_only},
 };
 
 int main(int argc, char **argv) {
