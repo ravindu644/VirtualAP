@@ -3,7 +3,7 @@ set -e
 
 MOD_PATH=/data/adb/modules/virtualap
 MODULES_DIR=/data/adb/modules
-STATE_DIR=/data/local/VirtualAP
+STATE_DIR=/data/local/virtualap
 MODULE_PROP=${1:?module.prop path required}
 SERVICE=${2:?service.sh path required}
 
@@ -25,7 +25,11 @@ chmod 755 "$MOD_PATH" "$MOD_PATH/service.sh" "$STATE_DIR"
 chmod 644 "$MOD_PATH/module.prop"
 
 if [ ! -f "$STATE_DIR/.boot_mode" ]; then
-    printf '%s\n' 0 > "$STATE_DIR/.boot_mode"
+    if [ -f /data/local/VirtualAP/.boot_mode ]; then
+        cp /data/local/VirtualAP/.boot_mode "$STATE_DIR/.boot_mode"
+    else
+        printf '%s\n' 0 > "$STATE_DIR/.boot_mode"
+    fi
 fi
 chmod 666 "$STATE_DIR/.boot_mode"
 

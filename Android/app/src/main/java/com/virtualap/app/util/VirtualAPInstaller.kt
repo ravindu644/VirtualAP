@@ -103,7 +103,9 @@ object VirtualAPInstaller {
             )
 
             // Auto-start is optional; rooted phones without a module manager still use the AP.
-            installBootModule(context)
+            val hadBootModule = Shell.cmd("test -f /data/adb/modules/virtualap/service.sh").exec().isSuccess
+            val bootModule = installBootModule(context)
+            if (hadBootModule && bootModule.isFailure) return@withContext bootModule
 
             // Record which payload is now deployed so future APK updates with
             // changed binaries can trigger a re-install.
@@ -149,18 +151,18 @@ object VirtualAPInstaller {
 
     suspend fun setBootMode(enabled: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
         val mode = if (enabled) "1" else "0"
-        val flag = "${Constants.BOOT_STATE_DIR}/.boot_mode"
+        val flag = "${Constants.VAP_DIR}/.boot_mode"
         val result = Shell.cmd(
-            "mkdir -p ${Backend.quote(Constants.BOOT_STATE_DIR)} && " +
+            "mkdir -p ${Backend.quote(Constants.VAP_DIR)} && " +
                 "printf '%s\\n' $mode > ${Backend.quote(flag)} && " +
-                "chmod 755 ${Backend.quote(Constants.BOOT_STATE_DIR)} && chmod 666 ${Backend.quote(flag)}"
+                "chmod 755 ${Backend.quote(Constants.VAP_DIR)} && chmod 666 ${Backend.quote(flag)}"
         ).exec()
         if (result.isSuccess) Result.success(Unit)
         else Result.failure(Exception("Could not update VirtualAP boot mode: ${result.out.joinToString("\n")}"))
     }
 
     suspend fun bootModeEnabled(): Boolean = withContext(Dispatchers.IO) {
-        Shell.cmd("cat ${Backend.quote("${Constants.BOOT_STATE_DIR}/.boot_mode")} 2>/dev/null || echo 0")
+        Shell.cmd("cat ${Backend.quote("${Constants.VAP_DIR}/.boot_mode")} 2>/dev/null || echo 0")
             .exec().out.any { it.trim() == "1" }
     }
 

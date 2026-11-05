@@ -97,7 +97,7 @@ kotlin {
 
 // The static binaries, staged into a generated assets root so
 // nothing the build writes shows up as a diff. Each arch carries PAYLOAD_VERSION,
-// a hash of its binaries; the app compares it to its last deploy to know when an
+// a hash of its binaries and boot module; the app compares it to its last deploy to know when an
 // APK update ships new ones.
 val backendDir = rootProject.file("../backend")
 val arches = listOf("aarch64", "armhf")
@@ -110,6 +110,7 @@ android.sourceSets["main"].assets.srcDir(assetsDir)
 val prepareAssets = tasks.register<Sync>("prepareAssets") {
     for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); include(payload) }
     from(rootProject.file("../scripts/install_module.sh")) { into("bootmodule") }
+    inputs.dir("src/main/assets/bootmodule")
     into(assetsDir)
     doFirst {
         // Builds before 2026-10-31 staged these two under src/main; a leftover tree
@@ -129,6 +130,12 @@ val prepareAssets = tasks.register<Sync>("prepareAssets") {
             for (bin in dir.listFiles()!!.sortedBy { it.name }) {
                 digest.update(bin.name.toByteArray())
                 digest.update(bin.readBytes())
+            }
+            val bootAssets = file("src/main/assets/bootmodule").listFiles()!!.toList() +
+                rootProject.file("../scripts/install_module.sh")
+            for (asset in bootAssets.sortedBy { it.name }) {
+                digest.update(asset.name.toByteArray())
+                digest.update(asset.readBytes())
             }
             File(dir, "PAYLOAD_VERSION").writeText(digest.digest().joinToString("") { "%02x".format(it) })
         }

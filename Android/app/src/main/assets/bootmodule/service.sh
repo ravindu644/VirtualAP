@@ -1,5 +1,5 @@
 #!/system/bin/sh
-STATE_DIR=/data/local/VirtualAP
+STATE_DIR=/data/local/virtualap
 FLAG_FILE="$STATE_DIR/.boot_mode"
 LOG_FILE="$STATE_DIR/boot.log"
 ENGINE=/data/local/virtualap/bin/virtualap
