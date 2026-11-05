@@ -301,7 +301,6 @@ private fun HotspotAccessGroup(vm: APViewModel, raised: Boolean) {
             title = stringResource(R.string.allow_only_title),
             summary = stringResource(
                 when {
-                    on && noneAllowed -> R.string.allow_only_on_empty
                     on -> R.string.allow_only_on
                     noneAllowed -> R.string.allow_only_needs_device
                     else -> R.string.allow_only_off
@@ -319,7 +318,8 @@ private fun HotspotAccessGroup(vm: APViewModel, raised: Boolean) {
                     true
                 }
             },
-            // Grey only while off: on with an emptied list, this is the way back out.
+            // Grey only while off: on with an empty list means a hotspot refused to turn it
+            // off when the last device left, and this is the way to try again.
             enabled = on || !allowed.isNullOrEmpty()
         )
         GroupDivider()

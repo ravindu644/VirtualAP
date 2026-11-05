@@ -224,8 +224,9 @@ device can show an address it just left.
 `block <mac> [name]` adds a device to `/data/local/virtualap/blocklist`, and `unblock <mac>`
 takes it off; `blocked` prints `mac name` for each, `-` for no name. `allow`, `disallow` and
 `allowed` do the same for `allowlist`. `allow-only on` keeps out every device not on the
-allowlist, drops any that are connected, and is refused while the list is empty; with no
-argument it prints `on` or `off`. That state is the file `allow_only`, beside the lists, because
+allowlist, drops any that are connected, and is refused while the list is empty; the last device
+off the list turns it off, since nobody could join otherwise. With no argument it prints `on` or
+`off`. That state is the file `allow_only`, beside the lists, because
 like them it changes one command at a time, hotspot on or off. A device is on one list only, and
 adding it to one takes it off the other, because `hostapd` checks the allowlist first and would
 let a device on both in.

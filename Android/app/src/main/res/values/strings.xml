@@ -174,7 +174,6 @@
     <string name="allowed_idle">Not in use until you turn on Only allowed devices can join.</string>
     <string name="allow_only_title">Only allowed devices can join</string>
     <string name="allow_only_on">On. Nobody else can join</string>
-    <string name="allow_only_on_empty">On. The list is empty, so nobody can join</string>
     <string name="allow_only_off">Off. Everyone can join but blocked devices</string>
     <string name="allow_only_needs_device">Add a device to Allowed devices first</string>
     <string name="allow_only_confirm_title">Only allowed devices?</string>

@@ -29,6 +29,23 @@ static int refused(const char *mac) {
   return 1;
 }
 
+static bool allowlist_empty(void) {
+  struct stat st;
+  return stat(ALLOWLIST, &st) < 0 || st.st_size == 0;
+}
+
+/* The last device off the allowed list turns off only allowed devices: left on,
+ * nobody could join, the owner included. Last, so a device being blocked is on
+ * the blocked list before everyone else can get in. */
+static int allow_only_follow(void) {
+  if (access(ALLOW_ONLY, F_OK) < 0 || !allowlist_empty())
+    return 0;
+  if (allow_only_set(false) < 0)
+    return -1;
+  vap_log("Nobody is left on the allowed devices, everyone can join again.");
+  return 0;
+}
+
 /* On one list only: hostapd reads the allowlist first, so a device on both would
  * get in though blocked. So the allowlist changes first, shrinking ahead of a
  * block and growing ahead of an unblock, in the file and in hostapd: nothing that
@@ -53,6 +70,8 @@ static int add(const struct vap_opts *o, const char *list, const char *other,
       return 1;
     told = hostapd_maclist(other, mac, false) == 0 && told;
   }
+  if (allow_only_follow() < 0)
+    return 1;
   if (!told)
     return refused(mac);
   vap_log("%s %s.", done, mac);
@@ -67,7 +86,7 @@ static int del(const struct vap_opts *o, const char *list, const char *done) {
     return 1;
   if (hostapd_maclist(list, mac, false) < 0)
     return refused(mac);
-  if (maclist_del(list, mac) < 0)
+  if (maclist_del(list, mac) < 0 || allow_only_follow() < 0)
     return 1;
   vap_log("%s %s.", done, mac);
   return 0;
@@ -117,10 +136,9 @@ int cmd_allow_only(struct vap_opts *o) {
    * fail that read after the list it has loaded is gone. It leaves only entries,
    * so a file with anything in it has a device. */
   if (on) {
-    struct stat st;
     if (maclist_del(ALLOWLIST, "") < 0)
       return 1;
-    if (stat(ALLOWLIST, &st) < 0 || st.st_size == 0) {
+    if (allowlist_empty()) {
       vap_error("Add a device to the allowed devices first.");
       return 1;
     }
