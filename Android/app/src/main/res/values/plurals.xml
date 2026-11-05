@@ -5,7 +5,12 @@
         <item quantity="one">%1$d device connected</item>
         <item quantity="other">%1$d devices connected</item>
     </plurals>
-    <!-- Settings, under Blocked devices -->
+    <!-- The MAC address field, while it is not complete -->
+    <plurals name="mac_digits_left">
+        <item quantity="one">%1$d more to go</item>
+        <item quantity="other">%1$d more to go</item>
+    </plurals>
+    <!-- Settings, under Blocked devices and Allowed devices -->
     <plurals name="blocked_count">
         <item quantity="one">%1$d device</item>
         <item quantity="other">%1$d devices</item>

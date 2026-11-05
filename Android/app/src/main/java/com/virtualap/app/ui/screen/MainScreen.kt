@@ -795,7 +795,7 @@ private fun ActiveNetworkCard(vm: APViewModel) {
         WifiQrSheet(vm = vm, onDismiss = { showQr = false })
     }
     if (showClients) {
-        ClientsSheet(onDismiss = { showClients = false })
+        ClientsSheet(vm, onDismiss = { showClients = false })
     }
 }
 
@@ -858,17 +858,16 @@ private fun StatRow(
 }
 
 @Composable
-private fun ClientsSheet(onDismiss: () -> Unit) {
+private fun ClientsSheet(vm: APViewModel, onDismiss: () -> Unit) {
     var clients by remember { mutableStateOf<List<ApClient>?>(null) }
-    var blocked by remember { mutableStateOf<List<ApClient>?>(null) }
+    val allowOnly = vm.allowOnly == true
     // A failed call keeps the rows it has rather than blanking them.
     val reloadClients: suspend () -> Unit = { APManager.getClients()?.let { clients = it } }
-    val reloadBlocked: suspend () -> Unit = { APManager.getBlocked()?.let { blocked = it } }
     val act = rememberDeviceAction {
         reloadClients()
-        reloadBlocked()
+        vm.refreshDeviceLists()
     }
-    LaunchedEffect(Unit) { reloadBlocked() }
+    LaunchedEffect(Unit) { vm.refreshDeviceLists() }
     // Asked again while open, not only when the count moves: a client is counted
     // at its handshake, and its address and name come with the DHCP lease after.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -892,6 +891,10 @@ private fun ClientsSheet(onDismiss: () -> Unit) {
             }
             return@DeviceSheet
         }
+        if (allowOnly) {
+            Spacer(Modifier.height(4.dp))
+            Caption(stringResource(R.string.allow_only_title))
+        }
         SectionHeader(
             text = stringResource(R.string.devices_connected, list.size),
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
@@ -911,13 +914,17 @@ private fun ClientsSheet(onDismiss: () -> Unit) {
                 client = client,
                 icon = Icons.Default.Devices,
                 iconTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                actionLabel = stringResource(R.string.device_block),
-                actionDescription = R.string.device_block_named,
+                actionLabel = stringResource(if (allowOnly) R.string.device_remove else R.string.device_block),
+                actionDescription = if (allowOnly) R.string.device_remove_named else R.string.device_block_named,
                 actionColor = MaterialTheme.colorScheme.error,
-                onAction = { act { APManager.block(client.mac, client.name) } }
+                onAction = {
+                    act { if (allowOnly) APManager.disallow(client.mac) else APManager.block(client.mac, vm.allowed?.find { it.mac == client.mac }?.name ?: client.name) }
+                }
             )
         }
-        blocked?.let { devices ->
+        // While only allowed devices can join, the blocked list is not in use.
+        if (allowOnly) return@DeviceSheet
+        vm.blocked?.let { devices ->
             SectionHeader(
                 text = stringResource(R.string.devices_blocked, devices.size),
                 modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)

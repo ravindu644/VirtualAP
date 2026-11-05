@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.snapshotFlow
 import com.virtualap.app.util.APConfig
 import com.virtualap.app.util.APManager
+import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
@@ -35,6 +36,13 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
     /** The Wi-Fi's own MAC from the backend, what Static MAC starts from. Empty if unreadable. */
     var deviceMac by mutableStateOf("")
         private set
+    /** Null until first read. Kept here so Settings opens already showing them, not animating to them. */
+    var blocked by mutableStateOf<List<ApClient>?>(null)
+        private set
+    var allowed by mutableStateOf<List<ApClient>?>(null)
+        private set
+    var allowOnly by mutableStateOf<Boolean?>(null)
+        private set
     var showActionLogs by mutableStateOf(false)
         private set
     /** False until the first status/interfaces/containers fetch completes, so
@@ -46,6 +54,8 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             snapshotFlow { config }.collect { prefs.apConfig = it }
         }
+        // Not part of the gate below: the main screen does not show them.
+        viewModelScope.launch { refreshDeviceLists() }
         // One parallel initial load, gate the UI on it so everything appears at
         // once (no status flicker, no late-popping container toggle).
         viewModelScope.launch {
@@ -58,6 +68,13 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             if (!ttlFixSupported && config.ttlFix) config = config.copy(ttlFix = false)
             isReady = true
         }
+    }
+
+    /** A failed call keeps what it has. */
+    suspend fun refreshDeviceLists() {
+        APManager.getBlocked()?.let { blocked = it }
+        APManager.getAllowed()?.let { allowed = it }
+        APManager.getAllowOnly()?.let { allowOnly = it }
     }
 
     private fun applyContainerList(list: List<String>) {

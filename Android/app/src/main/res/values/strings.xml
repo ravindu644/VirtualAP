@@ -155,12 +155,48 @@
     <!-- The same buttons read out by a screen reader, with the device's name -->
     <string name="device_block_named">Block %1$s</string>
     <string name="device_unblock_named">Unblock %1$s</string>
-    <string name="block_failed">Could not change the blocked devices</string>
+    <string name="block_failed">Could not change that. Try again</string>
+    <!-- Removing a device from the allowed devices -->
+    <string name="device_remove">Remove</string>
+    <string name="device_remove_named">Remove %1$s</string>
     <string name="hotspot_header">Hotspot</string>
     <string name="blocked_title">Blocked devices</string>
     <string name="blocked_none">None</string>
     <string name="blocked_empty">Nobody is blocked</string>
-    <string name="blocked_unreadable">Could not read the blocked devices</string>
+    <string name="lists_unreadable">Could not read this list</string>
+    <string name="blocked_idle">Not in use while only allowed devices can join.</string>
+    <!-- Settings, under Blocked devices, while only allowed devices can join -->
+    <string name="not_in_use">Not in use</string>
+    <string name="allowed_title">Allowed devices</string>
+    <string name="allowed_empty">No devices yet</string>
+    <string name="allowed_idle">Not in use until you turn on Only allowed devices can join.</string>
+    <string name="allow_only_title">Only allowed devices can join</string>
+    <string name="allow_only_on">On. Nobody else can join</string>
+    <string name="allow_only_on_empty">On. The list is empty, so nobody can join</string>
+    <string name="allow_only_off">Off. Everyone can join but blocked devices</string>
+    <string name="allow_only_needs_device">Add a device to Allowed devices first</string>
+    <string name="allow_only_confirm_title">Only allowed devices?</string>
+    <string name="allow_only_confirm_body">These are connected now and not on the list. They drop off unless you tick them.</string>
+    <string name="allow_only_turn_on">Turn on</string>
+    <!-- Adding a device by hand, by its MAC address -->
+    <string name="device_add">Add device</string>
+    <string name="device_add_confirm">Add</string>
+    <string name="device_add_blocked">Add to blocked devices</string>
+    <string name="device_add_allowed">Add to allowed devices</string>
+    <string name="device_name_optional">Name (optional)</string>
+    <string name="mac_label">MAC address</string>
+    <!-- What tapping a device in a list does, read out by a screen reader -->
+    <string name="mac_copy">Copy MAC address</string>
+    <string name="mac_copied">MAC address copied</string>
+    <string name="mac_help">Digits and a to f only. The colons add themselves.</string>
+    <string name="mac_zeros">All zeros is not a device address.</string>
+    <string name="mac_broadcast">This is the broadcast address, not a device.</string>
+    <string name="mac_group">This is a group address, not a device. A device has an even second digit.</string>
+    <!-- %1$s: the name this device is saved under -->
+    <string name="mac_listed">Already on this list, as %1$s.</string>
+    <string name="mac_on_blocked">On Blocked devices now. Adding it here moves it.</string>
+    <string name="mac_on_allowed">On Allowed devices now. Adding it here moves it.</string>
+    <string name="mac_random_note">Phones use a random address for each network by default. Enter the one in the device\'s Wi-Fi details for this hotspot, not its hardware address.</string>
     <string name="blocked_note">A block holds that MAC address only. A device that changes its MAC can join again, and a new password stops that.</string>
     <!-- In the connected devices list, for a device that did not send a name -->
     <string name="client_unnamed">Unnamed device</string>

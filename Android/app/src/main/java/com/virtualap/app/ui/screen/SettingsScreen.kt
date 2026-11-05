@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ColorLens
@@ -63,8 +65,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.virtualap.app.R
 import com.virtualap.app.ui.component.AccentColorPicker
+import com.virtualap.app.ui.component.AddDeviceDialog
+import com.virtualap.app.ui.component.AllowOnlyDialog
+import com.virtualap.app.ui.component.AllowedDevicesSheet
 import com.virtualap.app.ui.component.BlockedDevicesSheet
 import com.virtualap.app.ui.component.DialogCloseButton
 import com.virtualap.app.ui.component.DialogFooterRow
@@ -73,6 +79,7 @@ import com.virtualap.app.ui.component.SectionHeader
 import com.virtualap.app.ui.component.SwitchItem
 import com.virtualap.app.ui.component.rememberDeviceAction
 import com.virtualap.app.ui.theme.rememberThemeState
+import com.virtualap.app.ui.viewmodel.APViewModel
 import com.virtualap.app.util.APManager
 import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.LocaleHelper
@@ -81,7 +88,8 @@ import com.virtualap.app.util.PreferencesManager
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    vm: APViewModel = viewModel()
 ) {
     val context = LocalContext.current
     // Writes go straight to prefs; the SharedPreferences listener behind
@@ -92,13 +100,6 @@ fun SettingsScreen(
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var chosenLanguage by remember { mutableStateOf<String?>(null) }
     val languages = remember { LocaleHelper.availableLanguages(context) }
-    var showBlocked by rememberSaveable { mutableStateOf(false) }
-    var blocked by remember { mutableStateOf<List<ApClient>?>(null) }
-    // A failed call keeps the count it has.
-    val reloadBlocked: suspend () -> Unit = { APManager.getBlocked()?.let { blocked = it } }
-    val act = rememberDeviceAction(reloadBlocked)
-    // Each time the sheet opens too, so one that could not read the list can try again.
-    LaunchedEffect(showBlocked) { reloadBlocked() }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -129,17 +130,7 @@ fun SettingsScreen(
                 text = stringResource(R.string.hotspot_header),
                 modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
             )
-            SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
-                NavRow(
-                    icon = Icons.Default.Block,
-                    title = stringResource(R.string.blocked_title),
-                    value = blocked?.let { list ->
-                        if (list.isEmpty()) stringResource(R.string.blocked_none)
-                        else pluralStringResource(R.plurals.blocked_count, list.size, list.size)
-                    }.orEmpty(),
-                    onClick = { showBlocked = true }
-                )
-            }
+            HotspotAccessGroup(vm, raised = themeState.darkTheme)
             Spacer(modifier = Modifier.height(8.dp))
             SectionHeader(
                 text = stringResource(R.string.appearance_header),
@@ -227,13 +218,6 @@ fun SettingsScreen(
         }
     }
 
-    if (showBlocked) {
-        BlockedDevicesSheet(
-            blocked,
-            onUnblock = { device -> act { APManager.unblock(device.mac) } },
-            onDismiss = { showBlocked = false }
-        )
-    }
     if (showAboutDialog) {
         AboutDialog(onDismiss = { showAboutDialog = false })
     }
@@ -266,6 +250,119 @@ private fun SettingsGroup(raised: Boolean, modifier: Modifier = Modifier, conten
         tonalElevation = 0.dp
     ) {
         Column { content() }
+    }
+}
+
+private enum class DeviceListKind { BLOCKED, ALLOWED }
+
+@Composable
+private fun deviceCount(list: List<ApClient>?): String = when {
+    list == null -> ""
+    list.isEmpty() -> stringResource(R.string.blocked_none)
+    else -> pluralStringResource(R.plurals.blocked_count, list.size, list.size)
+}
+
+/**
+ * Who can join: the two lists and the switch that picks which is in use. The state sits in [vm]
+ * and not in the sheets, so the rows follow every change, even one still running when a sheet closes.
+ */
+@Composable
+private fun HotspotAccessGroup(vm: APViewModel, raised: Boolean) {
+    var sheet by rememberSaveable { mutableStateOf<DeviceListKind?>(null) }
+    var adding by rememberSaveable { mutableStateOf<DeviceListKind?>(null) }
+    var unlisted by remember { mutableStateOf<List<ApClient>?>(null) }
+    val blocked = vm.blocked
+    val allowed = vm.allowed
+    val act = rememberDeviceAction(vm::refreshDeviceLists)
+    // Each time a sheet opens too, so one that could not read its list can try again.
+    LaunchedEffect(sheet) { vm.refreshDeviceLists() }
+    val on = vm.allowOnly == true
+    // Null is a list that could not be read, which says nothing about what is on it.
+    val noneAllowed = allowed?.isEmpty() == true
+
+    SettingsGroup(raised = raised, modifier = Modifier.padding(horizontal = 16.dp)) {
+        NavRow(
+            icon = Icons.Default.Block,
+            title = stringResource(R.string.blocked_title),
+            value = if (on) stringResource(R.string.not_in_use) else deviceCount(blocked),
+            onClick = { sheet = DeviceListKind.BLOCKED }
+        )
+        GroupDivider()
+        NavRow(
+            icon = Icons.Default.CheckCircle,
+            title = stringResource(R.string.allowed_title),
+            value = deviceCount(allowed),
+            onClick = { sheet = DeviceListKind.ALLOWED }
+        )
+        GroupDivider()
+        SwitchItem(
+            icon = Icons.Default.Shield,
+            title = stringResource(R.string.allow_only_title),
+            summary = stringResource(
+                when {
+                    on && noneAllowed -> R.string.allow_only_on_empty
+                    on -> R.string.allow_only_on
+                    noneAllowed -> R.string.allow_only_needs_device
+                    else -> R.string.allow_only_off
+                }
+            ),
+            checked = on,
+            onCheckedChange = { turnOn ->
+                act {
+                    if (!turnOn) return@act APManager.setAllowOnly(false)
+                    // Empty with the hotspot off: nobody is here to drop.
+                    val here = APManager.getClients() ?: return@act false
+                    val strangers = here.filter { c -> allowed.orEmpty().none { it.mac == c.mac } }
+                    if (strangers.isEmpty()) return@act APManager.setAllowOnly(true)
+                    unlisted = strangers
+                    true
+                }
+            },
+            // Grey only while off: on with an emptied list, this is the way back out.
+            enabled = on || !allowed.isNullOrEmpty()
+        )
+    }
+
+    when (sheet) {
+        DeviceListKind.BLOCKED -> BlockedDevicesSheet(
+            blocked,
+            allowOnly = on,
+            onAdd = { adding = DeviceListKind.BLOCKED },
+            onUnblock = { device -> act { APManager.unblock(device.mac) } },
+            onDismiss = { sheet = null }
+        )
+        DeviceListKind.ALLOWED -> AllowedDevicesSheet(
+            allowed,
+            allowOnly = on,
+            onAdd = { adding = DeviceListKind.ALLOWED },
+            onRemove = { device -> act { APManager.disallow(device.mac) } },
+            onDismiss = { sheet = null }
+        )
+        null -> {}
+    }
+    adding?.let { kind ->
+        val blocking = kind == DeviceListKind.BLOCKED
+        AddDeviceDialog(
+            title = if (blocking) R.string.device_add_blocked else R.string.device_add_allowed,
+            list = (if (blocking) blocked else allowed).orEmpty(),
+            other = (if (blocking) allowed else blocked).orEmpty(),
+            onOtherNote = if (blocking) R.string.mac_on_allowed else R.string.mac_on_blocked,
+            onDismiss = { adding = null },
+            onAdd = { mac, name ->
+                adding = null
+                act { if (blocking) APManager.block(mac, name) else APManager.allow(mac, name) }
+            }
+        )
+    }
+    unlisted?.let { devices ->
+        AllowOnlyDialog(
+            devices,
+            onDismiss = { unlisted = null },
+            onConfirm = { kept ->
+                unlisted = null
+                act { APManager.allowAndTurnOn(kept) }
+            }
+        )
     }
 }
 

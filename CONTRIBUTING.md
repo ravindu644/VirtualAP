@@ -86,24 +86,26 @@ Forms and inputs:
   `ui/component/DsDropdown.kt`: any select field. Never hand-roll `ExposedDropdownMenuBox`.
 - `DsTextFieldDefaults.colors()` in `ui/component/DsTextFieldDefaults.kt`: every
   `OutlinedTextField`.
-- `ClearFocusOnClickOutside` in `ui/util/FocusUtils.kt`: the main screen's root, which drops
-  the keyboard on an outside tap.
+- `rememberClearFocus()`, which `DsDialog` uses, and `ClearFocusOnClickOutside`, the main
+  screen's root, in `ui/util/FocusUtils.kt`: drop the keyboard on an outside tap.
 
 Dialogs and sheets:
 
 - `DsDialog(onDismiss, modifier, footer) { }` in `ui/component/DsDialog.kt`: every dialog. Never
   set a width, padding or scroll.
-- `DialogFooterRow(dismissLabel, confirmLabel, onDismiss, onConfirm)` in
+- `DialogFooterRow(dismissLabel, confirmLabel, onDismiss, onConfirm, confirmEnabled)` in
   `ui/component/DialogFooterRow.kt`: the two buttons in a dialog with a choice, in the `footer`
   slot.
 - `DialogCloseButton(onClick, enabled)` in `ui/component/DialogCloseButton.kt`: the 36dp close
   square in a header row, for content that closes from the top.
 - `LogActionRow(logs, isBlocking, onClear)` in `ui/component/LogActionRow.kt`: the Clear and
   Copy row above a log console; `onClear = null` gives Copy alone.
-- `DeviceRow`, `DeviceSheet(title, onDismiss, content)`, `BlockedList(list, onUnblock)`,
-  `BlockedDevicesSheet(blocked, onUnblock, onDismiss)` and `rememberDeviceAction(reload)` in
-  `ui/component/DeviceList.kt`: a device with its action, the sheet they sit in, the blocked
-  devices, and running a block or an unblock with the failure said out loud.
+- `DeviceRow`, `DeviceSheet(title, onDismiss, content)`, `BlockedList`, `AllowedList`,
+  `BlockedDevicesSheet`, `AllowedDevicesSheet` and `rememberDeviceAction(reload)` in
+  `ui/component/DeviceList.kt`: a device with its action, the sheet they sit in, the two lists,
+  and running a change to them with the failure said out loud.
+- `AddDeviceDialog` and `AllowOnlyDialog` in `ui/component/AddDeviceDialog.kt`: the MAC field
+  that takes only hex digits, and who drops off when only allowed devices can join.
 - `Caption(text)` in `ui/component/Caption.kt`: a line of secondary text.
 - The Wi-Fi QR sheet, the devices sheet and the logs sheet are private to `ui/screen/MainScreen.kt`, the About
   dialog and the language picker to `ui/screen/SettingsScreen.kt`. Do not import or copy them.

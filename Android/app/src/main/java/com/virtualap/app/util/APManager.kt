@@ -144,8 +144,8 @@ object APManager {
     }
 
     /** The engine's `mac name` lines, as a client with no address; null when it could not be asked. */
-    suspend fun getBlocked(): List<ApClient>? = withContext(Dispatchers.IO) {
-        val result = Shell.cmd("${Backend.startAp} blocked 2>/dev/null").exec()
+    private suspend fun listed(command: String): List<ApClient>? = withContext(Dispatchers.IO) {
+        val result = Shell.cmd("${Backend.startAp} $command 2>/dev/null").exec()
         if (!result.isSuccess) return@withContext null
         result.out.mapNotNull { line ->
             val parts = line.trim().split(" ")
@@ -153,13 +153,33 @@ object APManager {
         }
     }
 
-    suspend fun block(mac: String, name: String?): Boolean = withContext(Dispatchers.IO) {
-        val label = name?.let { " " + Backend.quote(it) }.orEmpty()
-        Shell.cmd("${Backend.startAp} block ${Backend.quote(mac)}$label >/dev/null 2>&1").exec().isSuccess
+    private suspend fun quiet(command: String): Boolean = withContext(Dispatchers.IO) {
+        Shell.cmd("${Backend.startAp} $command >/dev/null 2>&1").exec().isSuccess
     }
 
-    suspend fun unblock(mac: String): Boolean = withContext(Dispatchers.IO) {
-        Shell.cmd("${Backend.startAp} unblock ${Backend.quote(mac)} >/dev/null 2>&1").exec().isSuccess
+    private fun label(name: String?) = name?.let { " " + Backend.quote(it) }.orEmpty()
+
+    suspend fun getBlocked() = listed("blocked")
+    suspend fun getAllowed() = listed("allowed")
+    suspend fun block(mac: String, name: String?) = quiet("block ${Backend.quote(mac)}${label(name)}")
+    suspend fun unblock(mac: String) = quiet("unblock ${Backend.quote(mac)}")
+    suspend fun allow(mac: String, name: String?) = quiet("allow ${Backend.quote(mac)}${label(name)}")
+    suspend fun disallow(mac: String) = quiet("disallow ${Backend.quote(mac)}")
+    suspend fun setAllowOnly(on: Boolean) = quiet("allow-only ${if (on) "on" else "off"}")
+
+    /**
+     * Allows these, then turns it on, as one shell job: leaving the screen cancels the caller
+     * between suspensions, which must not leave the devices listed and the hotspot still open.
+     */
+    suspend fun allowAndTurnOn(devices: List<ApClient>): Boolean = withContext(Dispatchers.IO) {
+        val steps = devices.map { "allow ${Backend.quote(it.mac)}${label(it.name)}" } + "allow-only on"
+        Shell.cmd(steps.joinToString(" && ") { "${Backend.startAp} $it >/dev/null 2>&1" }).exec().isSuccess
+    }
+
+    /** Whether only the allowed devices can join; null when it could not be asked. */
+    suspend fun getAllowOnly(): Boolean? = withContext(Dispatchers.IO) {
+        val result = Shell.cmd("${Backend.startAp} allow-only 2>/dev/null").exec()
+        if (result.isSuccess) result.out.firstOrNull()?.trim() == "on" else null
     }
 
     suspend fun getInterfaces(): List<NetworkIface> = withContext(Dispatchers.IO) {

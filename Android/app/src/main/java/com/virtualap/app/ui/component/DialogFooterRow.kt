@@ -34,6 +34,7 @@ fun DialogFooterRow(
     confirmLabel: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    confirmEnabled: Boolean = true,
 ) {
     val shape = RoundedCornerShape(16.dp)
     Row(
@@ -50,12 +51,18 @@ fun DialogFooterRow(
             FooterLabel(dismissLabel, MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Surface(
-            modifier = Modifier.weight(1f).height(48.dp).clip(shape).clickable(role = Role.Button, onClick = onConfirm),
+            modifier = Modifier.weight(1f).height(48.dp).clip(shape)
+                .clickable(enabled = confirmEnabled, role = Role.Button, onClick = onConfirm),
             shape = shape,
-            color = MaterialTheme.colorScheme.primary,
+            color = if (confirmEnabled) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             tonalElevation = 0.dp
         ) {
-            FooterLabel(confirmLabel, MaterialTheme.colorScheme.onPrimary)
+            FooterLabel(
+                confirmLabel,
+                if (confirmEnabled) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.virtualap.app.ui.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,10 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.virtualap.app.ui.util.rememberClearFocus
 
 /**
  * The shell every dialog sits in: full width inside the 24dp gutters, bounded to the
@@ -40,12 +43,17 @@ fun DsDialog(
         // The screen's height, not the window's, so a tall dialog keeps its gutters
         // and its footer on a short landscape screen.
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val clearFocus = rememberClearFocus()
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
                 .heightIn(max = screenHeight - 48.dp)
-                .then(modifier),
+                .then(modifier)
+                // A dialog is its own window, so the ClearFocusOnClickOutside that wraps the
+                // screen never sees these taps and a focused field stays outlined. A gesture
+                // detector rather than clickable keeps TalkBack from reading the dialog as a button.
+                .pointerInput(Unit) { detectTapGestures { clearFocus() } },
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),

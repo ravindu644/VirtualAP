@@ -240,10 +240,11 @@ can join. A start rewrites the files first, logging and dropping any line it is 
 `hostapd` can read, and each holds about 400 devices.
 
 The app blocks from its devices sheet with no confirmation, because Unblock sits beside it, and
-lists them in Settings too, for when the hotspot is off. Either list only holds that MAC. A device
-that changes its own gets past a block and falls off an allowed list, and phones use a random
-address for each network by default, so the one to enter is the one in the device's Wi-Fi details
-for this hotspot.
+keeps both lists in Settings, for when the hotspot is off. Its MAC field cannot hold anything
+but hex digits, and refuses what the engine refuses: all zeros and group addresses. Either list
+only holds that MAC. A device that changes its own gets past a block and falls off an allowed
+list, and phones use a random address for each network by default, so the one to enter is the
+one in the device's Wi-Fi details for this hotspot.
 
 ## On the phone
 
