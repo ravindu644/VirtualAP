@@ -13,9 +13,11 @@ import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.Hotspot
 import com.virtualap.app.util.NetworkIface
 import com.virtualap.app.util.PreferencesManager
+import com.virtualap.app.util.VirtualAPInstaller
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class APViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,6 +46,8 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var allowOnly by mutableStateOf<Boolean?>(null)
         private set
+    var startAtBoot by mutableStateOf(false)
+        private set
     var showActionLogs by mutableStateOf(false)
         private set
     /** False until the first status/interfaces/containers fetch completes, so
@@ -58,12 +62,15 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch {
-            snapshotFlow { config }.debounce(500).collect {
+            // A newer value cancels the wait, so typing saves once, after the last key.
+            snapshotFlow { config }.collectLatest {
+                delay(500)
                 if (prefs.rootAvailable) APManager.save(it)
             }
         }
         // Not part of the gate below: the main screen does not show them.
         viewModelScope.launch { refreshDeviceLists() }
+        viewModelScope.launch { startAtBoot = VirtualAPInstaller.bootModeEnabled() }
         // One parallel initial load, gate the UI on it so everything appears at
         // once (no status flicker, no late-popping container toggle).
         viewModelScope.launch {
@@ -83,6 +90,12 @@ class APViewModel(application: Application) : AndroidViewModel(application) {
         APManager.getBlocked()?.let { blocked = it }
         APManager.getAllowed()?.let { allowed = it }
         APManager.getAllowOnly()?.let { allowOnly = it }
+    }
+
+    suspend fun updateStartAtBoot(enabled: Boolean): Boolean {
+        val written = VirtualAPInstaller.setBootMode(enabled)
+        if (written) startAtBoot = enabled
+        return written
     }
 
     private fun applyContainerList(list: List<String>) {

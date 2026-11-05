@@ -47,6 +47,8 @@
     <!-- A broken build, seen only by whoever built the APK -->
     <string name="setup_no_binaries" translatable="false">No binaries found in assets/bin/%1$s/. Run scripts/build-static.sh and rebuild the APK.</string>
     <string name="setup_verify_failed">Verification failed: a binary is missing or not executable after install</string>
+    <!-- %1$s is the error the root shell printed -->
+    <string name="setup_module_failed">Could not install the boot module: %1$s</string>
     <!-- %1$s is the file, %2$s what the copy command printed -->
     <string name="setup_deploy_failed">Failed to deploy %1$s: %2$s</string>
 
@@ -219,11 +221,8 @@
 
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
-    <string name="startup_header">Startup</string>
-    <string name="start_at_boot_label">Start access point at startup</string>
-    <string name="start_at_boot_desc">Start the saved access point during boot with Magisk or KernelSU</string>
-    <string name="start_at_boot_invalid">Set a valid access point configuration before enabling startup.</string>
-    <string name="start_at_boot_error">Could not configure access point startup. Check root access and try again.</string>
+    <string name="start_at_boot_label">Start access point at boot</string>
+    <string name="start_at_boot_desc">Starts the saved access point when the phone boots</string>
     <string name="appearance_header">Appearance</string>
     <string name="language">Language</string>
     <!-- The first choice in the language list: use the phone's language -->

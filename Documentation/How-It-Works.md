@@ -257,6 +257,8 @@ Everything is under `/data/local/virtualap`:
   only.
 - `blocklist`, `allowlist` and `allow_only`: the blocked and allowed devices and whether only
   those can join, see [above](#the-radio). There is none of them until first used.
+- `.boot_mode`: `1` when the hotspot starts at boot. The Settings toggle writes it and the boot
+  module reads it.
 - `run.state`: what the running AP needs torn down, the gateway, the upstream, the IPv6
   mode and interface and the sysctl values to restore. `status` keys "running" off it and
   the `hostapd` pid file; `stop` removes it before it exits.
@@ -265,23 +267,24 @@ Everything is under `/data/local/virtualap`:
   lock that keeps two starts or stops from running at once.
 - `logs/`: `ap.log`, a timestamped copy of every line the app showed and of what the
   monitor did, truncated on each start, plus `hostapd.log` and `dnsmasq.log`, because both
-  daemons would otherwise take their failure reason with them.
+  daemons would otherwise take their failure reason with them, and `boot-module.log`, what the
+  boot module did on the last boot.
 
 A pid file is only ever acted on when the process it names runs the expected program, so a
 pid reused after a reboot is never signalled. The app deploys `bin/` on first run and again
 whenever an APK ships different binaries: the build writes `PAYLOAD_VERSION`, a hash of
-each arch's binaries and the boot module, next to them, and the app compares it with the one it last deployed.
+each arch's binaries and the boot module, next to them, and the app compares it with the one
+it last deployed.
 
-The backend installer also installs `/data/adb/modules/virtualap`, a small Magisk/KernelSU
-module whose `service.sh` runs in late-start. It waits for
-`sys.boot_completed`, reads `/data/local/virtualap/.boot_mode`, then starts the same
-`virtualap` engine with the settings in `/data/local/virtualap/ap.conf`. The app saves
-validated settings there through `virtualap save` without starting the AP. The file is
-mode `0600` because it contains the password. The boot flag is `0` or `1` and mode `0666`
-so the app's setting can update it through a root shell. The module does not read
-app-private credential-encrypted storage or start Android's built-in tethering service.
-Boot output goes to `/data/local/virtualap/boot.log`. On upgrade, the installer preserves
-the old uppercase directory's boot flag when the new flag does not exist.
+Deploying the backend also installs `/data/adb/modules/virtualap`, the boot module, the same way
+Droidspaces installs its own. A phone with no root manager goes without it, and the Settings toggle,
+which only writes `.boot_mode`, then has nothing to read it. The module's `service.sh` runs in late
+start and waits for `sys.boot_completed`. With `.boot_mode` on, it gives the Wi-Fi interface 25
+seconds to appear and, in managed mode, the container another 25 to run, skipping the start if
+either does not. It does not wait for the network, since the hotspot follows an upstream that comes
+later. The start reads `ap.conf`, which the app keeps current with `virtualap save`, so the module
+never touches the app's own storage. The result shows as the module's description in the root
+manager.
 
 ## Building
 
@@ -292,9 +295,10 @@ interpreter. The `dnsmasq` fork drops the `getpwnam("root")` privilege drop, sin
 has no root entry in `/etc/passwd` and static musl will not synthesize one. `virtualap`
 links nothing but libc and needs no container: the root `Makefile` builds it the
 Droidspaces way, `make aarch64 armhf` with the musl-cross gcc in
-`~/toolchains/<triplet>-cross` (or `MUSL_CROSS`). The output lands in `backend/<arch>/`,
-which is gitignored, and the `prepareAssets` gradle task stages the three binaries into the
-APK's assets, failing when any is missing.
+`~/toolchains/<triplet>-cross` (or `MUSL_CROSS`), which the `buildBackend` gradle task runs
+before every app build. The output lands in `backend/<arch>/`, which is gitignored, and the
+`prepareAssets` gradle task stages the three binaries into the APK's assets, failing when any is
+missing.
 
 `src/` has one folder per layer, each with one public header under `src/include/<folder>/`
 and, where its files share more than that, a private `internal.h` beside its sources:

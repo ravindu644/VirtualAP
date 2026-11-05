@@ -17,20 +17,19 @@ VirtualAP turns a rooted phone into a Wi-Fi access point. Two halves:
 
 The `prepareAssets` gradle task stages both arch trees into a generated assets root under
 `Android/app/build/`, and the app deploys the matching arch to `/data/local/virtualap` on
-first run and after every APK update. There is no chroot and no
-Magisk module.
+first run and after every APK update, with a boot module for the root manager. There is no
+chroot.
 
 ## Build
 
 ```
 ./scripts/build-static.sh    # from the repository root: both arches, needs Docker
-make aarch64 armhf           # from the repository root: virtualap, needs musl-cross gcc
-./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
+./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer, ANDROID_HOME and musl-cross gcc
 ```
 
-Run the first two before the first app build; after that, the first again whenever
-`externals/` or the build scripts change, the second whenever `src/` does. `prepareAssets`
-fails when `backend/<arch>/` lacks one of the three. `make check` runs the tests. The version
+Run the first before the first app build and again whenever `externals/` or the build scripts
+change. The app build runs `make aarch64 armhf` itself, so `virtualap` always matches `src/`.
+`prepareAssets` fails when `backend/<arch>/` lacks one of the three. `make check` runs the tests. The version
 comes from `VERSION` at the repository root. Bump it there, nowhere else. The build and CI
 details are in the Building section of How-It-Works.md.
 

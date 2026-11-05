@@ -27,8 +27,7 @@ as untested.
 
 ```
 ./scripts/build-static.sh    # from the repository root: both arches, needs Docker
-make aarch64 armhf           # from the repository root: virtualap, needs musl-cross gcc
-./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer and ANDROID_HOME
+./build.sh [release]         # from Android/: the APK, needs JDK 17 or newer, ANDROID_HOME and musl-cross gcc
 ```
 
 What the scripts do, and what CI does, is in the Building section of
@@ -170,12 +169,12 @@ Shell, root and the backend:
 - `BackendLogger` and `classifyLine(line)` in `util/BackendLogger.kt`: the log sink the AP
   calls take, and the `[ERROR]`/`[WARN]` level tagging.
 - `PreferencesManager` with `apConfig` in `util/PreferencesManager.kt`: all settings; the
-  hotspot config is read and written whole. `VirtualAPInstaller` in `util/VirtualAPInstaller.kt`
-  deploys the backend and the Magisk/KernelSU boot module. `Constants` in
-  `util/Constants.kt`: every path and preference key.
+  hotspot config is read and written whole. `Constants` in `util/Constants.kt`: every path and
+  preference key.
 - `RootChecker.checkRootAccess(reprompt)` and `RootStatus` in `util/RootChecker.kt`;
   `VirtualAPInstaller.deviceArch/bundledPayloadVersion/payloadUpdateAvailable/install` in
-  `util/VirtualAPInstaller.kt`; `QrCodeGenerator.wifiPayload/encode` in
+  `util/VirtualAPInstaller.kt`; `ModuleInstaller.install` in `util/ModuleInstaller.kt`, the boot
+  module; `QrCodeGenerator.wifiPayload/encode` in
   `util/QrCodeGenerator.kt`, the only zxing caller.
 - `HotspotTileService` and `HotspotStopReceiver`: the Quick Settings toggle and the
   notification's Stop action. Both hold no state of their own.

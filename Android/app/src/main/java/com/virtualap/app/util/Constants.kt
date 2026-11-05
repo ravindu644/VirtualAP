@@ -7,6 +7,9 @@ object Constants {
     /** Droidspaces' CLI, asked for its running containers; only ever run from
      *  this path. The engine's copy is DROIDSPACES_BIN in src/mode/internal.h. */
     const val DROIDSPACES = "/data/local/Droidspaces/bin/droidspaces"
+    const val MODULES_DIR = "/data/adb/modules"
+    const val BOOT_MODULE = "$MODULES_DIR/virtualap"
+    const val BOOT_MODE_FILE = "$VAP_DIR/.boot_mode"
     const val PREFS_NAME = "virtualap_prefs"
     const val KEY_ROOT_AVAILABLE = "root_available"
     const val KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme"
@@ -34,5 +37,4 @@ object Constants {
     const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
     const val KEY_HAS_SEEN_ROOT_CHECK = "has_seen_root_check"
     const val KEY_PAYLOAD_VERSION = "payload_version"
-    const val KEY_LEGACY_START_AT_BOOT = "start_at_boot"
 }

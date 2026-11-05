@@ -87,7 +87,7 @@ need to share a VPN or to repeat Wi-Fi.
    managed mode.
 5. Start the hotspot and connect your devices.
 
-Enable **Start access point at startup** in Settings to bring it back after a reboot.
+Enable **Start access point at boot** in Settings to bring it back after a reboot.
 
 In managed mode, open `http://<your gateway address>` from a connected device to reach
 LuCI.

@@ -107,10 +107,24 @@ val payload = listOf("virtualap", "hostapd", "dnsmasq")
 val assetsDir = layout.buildDirectory.dir("generated/assets")
 android.sourceSets["main"].assets.srcDir(assetsDir)
 
+// The engine the APK ships. make is incremental and knows its own inputs, so an unchanged src/
+// costs one no-op per arch, and an APK can never carry an engine older than src/.
+val buildBackend = tasks.register<Exec>("buildBackend") {
+    workingDir(rootProject.file(".."))
+    commandLine(listOf("make") + arches)
+}
+
 val prepareAssets = tasks.register<Sync>("prepareAssets") {
+    dependsOn(buildBackend)
     for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); include(payload) }
-    from(rootProject.file("../scripts/install_module.sh")) { into("bootmodule") }
-    inputs.dir("src/main/assets/bootmodule")
+    // module.prop carries the version; the template lives outside assets so a bump is no diff.
+    from("src/main/boot-module/module.prop") {
+        into("boot-module")
+        expand(mapOf("version" to vapVersionName, "versionCode" to vapVersionCode))
+    }
+    inputs.dir("src/main/assets/boot-module")
+    inputs.property("version", vapVersionName)
+    inputs.property("versionCode", vapVersionCode)
     into(assetsDir)
     doFirst {
         // Builds before 2026-10-31 staged these two under src/main; a leftover tree
@@ -118,9 +132,7 @@ val prepareAssets = tasks.register<Sync>("prepareAssets") {
         file("src/main/assets/bin").deleteRecursively()
         file("src/main/assets/backend").deleteRecursively()
         for (arch in arches) for (bin in payload) {
-            // virtualap comes from its own build, the others from the container's.
-            val how = if (bin == "virtualap") "make aarch64 armhf" else "scripts/build-static.sh"
-            require(File(backendDir, "$arch/$bin").isFile) { "prepareAssets: backend/$arch/$bin is missing, run $how first" }
+            require(File(backendDir, "$arch/$bin").isFile) { "prepareAssets: backend/$arch/$bin is missing, run scripts/build-static.sh first" }
         }
     }
     doLast {
@@ -131,8 +143,8 @@ val prepareAssets = tasks.register<Sync>("prepareAssets") {
                 digest.update(bin.name.toByteArray())
                 digest.update(bin.readBytes())
             }
-            val bootAssets = file("src/main/assets/bootmodule").listFiles()!!.toList() +
-                rootProject.file("../scripts/install_module.sh")
+            val bootAssets = file("src/main/assets/boot-module").listFiles()!!.toList() +
+                assetsDir.get().file("boot-module/module.prop").asFile
             for (asset in bootAssets.sortedBy { it.name }) {
                 digest.update(asset.name.toByteArray())
                 digest.update(asset.readBytes())

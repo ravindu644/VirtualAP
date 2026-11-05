@@ -1,0 +1,6 @@
+id=virtualap
+name=VirtualAP: Boot Service
+version=v${version}
+versionCode=${versionCode}
+author=ravindu644
+description=Starts the saved access point during boot if "Start access point at boot" is on.
