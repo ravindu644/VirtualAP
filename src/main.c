@@ -15,14 +15,13 @@ static const struct command {
   const char *name;
   int (*fn)(struct vap_opts *);
 } commands[] = {
-
-    {"start", cmd_start},     {"save", cmd_save},
-    {"stop", cmd_stop},       {"status", cmd_status},
-    {"clients", cmd_clients}, {"interfaces", cmd_interfaces},
-    {"caps", cmd_caps},       {"block", cmd_block},
-    {"unblock", cmd_unblock}, {"blocked", cmd_blocked},
-    {"allow", cmd_allow},     {"disallow", cmd_disallow},
-    {"allowed", cmd_allowed}, {"allow-only", cmd_allow_only},
+    {"start", cmd_start},           {"stop", cmd_stop},
+    {"status", cmd_status},         {"clients", cmd_clients},
+    {"interfaces", cmd_interfaces}, {"caps", cmd_caps},
+    {"block", cmd_block},           {"unblock", cmd_unblock},
+    {"blocked", cmd_blocked},       {"allow", cmd_allow},
+    {"disallow", cmd_disallow},     {"allowed", cmd_allowed},
+    {"allow-only", cmd_allow_only},
 };
 
 int main(int argc, char **argv) {
@@ -56,8 +55,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  /* Saved settings first, the flags on top: a flag left out keeps its value
-   * from the last start. */
+  /* The app's saved settings first, the flags on top, for this run only. */
   struct vap_opts o;
   opts_defaults(&o);
   conf_load(VAP_CONF, &o);

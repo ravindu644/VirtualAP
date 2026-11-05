@@ -8,11 +8,11 @@
 
 #include "core/core.h"
 
-/* Enough sh to read what conf_save writes: '...' verbatim (a ' is '\''), a
+/* Enough sh to read what the app writes: '...' verbatim (a ' is '\''), a
  * bare \x as x, and the word ends at an unquoted blank. As in sh, a # starts
  * a comment only where a word starts. A " is an ordinary character: only
- * the releases before 1.0 wrote "...", and the app passes every flag on a
- * start, so such a file is rewritten by the first one. */
+ * the releases before 1.0 wrote "...", and the app rewrites such a file on its
+ * next save. */
 void conf_unquote(const char **s, char *out, size_t size) {
   const char *p = *s;
   size_t n = 0;
@@ -64,25 +64,6 @@ int conf_load(const char *path, struct vap_opts *o) {
   }
   fclose(f);
   return 0;
-}
-
-static void body(FILE *f, const void *arg) {
-  const struct vap_opts *o = arg;
-  for (size_t i = 0; i < vap_nkeys; i++) {
-    fprintf(f, "%s='", vap_keys[i].conf);
-    for (const char *p = opt_cfield(o, &vap_keys[i]); *p; p++) {
-      if (*p == '\'')
-        fputs("'\\''", f);
-      else
-        fputc(*p, f);
-    }
-    fputs("'\n", f);
-  }
-}
-
-/* 0600: it holds the Wi-Fi password in the clear. */
-int conf_save(const char *path, const struct vap_opts *o) {
-  return write_atomic(path, 0600, body, o);
 }
 
 void state_set(struct state *s, const char *key, const char *val) {

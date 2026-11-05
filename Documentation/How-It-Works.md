@@ -253,9 +253,10 @@ Everything is under `/data/local/virtualap`:
 
 - `bin/`: `virtualap`, `hostapd` and `dnsmasq`, fully static musl binaries for the phone's
   arch. `iptables` is Android's own.
-- `ap.conf`: the last flags the app passed, as `KEY='value'` lines, so a flag that is
-  omitted keeps its saved value. It holds the Wi-Fi password, so it is readable by root
-  only.
+- `ap.conf`: the hotspot's settings as `KEY='value'` lines. The app writes it whenever what is on
+  the screen is valid and before each start, and a half-filled form stays on the screen. The
+  engine only reads it, and a flag overrides it for that run. It holds the Wi-Fi password, so
+  it is readable by root only.
 - `blocklist`, `allowlist` and `allow_only`: the blocked and allowed devices and whether only
   those can join, see [above](#the-radio). There is none of them until first used.
 - `.boot_mode`: `1` when the hotspot starts at boot. The Settings toggle writes it and the boot
@@ -283,8 +284,8 @@ which only writes `.boot_mode`, then has nothing to read it. The module's `servi
 start and waits for `sys.boot_completed`. With `.boot_mode` on, it gives the Wi-Fi interface 25
 seconds to appear and, in managed mode, the container another 25 to run, skipping the start if
 either does not. It does not wait for the network, since the hotspot follows an upstream that comes
-later. The start reads `ap.conf`, which the app keeps current with `virtualap save`, so the module
-never touches the app's own storage. The result shows as the module's description in the root
+later. The start reads `ap.conf`, which sits outside the app's encrypted storage, so the boot start
+does not need an unlock. The result shows as the module's description in the root
 manager. After a successful start it waits for the first unlock, before which the app cannot run,
 and sends `HotspotBootReceiver` a broadcast, which puts up the running notification.
 

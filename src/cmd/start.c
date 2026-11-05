@@ -71,17 +71,21 @@ static void check_channel(struct vap_opts *o) {
   }
 }
 
-static int validate_config(struct vap_opts *o, struct subnet *net) {
+int cmd_start(struct vap_opts *o) {
+  if (vap_lock() < 0)
+    return 1;
+  log_truncate();
+
   if (!*o->ssid) {
     vap_error("SSID not set (use -s or save a config first)");
     return 1;
   }
-  if (!subnet_from_gw(o->ip_gw, net)) {
+  struct subnet net;
+  if (!subnet_from_gw(o->ip_gw, &net)) {
     vap_error("Invalid gateway IP address: '%s'", o->ip_gw);
     return 1;
   }
-  /* Checked before ap.conf is written: dnsmasq would only refuse a bad entry
-   * after hostapd is up, and the value would already be saved. */
+  /* Checked now: dnsmasq would only refuse a bad entry after hostapd is up. */
   char entry[OPT_LEN];
   if (csv_each(o->dns_servers, bad_dns, entry)) {
     vap_error("Invalid DNS server: '%s'", entry);
@@ -96,34 +100,6 @@ static int validate_config(struct vap_opts *o, struct subnet *net) {
     return 1;
   }
   check_channel(o);
-  return 0;
-}
-
-int cmd_save(struct vap_opts *o) {
-  if (vap_lock() < 0)
-    return 1;
-  struct subnet net;
-  if (validate_config(o, &net))
-    return 1;
-  if (conf_save(VAP_CONF, o) < 0) {
-    vap_error("Could not save %s.", VAP_CONF);
-    return 1;
-  }
-  return 0;
-}
-
-int cmd_start(struct vap_opts *o) {
-  if (vap_lock() < 0)
-    return 1;
-  log_truncate();
-  struct subnet net;
-  if (validate_config(o, &net))
-    return 1;
-
-  /* Saved now, before the channel policy rewrites band and channel and
-   * before anything can fail: a failed attempt must not lose the config. */
-  if (conf_save(VAP_CONF, o) < 0)
-    vap_warn("Could not save %s.", VAP_CONF);
 
   /* Tear down any previous AP, and daemons orphaned by one that left no
    * state. */

@@ -15,7 +15,6 @@
 extern const struct vap_key vap_keys[];
 extern const size_t vap_nkeys;
 
-const char *opt_cfield(const struct vap_opts *o, const struct vap_key *k);
 const struct vap_key *opt_by_conf(const char *name);
 
 /* The one way a value gets in, from a flag or from ap.conf: refuses a line

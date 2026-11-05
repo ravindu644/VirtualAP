@@ -66,10 +66,6 @@ static char *opt_field(struct vap_opts *o, const struct vap_key *k) {
   return (char *)o + k->off;
 }
 
-const char *opt_cfield(const struct vap_opts *o, const struct vap_key *k) {
-  return (const char *)o + k->off;
-}
-
 const struct vap_key *opt_by_conf(const char *name) {
   for (size_t i = 0; i < vap_nkeys; i++)
     if (!strcmp(vap_keys[i].conf, name))
@@ -146,17 +142,16 @@ void print_usage(const char *prog) {
   printf("\n\033[1;34mhttps://github.com/ravindu644/VirtualAP\033[0m\n");
   printf("\033[2mBuilt on: %.4s%s %s\033[0m\n\n", __DATE__,
          __DATE__ + 4 + (__DATE__[4] == ' '), __TIME__);
-  printf(
-      "Usage: %s <start|save|stop|status|clients|interfaces|caps> [options]\n"
-      "       %s block <mac> [name]\n"
-      "       %s unblock <mac>\n"
-      "       %s blocked\n"
-      "       %s allow <mac> [name]\n"
-      "       %s disallow <mac>\n"
-      "       %s allowed\n"
-      "       %s allow-only [on|off]\n"
-      "\nstart options:\n",
-      prog, prog, prog, prog, prog, prog, prog, prog);
+  printf("Usage: %s <start|stop|status|clients|interfaces|caps> [options]\n"
+         "       %s block <mac> [name]\n"
+         "       %s unblock <mac>\n"
+         "       %s blocked\n"
+         "       %s allow <mac> [name]\n"
+         "       %s disallow <mac>\n"
+         "       %s allowed\n"
+         "       %s allow-only [on|off]\n"
+         "\nstart options:\n",
+         prog, prog, prog, prog, prog, prog, prog, prog);
   /* Start order, the one people read, not ap.conf's. */
   static const char order[] = "spobcWgdwHAMKmT6";
   for (const char *f = order; *f; f++) {

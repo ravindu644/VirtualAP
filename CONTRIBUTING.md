@@ -168,9 +168,9 @@ Shell, root and the backend:
   checks the fields share with it.
 - `BackendLogger` and `classifyLine(line)` in `util/BackendLogger.kt`: the log sink the AP
   calls take, and the `[ERROR]`/`[WARN]` level tagging.
-- `PreferencesManager` with `apConfig` in `util/PreferencesManager.kt`: all settings; the
-  hotspot config is read and written whole. `Constants` in `util/Constants.kt`: every path and
-  preference key.
+- `PreferencesManager` in `util/PreferencesManager.kt`: the app's own settings.
+  `APManager.loadConfig/saveConfig`: the hotspot config, read and written whole in `ap.conf`.
+  `Constants` in `util/Constants.kt`: every path and preference key.
 - `RootChecker.checkRootAccess(reprompt)` and `RootStatus` in `util/RootChecker.kt`;
   `VirtualAPInstaller.deviceArch/bundledPayloadVersion/payloadUpdateAvailable/install` in
   `util/VirtualAPInstaller.kt`; `ModuleInstaller.install` in `util/ModuleInstaller.kt`, the boot

@@ -146,9 +146,10 @@ is a bug, not a shortcut.
   `/dev/null` for stdin and a clean signal mask. Pid files go through its `pidfile_*`
   functions, which signal only a process running the expected program.
 - The settings live in one table, `vap_keys` in `cli/options.c`: flag letter, `ap.conf`
-  key, default, usage text. A new setting is a field in `struct vap_opts` and a row there;
-  parsing, `ap.conf` and the usage text follow. Every value goes through `opt_set`, which
-  refuses line breaks. `ap.conf` is written only by `conf_save`.
+  key, default, usage text. A new setting is a field in `struct vap_opts` and a row there,
+  and a field in `APConfig`; parsing and the usage text follow. Every value goes through
+  `opt_set`, which refuses line breaks. `ap.conf` is the app's: only `APManager.saveConfig`
+  writes it, and only a config that passes `APConfig.isValid()`. The engine only reads it.
 - The kernel is spoken to through `net/` (rtnetlink: `link` with the addresses and the
   neighbours, `route` with the policy rules and netd's tables; the `ip_tables` engine in
   `net/ipt/`: `ipt`, `ipt_rules`) and `radio/` (`driver`: nl80211 and the wpa control

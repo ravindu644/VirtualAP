@@ -52,15 +52,12 @@ void opts_defaults(struct vap_opts *o);
 int opts_parse(struct vap_opts *o, int argc, char **argv);
 void print_usage(const char *prog);
 
-/* conf.c: ap.conf, in the format v2.1.0's shell engine sourced, so a
- * downgrade still reads it. */
+/* conf.c: ap.conf, which the app writes, in the format v2.1.0's shell engine
+ * sourced, so a downgrade still reads it. */
 
 /* Missing file: nothing changes. Unknown keys are skipped, as sourcing a
  * variable nothing reads was harmless. 0, or -1 when unreadable. */
 int conf_load(const char *path, struct vap_opts *o);
-/* KEY='value' per line, ' written as '\'', the quoting the shell engine's
- * save_conf used. 0 or -1. */
-int conf_save(const char *path, const struct vap_opts *o);
 
 /* conf.c: run.state: what a running AP was started with, key=value per line.
  * stop tears down from it and status prints it, so one that v2.1.0's shell
