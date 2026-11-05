@@ -36,6 +36,20 @@ wait_for() {
     exit 1
 }
 
+# The app cannot run until the first unlock, which can be hours away. getprop first:
+# it costs nothing to ask, where each am starts a Java process. The property comes
+# just ahead of the state a broadcast needs, so the second wait is short.
+wait_for_unlock() {
+    while [ "$(getprop sys.user.0.ce_available 2>/dev/null)" != "true" ]; do
+        sleep 5
+    done
+    count=0
+    while [ ${count} -lt 25 ] && [ "$(am get-started-user-state 0 2>/dev/null)" != "RUNNING_UNLOCKED" ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+}
+
 while [ "$(getprop sys.boot_completed 2>/dev/null)" != "1" ]; do
     sleep 1
 done
@@ -59,6 +73,9 @@ fi
 if "${VAP_DIR}/bin/virtualap" start; then
     log "Access point started."
     update_prop "🟢 Access point started at boot"
+    # Nothing else tells the app, so its notification would wait for it to be opened.
+    wait_for_unlock
+    am broadcast --include-stopped-packages -n com.virtualap.app/.HotspotBootReceiver
 else
     log "ERROR: Access point did not start."
     update_prop "🔴 Access point did not start at boot, see boot-module.log"

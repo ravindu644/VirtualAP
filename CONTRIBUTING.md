@@ -176,8 +176,9 @@ Shell, root and the backend:
   `util/VirtualAPInstaller.kt`; `ModuleInstaller.install` in `util/ModuleInstaller.kt`, the boot
   module; `QrCodeGenerator.wifiPayload/encode` in
   `util/QrCodeGenerator.kt`, the only zxing caller.
-- `HotspotTileService` and `HotspotStopReceiver`: the Quick Settings toggle and the
-  notification's Stop action. Both hold no state of their own.
+- `HotspotTileService`, `HotspotStopReceiver` and `HotspotBootReceiver`: the Quick Settings
+  toggle, the notification's Stop action, and the boot module's word that it started a hotspot.
+  None hold state of their own.
 - `LocaleHelper.availableLanguages/currentLanguage/changeLanguage` in `util/LocaleHelper.kt`:
   the app's language, the only caller of `AppCompatDelegate.setApplicationLocales`.
 - `AppViewModel` owns the welcome flag, root status and install state; `APViewModel` owns the editable config,

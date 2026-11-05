@@ -53,5 +53,8 @@
             android:name=".HotspotStopReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".HotspotBootReceiver"
+            android:exported="false" />
     </application>
 </manifest>

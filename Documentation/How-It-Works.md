@@ -285,7 +285,8 @@ seconds to appear and, in managed mode, the container another 25 to run, skippin
 either does not. It does not wait for the network, since the hotspot follows an upstream that comes
 later. The start reads `ap.conf`, which the app keeps current with `virtualap save`, so the module
 never touches the app's own storage. The result shows as the module's description in the root
-manager.
+manager. After a successful start it waits for the first unlock, before which the app cannot run,
+and sends `HotspotBootReceiver` a broadcast, which puts up the running notification.
 
 ## Building
 
