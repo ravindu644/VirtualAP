@@ -10,6 +10,7 @@
 /* start.c */
 
 int cmd_start(struct vap_opts *o);
+int cmd_save(struct vap_opts *o);
 int cmd_stop(struct vap_opts *o);
 
 /* status.c */

@@ -52,5 +52,6 @@
         <receiver
             android:name=".HotspotStopReceiver"
             android:exported="false" />
+
     </application>
 </manifest>

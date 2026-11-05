@@ -270,8 +270,18 @@ Everything is under `/data/local/virtualap`:
 A pid file is only ever acted on when the process it names runs the expected program, so a
 pid reused after a reboot is never signalled. The app deploys `bin/` on first run and again
 whenever an APK ships different binaries: the build writes `PAYLOAD_VERSION`, a hash of
-each arch's binaries, next to them, and the app compares it with the one it last deployed.
-There is no Magisk module and no reboot.
+each arch's binaries and the boot module, next to them, and the app compares it with the one it last deployed.
+
+The backend installer also installs `/data/adb/modules/virtualap`, a small Magisk/KernelSU
+module whose `service.sh` runs in late-start. It waits for
+`sys.boot_completed`, reads `/data/local/virtualap/.boot_mode`, then starts the same
+`virtualap` engine with the settings in `/data/local/virtualap/ap.conf`. The app saves
+validated settings there through `virtualap save` without starting the AP. The file is
+mode `0600` because it contains the password. The boot flag is `0` or `1` and mode `0666`
+so the app's setting can update it through a root shell. The module does not read
+app-private credential-encrypted storage or start Android's built-in tethering service.
+Boot output goes to `/data/local/virtualap/boot.log`. On upgrade, the installer preserves
+the old uppercase directory's boot flag when the new flag does not exist.
 
 ## Building
 

@@ -3,6 +3,7 @@ package com.virtualap.app.ui.screen
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +54,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +87,8 @@ import com.virtualap.app.util.APManager
 import com.virtualap.app.util.ApClient
 import com.virtualap.app.util.LocaleHelper
 import com.virtualap.app.util.PreferencesManager
+import com.virtualap.app.util.VirtualAPInstaller
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,10 +101,16 @@ fun SettingsScreen(
     // rememberThemeState() feeds them back into the theme, no restart needed.
     val prefs = PreferencesManager
     val themeState = rememberThemeState()
+    val coroutineScope = rememberCoroutineScope()
+    var startAtBoot by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by rememberSaveable { mutableStateOf(false) }
     var chosenLanguage by remember { mutableStateOf<String?>(null) }
     val languages = remember { LocaleHelper.availableLanguages(context) }
+
+    LaunchedEffect(Unit) {
+        startAtBoot = VirtualAPInstaller.bootModeEnabled()
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -190,6 +201,39 @@ fun SettingsScreen(
                         onPaletteSelected = { prefs.themePalette = it.name }
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(
+                text = stringResource(R.string.startup_header),
+                modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)
+            )
+            SettingsGroup(raised = themeState.darkTheme, modifier = Modifier.padding(horizontal = 16.dp)) {
+                SwitchItem(
+                    icon = Icons.Default.PowerSettingsNew,
+                    title = stringResource(R.string.start_at_boot_label),
+                    summary = stringResource(R.string.start_at_boot_desc),
+                    checked = startAtBoot,
+                    onCheckedChange = {
+                        val enabled = it
+                        coroutineScope.launch {
+                            val config = prefs.apConfig
+                            val result = if (enabled && !config.isValid()) null
+                            else VirtualAPInstaller.configureAutoStart(context, config, enabled)
+                            if (result == null) {
+                                Toast.makeText(context, R.string.start_at_boot_invalid, Toast.LENGTH_LONG).show()
+                            } else result.fold(
+                                onSuccess = {
+                                    startAtBoot = enabled
+                                    prefs.clearLegacyStartAtBoot()
+                                },
+                                onFailure = {
+                                    Toast.makeText(context, R.string.start_at_boot_error, Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))

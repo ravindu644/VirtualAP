@@ -34,4 +34,5 @@ object Constants {
     const val KEY_HAS_SEEN_WELCOME = "has_seen_welcome"
     const val KEY_HAS_SEEN_ROOT_CHECK = "has_seen_root_check"
     const val KEY_PAYLOAD_VERSION = "payload_version"
+    const val KEY_LEGACY_START_AT_BOOT = "start_at_boot"
 }
