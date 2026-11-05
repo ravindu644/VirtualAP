@@ -150,8 +150,12 @@ void print_usage(const char *prog) {
          "       %s block <mac> [name]\n"
          "       %s unblock <mac>\n"
          "       %s blocked\n"
+         "       %s allow <mac> [name]\n"
+         "       %s disallow <mac>\n"
+         "       %s allowed\n"
+         "       %s allow-only [on|off]\n"
          "\nstart options:\n",
-         prog, prog, prog, prog);
+         prog, prog, prog, prog, prog, prog, prog, prog);
   /* Start order, the one people read, not ap.conf's. */
   static const char order[] = "spobcWgdwHAMKmT6";
   for (const char *f = order; *f; f++) {

@@ -24,5 +24,9 @@ int cmd_caps(struct vap_opts *o);
 int cmd_block(struct vap_opts *o);
 int cmd_unblock(struct vap_opts *o);
 int cmd_blocked(struct vap_opts *o);
+int cmd_allow(struct vap_opts *o);
+int cmd_disallow(struct vap_opts *o);
+int cmd_allowed(struct vap_opts *o);
+int cmd_allow_only(struct vap_opts *o);
 
 #endif

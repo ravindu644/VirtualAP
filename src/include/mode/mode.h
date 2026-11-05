@@ -119,24 +119,30 @@ void lease_find(const char *leases, const char *mac, const char *gw,
  * it, or knows nothing else for mac in gw's /24. */
 void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]);
 
-/* blocklist.c: The devices the hotspot refuses, kept across starts. hostapd
- * reads this same file as its deny_mac_file. */
+/* maclist.c: The devices the hotspot refuses and the ones it lets in, kept across
+ * starts. hostapd reads these same files as its deny_mac_file and accept_mac_file. */
 
 #define BLOCKLIST VAP_BASE "/blocklist"
+#define ALLOWLIST VAP_BASE "/allowlist"
+/* There when only the allowlist's devices can join. */
+#define ALLOW_ONLY VAP_BASE "/allow_only"
 
 /* The colon form, the one hostapd reads, up to a blank or the end. */
-bool blocklist_mac(const char *s, char mac[18]);
-/* mac from blocklist_mac, name a label or NULL. Adding one that is listed
+bool maclist_mac(const char *s, char mac[18]);
+/* mac from maclist_mac, name a label or NULL. Adding one that is listed
  * replaces it, and any edit drops what hostapd could not read. 0, or -1 after
  * logging why, with the file as it was. */
-int blocklist_add(const char *path, const char *mac, const char *name);
-int blocklist_del(const char *path, const char *mac);
+int maclist_add(const char *path, const char *mac, const char *name);
+int maclist_del(const char *path, const char *mac);
 /* One "mac name" line per entry on stdout, "-" for no name. 0, or -1 after
  * logging why. A list that is not there is empty. */
-int blocklist_print(const char *path);
-/* Tell a running hostapd: deny drops the device if it is connected. 0 with no
- * hostapd running, -1 if it did not take it. */
-int hostapd_deny(const char *mac, bool deny);
+int maclist_print(const char *path);
+/* Tell a running hostapd about one of those two lists. 0 with no hostapd running,
+ * -1 if it did not take it. */
+int hostapd_maclist(const char *path, const char *mac, bool add);
+/* Turning it on drops every connected device not on the allowlist. 0, or -1 after
+ * logging why. */
+int allow_only_set(bool on);
 
 /* ap.c: dnsmasq: DHCP and DNS for the clients, and the IPv6 router
  * advertisements. */

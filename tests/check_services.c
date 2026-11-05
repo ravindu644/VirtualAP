@@ -144,7 +144,7 @@ void test_services(void) {
   arp_find("", "76:c7:48:c1:7d:6e", gw, ip);
   CHECK(!strcmp(ip, "192.168.100.50"));
 
-  /* The blocklist, hostapd's own deny_mac_file. */
+  /* The device lists, hostapd's own deny_mac_file and accept_mac_file. */
   char list[256], got[512];
   tmp_path(list, sizeof(list));
   int lfd = mkstemp(list);
@@ -152,23 +152,23 @@ void test_services(void) {
   close(lfd);
   unlink(list);
   const char *m1 = "02:00:00:00:00:01", *m2 = "02:00:00:00:00:02";
-  CHECK(blocklist_del(list, m1) == 0);
+  CHECK(maclist_del(list, m1) == 0);
   CHECK(read_file(list, got, sizeof(got)) == 0);
-  CHECK(blocklist_add(list, m1, "phone") == 0);
-  CHECK(blocklist_add(list, m2, NULL) == 0);
+  CHECK(maclist_add(list, m1, "phone") == 0);
+  CHECK(maclist_add(list, m2, NULL) == 0);
   CHECK(read_file(list, got, sizeof(got)) > 0 &&
         !strcmp(got, "02:00:00:00:00:01 #phone\n02:00:00:00:00:02"));
   /* Listed again it moves and takes the new name; a bad name is left out. */
-  CHECK(blocklist_add(list, m1, "two words") == 0);
+  CHECK(maclist_add(list, m1, "two words") == 0);
   CHECK(read_file(list, got, sizeof(got)) > 0 &&
         !strcmp(got, "02:00:00:00:00:02\n02:00:00:00:00:01"));
   char longname[80];
   memset(longname, 'x', sizeof(longname) - 1);
   longname[sizeof(longname) - 1] = '\0';
-  CHECK(blocklist_add(list, m2, longname) == 0);
+  CHECK(maclist_add(list, m2, longname) == 0);
   CHECK(read_file(list, got, sizeof(got)) > 0 &&
         !strcmp(got, "02:00:00:00:00:01\n02:00:00:00:00:02"));
-  CHECK(blocklist_del(list, m1) == 0);
+  CHECK(maclist_del(list, m1) == 0);
   CHECK(read_file(list, got, sizeof(got)) > 0 &&
         !strcmp(got, "02:00:00:00:00:02"));
   /* What hostapd could not read never survives a rewrite: it would not start. */
@@ -179,7 +179,7 @@ void test_services(void) {
         "02:00:00:00:00:06 5\n",
         lf);
   fclose(lf);
-  CHECK(blocklist_del(list, m1) == 0);
+  CHECK(maclist_del(list, m1) == 0);
   CHECK(read_file(list, got, sizeof(got)) > 0 &&
         !strcmp(got, "02:00:00:00:00:04 #ok\n02:00:00:00:00:06"));
   /* A list cut to fit can read short: read_file strips trailing newlines. */
@@ -190,12 +190,24 @@ void test_services(void) {
     fputc('\n', lf);
   fprintf(lf, "%s\n", m2);
   fclose(lf);
-  CHECK(blocklist_del(list, m1) == -1);
+  CHECK(maclist_del(list, m1) == -1);
   char parsed[18];
-  CHECK(blocklist_mac("AA:BB:CC:DD:EE:0F #x", parsed) &&
+  CHECK(maclist_mac("AA:BB:CC:DD:EE:0F #x", parsed) &&
         !strcmp(parsed, "aa:bb:cc:dd:ee:0f"));
-  CHECK(!blocklist_mac("020000000003-xxxx", parsed));
-  CHECK(!blocklist_mac("00:00:00:00:00:00", parsed));
+  CHECK(!maclist_mac("020000000003-xxxx", parsed));
+  CHECK(!maclist_mac("00:00:00:00:00:00", parsed));
+  /* A group address is no device's: odd second digit, broadcast included. */
+  CHECK(!maclist_mac("01:00:5e:00:00:fb", parsed));
+  CHECK(!maclist_mac("ff:ff:ff:ff:ff:ff", parsed));
+  CHECK(maclist_mac("aa:00:5e:00:00:fb", parsed));
+  /* A rewrite leaves only entries, so an empty file is what says nobody is on it,
+   * which is what stops an empty allowlist locking everyone out. */
+  lf = fopen(list, "w");
+  CHECK(lf != NULL);
+  fputs("\njunk\n", lf);
+  fclose(lf);
+  CHECK(maclist_del(list, "") == 0);
+  CHECK(read_file(list, got, sizeof(got)) == 0);
   /* A full list refuses another entry and can still be unblocked from. A list
    * past what fits is not read at all, so an edit cannot cut it short. */
   lf = fopen(list, "w");
@@ -203,8 +215,8 @@ void test_services(void) {
   for (int i = 0; i < 1815; i++)
     fprintf(lf, "02:00:00:00:%02x:%02x\n", i >> 8, i & 0xff);
   fclose(lf);
-  CHECK(blocklist_add(list, "02:00:00:00:ff:ff", NULL) == -1);
-  CHECK(blocklist_del(list, "02:00:00:00:00:00") == 0);
+  CHECK(maclist_add(list, "02:00:00:00:ff:ff", NULL) == -1);
+  CHECK(maclist_del(list, "02:00:00:00:00:00") == 0);
   lf = fopen(list, "a");
   CHECK(lf != NULL);
   for (int i = 0; i < 200; i++)
@@ -212,8 +224,8 @@ void test_services(void) {
   fclose(lf);
   struct stat before, after;
   CHECK(stat(list, &before) == 0);
-  CHECK(blocklist_del(list, "02:00:00:00:00:01") == -1);
-  CHECK(blocklist_print(list) == -1);
+  CHECK(maclist_del(list, "02:00:00:00:00:01") == -1);
+  CHECK(maclist_print(list) == -1);
   CHECK(stat(list, &after) == 0 && after.st_size == before.st_size);
   unlink(list);
 

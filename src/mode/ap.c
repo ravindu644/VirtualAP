@@ -145,6 +145,10 @@ static void body(FILE *f, const void *arg) {
   /* Only when it is there: hostapd will not start on a list it cannot open. */
   if (access(BLOCKLIST, R_OK) == 0)
     fputs("deny_mac_file=" BLOCKLIST "\n", f);
+  if (access(ALLOWLIST, R_OK) == 0)
+    fputs("accept_mac_file=" ALLOWLIST "\n", f);
+  if (access(ALLOW_ONLY, F_OK) == 0)
+    fputs("macaddr_acl=1\n", f);
 }
 
 int hostapd_write_conf(const char *path, const struct vap_opts *o,
@@ -176,8 +180,10 @@ static int try_once(void) {
 int hostapd_start(const struct vap_opts *o, struct plan *p) {
   /* A line hostapd cannot read stops it starting, with an error that blames the
    * band. Only a hand edit could put one there; the rewrite logs what it drops. */
-  if (access(BLOCKLIST, F_OK) == 0 && blocklist_del(BLOCKLIST, "") < 0)
-    vap_warn("The blocklist may stop hostapd from starting.");
+  const char *const lists[] = {BLOCKLIST, ALLOWLIST};
+  for (size_t i = 0; i < sizeof(lists) / sizeof(lists[0]); i++)
+    if (access(lists[i], F_OK) == 0 && maclist_del(lists[i], "") < 0)
+      vap_warn("%s may stop hostapd from starting.", lists[i]);
   for (;;) {
     if (hostapd_write_conf(HOSTAPD_CONF, o, p) < 0) {
       vap_error("Cannot write %s.", HOSTAPD_CONF);

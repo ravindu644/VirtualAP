@@ -222,17 +222,28 @@ only has a device that has sent something, and it marks a stale entry complete t
 device can show an address it just left.
 
 `block <mac> [name]` adds a device to `/data/local/virtualap/blocklist`, and `unblock <mac>`
-takes it off; `blocked` prints `mac name` for each, `-` for no name. They are outside `ap.conf`
-because they are a list the app edits one entry at a time, not a setting a start passes. The
-file is `hostapd`'s own `deny_mac_file`, named in its config only when it exists, since
-`hostapd` will not start on a list it cannot open. A line is `mac #name`: `hostapd` reads what
-follows a MAC as a VLAN id through `atoi`, and `#` makes that 0, no VLAN. A hotspot that is
-running hears it over the control socket, and `DENY_ACL ADD_MAC` drops the device if it is
-connected. The app blocks from its devices sheet with no confirmation, because Unblock sits
-beside it, and lists them in Settings too, for when the hotspot is off. A block only holds that
-MAC, so a device that changes its own gets past it. A start
-rewrites the file first, logging and dropping any line it is not sure `hostapd` can read, and
-it holds about 400 devices.
+takes it off; `blocked` prints `mac name` for each, `-` for no name. `allow`, `disallow` and
+`allowed` do the same for `allowlist`. `allow-only on` keeps out every device not on the
+allowlist, drops any that are connected, and is refused while the list is empty; with no
+argument it prints `on` or `off`. That state is the file `allow_only`, beside the lists, because
+like them it changes one command at a time, hotspot on or off. A device is on one list only, and
+adding it to one takes it off the other, because `hostapd` checks the allowlist first and would
+let a device on both in.
+
+The lists are outside `ap.conf` because the app edits them one entry at a time, not a setting a
+start passes. The files are `hostapd`'s own `deny_mac_file` and `accept_mac_file`, named in its
+config only when they exist, since `hostapd` will not start on a list it cannot open. A line is
+`mac #name`: `hostapd` reads what follows a MAC as a VLAN id through `atoi`, and `#` makes that
+0, no VLAN. A hotspot that is running hears a change over the control socket: `DENY_ACL ADD_MAC`
+drops the device if it is connected, and so does `ACCEPT_ACL DEL_MAC` once only allowed devices
+can join. A start rewrites the files first, logging and dropping any line it is not sure
+`hostapd` can read, and each holds about 400 devices.
+
+The app blocks from its devices sheet with no confirmation, because Unblock sits beside it, and
+lists them in Settings too, for when the hotspot is off. Either list only holds that MAC. A device
+that changes its own gets past a block and falls off an allowed list, and phones use a random
+address for each network by default, so the one to enter is the one in the device's Wi-Fi details
+for this hotspot.
 
 ## On the phone
 
@@ -243,8 +254,8 @@ Everything is under `/data/local/virtualap`:
 - `ap.conf`: the last flags the app passed, as `KEY='value'` lines, so a flag that is
   omitted keeps its saved value. It holds the Wi-Fi password, so it is readable by root
   only.
-- `blocklist`: the blocked devices, see [above](#the-radio). There is none until the first
-  `block`.
+- `blocklist`, `allowlist` and `allow_only`: the blocked and allowed devices and whether only
+  those can join, see [above](#the-radio). There is none of them until first used.
 - `run.state`: what the running AP needs torn down, the gateway, the upstream, the IPv6
   mode and interface and the sysctl values to restore. `status` keys "running" off it and
   the `hostapd` pid file; `stop` removes it before it exits.
