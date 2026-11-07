@@ -202,9 +202,10 @@ Wi-Fi switch. The upstream needs nothing: Auto already picks `rmnet*` when it is
 with internet. The boot module skips its wait for `wlan0` when `STANDALONE=1`.
 
 Some drivers drop the wiphy altogether when Wi-Fi is switched off, and the kernel then
-has no radio to ask. Before the plan reads the chip, `radio_wake` writes the node the
-driver's own init script would: `/dev/wmtWifi` on MediaTek, `boot_wlan` or the `fwpath`
-parameter on Qualcomm. A node the phone does not have is skipped. If none of them
+has no radio to ask. Before the plan reads the chip, `radio_wake` loads the Wi-Fi module itself where the framework
+would `insmod` it (`pronto_wlan.ko` on msm8953 and kin), else writes the node the
+driver's own HAL or init script would: `ON` into `/dev/wlan` on Qualcomm (older builds:
+`boot_wlan` or the `fwpath` parameter), `1` into `/dev/wmtWifi` on MediaTek. A node the phone does not have is skipped. If none of them
 brings a wiphy up within a few seconds, the start fails with a message saying so: the
 driver then needs the phone's Wi-Fi switched on, which standalone mode does not do for
 the user. Wi-Fi in Settings is never touched.
