@@ -316,10 +316,17 @@ CI builds `hostapd` and `dnsmasq` for each arch on an ARM runner, cached on the
 `externals/` and `scripts/` trees. The APK job then fetches Droidspaces' published musl
 toolchains (checked against their sha256 and cached on their release URL), runs
 `make check` and `make aarch64 armhf` with warnings as errors, and builds the APK with
-JDK 17. A pushed `v*` tag that matches `VERSION` publishes a release with the APK, a
-`SHA256SUMS` file and a changelog of every commit since the previous tag; the tag must
-match `VERSION` and the signing key must be present, or the run stops. CI runs no
-formatter and no linter.
+JDK 17. A pushed `v*` tag that matches `VAP_VERSION` in `src/include/virtualap.h` publishes
+a release with the APK, a `SHA256SUMS` file and a changelog of every commit since the
+previous tag; the tag must match it and the signing key must be present, or the run stops.
+CI runs no formatter and no linter.
+
+`make bump NEW=x.y.z` rewrites `VAP_VERSION`, and the Makefile, gradle and CI all read it
+from there. The APK's versionCode is the release code (major·10000 + minor·100 + patch)
+times 10000 plus `git rev-list --count HEAD`, so every commit's APK installs over the last.
+The count needs full history, which is why the APK job checks out with `fetch-depth: 0`: a
+shallow clone counts 1 and a tree without `.git` counts 0. The boot module's
+`module.prop` takes the release code alone, because it is hashed into `PAYLOAD_VERSION`.
 
 ## Translations
 

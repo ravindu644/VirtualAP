@@ -4,6 +4,10 @@
 #ifndef VIRTUALAP_H
 #define VIRTUALAP_H
 
+/* The one place the version lives: `make bump NEW=x.y.z` rewrites it, and
+ * the Makefile, gradle and CI read it from here. */
+#define VAP_VERSION "2.1.0"
+
 #define VAP_BASE "/data/local/virtualap"
 #define VAP_BIN VAP_BASE "/bin"
 #define VAP_RUN VAP_BASE "/run"

@@ -12,8 +12,9 @@ BINARY_NAME = virtualap
 SRC_DIR     = src
 OUT_DIR     = output
 
-# VERSION at the repository root is the one place the version lives.
-VERSION := $(shell cat VERSION)
+# VAP_VERSION in virtualap.h is the one place the version lives; `make bump` rewrites it
+VERSION := $(shell grep 'define VAP_VERSION' $(SRC_DIR)/include/virtualap.h | cut -d'"' -f2)
+$(if $(VERSION),,$(error VAP_VERSION not found in $(SRC_DIR)/include/virtualap.h))
 
 V ?= 0
 ifeq ($(V),1)
@@ -34,7 +35,7 @@ CFLAGS  = -Wall -Wextra -Wpedantic -O2 -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR)/inc
 CFLAGS += -Wformat=2 -Wformat-overflow=2 -Wformat-truncation=2
 CFLAGS += -Wnull-dereference -Wcast-qual -Wlogical-op -Wshadow -Wdouble-promotion -Wundef
 CFLAGS += -Wduplicated-cond -Wduplicated-branches -Wimplicit-fallthrough=3
-CFLAGS += -fstack-protector-strong -DVAP_VERSION='"$(VERSION)"'
+CFLAGS += -fstack-protector-strong
 CFLAGS += -MMD -MP
 # Only CI turns warnings into errors: its toolchain is pinned, a local
 # musl-cross gcc of another version warns differently.
@@ -73,19 +74,20 @@ triplet_aarch64 = aarch64-linux-musl
 triplet_armhf   = arm-linux-musleabihf
 
 .DEFAULT_GOAL := help
-.PHONY: help aarch64 armhf check format clean
+.PHONY: help aarch64 armhf check bump version format clean
 
 help:
 	@echo "VirtualAP v$(VERSION) engine"
 	@echo "  make aarch64  - cross build into backend/aarch64/$(BINARY_NAME)"
 	@echo "  make armhf    - cross build into backend/armhf/$(BINARY_NAME)"
 	@echo "  make check    - build and run tests/check.c with the host gcc"
+	@echo "  make bump NEW=x.y.z - set the version in src/include/virtualap.h"
 	@echo "  make format   - clang-format src/ and tests/"
 	@echo "  make clean    - remove output/"
 	@echo "Options: V=1, WERROR=1, NO_STRIP=1, MUSL_CROSS=<dir with <triplet>-gcc>"
 
-# VAP_VERSION and the flags come from these two, so a bump or a flag edit rebuilds.
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c Makefile VERSION
+# The flags come from the Makefile, so a flag edit rebuilds; -MMD covers the headers.
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c Makefile
 	$(msg_cc)
 	$(Q)mkdir -p $(dir $@)
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
@@ -108,12 +110,22 @@ aarch64 armhf:
 # slips past it; run it under qemu-arm if one ever does.
 # Headers are listed too: there is no .d file for this one-shot link.
 CHECK_BIN = $(abspath $(OUT_DIR))/check
-$(CHECK_BIN): $(wildcard tests/*.[ch]) $(filter-out $(SRC_DIR)/main.c,$(SRCS)) $(shell find $(SRC_DIR) -name '*.h') Makefile VERSION
+$(CHECK_BIN): $(wildcard tests/*.[ch]) $(filter-out $(SRC_DIR)/main.c,$(SRCS)) $(shell find $(SRC_DIR) -name '*.h') Makefile
 	@mkdir -p $(dir $@)
-	$(Q)gcc -Wall -Wextra -O1 -g -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR)/include -Itests -DVAP_VERSION='"$(VERSION)"' $(filter %.c,$^) -o $@
+	$(Q)gcc -Wall -Wextra -O1 -g -std=gnu11 -D_GNU_SOURCE -I$(SRC_DIR)/include -Itests $(filter %.c,$^) -o $@
 
 check: $(CHECK_BIN)
 	$(Q)$(CHECK_BIN)
+
+# CI asks here, so the header has one parser.
+version:
+	@echo "$(VERSION)"
+
+bump:
+	@echo "$(NEW)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || { echo "Usage: make bump NEW=x.y.z"; exit 1; }
+	@sed -i 's/define VAP_VERSION[[:space:]]*".*"/define VAP_VERSION "$(NEW)"/' $(SRC_DIR)/include/virtualap.h
+	@grep -q 'define VAP_VERSION "$(NEW)"' $(SRC_DIR)/include/virtualap.h || { echo "Error: VAP_VERSION not rewritten"; exit 1; }
+	@echo "[+] Version $(VERSION) -> $(NEW). Commit it as 'VirtualAP: bump v$(NEW)', then tag v$(NEW)."
 
 format:
 	@find $(SRC_DIR) tests -name '*.[ch]' | xargs clang-format -i

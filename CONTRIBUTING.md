@@ -31,7 +31,7 @@ as untested.
 ```
 
 What the scripts do, and what CI does, is in the Building section of
-[How-It-Works.md](./Documentation/How-It-Works.md). A release is a tag: bump `VERSION`,
+[How-It-Works.md](./Documentation/How-It-Works.md). A release is a tag: `make bump NEW=x.y.z`,
 commit it as `VirtualAP: bump vX.Y.Z`, then push `main` and the tag `vX.Y.Z`.
 
 ## Code style

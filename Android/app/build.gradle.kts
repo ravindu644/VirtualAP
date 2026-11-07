@@ -6,12 +6,25 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// One version for the app and the backend it ships: VERSION at the repository root.
-val vapVersionName = rootProject.file("../VERSION").readText().trim()
-val vapVersionCode = vapVersionName.split(".").let { parts ->
-    require(parts.size == 3 && parts.all { it.toIntOrNull() != null }) { "VERSION must be X.Y.Z, got '$vapVersionName'" }
+// One version for the app and the backend it ships: VAP_VERSION from the C header.
+val vapVersionName = Regex("#define\\s+VAP_VERSION\\s+\"([^\"]+)\"")
+    .find(rootProject.file("../src/include/virtualap.h").readText())?.groupValues?.get(1)
+    ?: error("VAP_VERSION not found in src/include/virtualap.h")
+// Every commit gets its own build number, so CI APKs between version bumps
+// still install over each other. Needs full history: a shallow clone counts 1,
+// and a tarball without .git counts 0. Both still sort above the old scheme.
+val gitCommitCount = runCatching {
+    providers.exec { commandLine("git", "rev-list", "--count", "HEAD") }
+        .standardOutput.asText.get().trim().toInt()
+}.getOrDefault(0)
+val vapReleaseCode = vapVersionName.split(".").let { parts ->
+    require(parts.size == 3 && parts.all { it.toIntOrNull() != null }) { "VAP_VERSION must be X.Y.Z, got '$vapVersionName'" }
     parts[0].toInt() * 10000 + parts[1].toInt() * 100 + parts[2].toInt()
 }
+// ponytail: the suffix is the repository's total commit count, so past 10000 commits a
+// release's codes reach into the next one's, and major 21 overflows Int. A rewritten
+// history counts lower and the APK becomes a downgrade.
+val vapVersionCode = vapReleaseCode * 10000 + gitCommitCount
 
 android {
     namespace = "com.virtualap.app"
@@ -118,13 +131,15 @@ val prepareAssets = tasks.register<Sync>("prepareAssets") {
     dependsOn(buildBackend)
     for (arch in arches) from(File(backendDir, arch)) { into("bin/$arch"); include(payload) }
     // module.prop carries the version; the template lives outside assets so a bump is no diff.
+    // It takes the release code, not versionCode: it is hashed into PAYLOAD_VERSION, and the
+    // commit count would make every APK update redeploy binaries that did not change.
     from("src/main/boot-module/module.prop") {
         into("boot-module")
-        expand(mapOf("version" to vapVersionName, "versionCode" to vapVersionCode))
+        expand(mapOf("version" to vapVersionName, "versionCode" to vapReleaseCode))
     }
     inputs.dir("src/main/assets/boot-module")
     inputs.property("version", vapVersionName)
-    inputs.property("versionCode", vapVersionCode)
+    inputs.property("versionCode", vapReleaseCode)
     into(assetsDir)
     doFirst {
         // Builds before 2026-10-31 staged these two under src/main; a leftover tree

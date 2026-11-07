@@ -29,9 +29,10 @@ chroot.
 
 Run the first before the first app build and again whenever `externals/` or the build scripts
 change. The app build runs `make aarch64 armhf` itself, so `virtualap` always matches `src/`.
-`prepareAssets` fails when `backend/<arch>/` lacks one of the three. `make check` runs the tests. The version
-comes from `VERSION` at the repository root. Bump it there, nowhere else. The build and CI
-details are in the Building section of How-It-Works.md.
+`prepareAssets` fails when `backend/<arch>/` lacks one of the three. `make check` runs the
+tests. The version comes from `VAP_VERSION` in `src/include/virtualap.h`. Bump it with
+`make bump NEW=x.y.z`, nowhere else. The build and CI details are in the Building section of
+How-It-Works.md.
 
 ## Commits
 
