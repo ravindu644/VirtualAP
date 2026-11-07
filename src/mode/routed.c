@@ -189,6 +189,7 @@ void routed_teardown(const struct vap_opts *o) {
   if (!strcmp(state_get(&st, "prev_ip_forward"), "0"))
     write_file(IP_FORWARD, "0");
   ap_iface_del();
+  radio_release();
   unlink(VAP_STATE);
   vap_log("AP stopped, cleanup completed.");
 }

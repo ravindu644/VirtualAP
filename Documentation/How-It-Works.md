@@ -215,6 +215,10 @@ module, and `ap0` goes with it. The monitor sees `ap0` gone and starts a standal
 from scratch (the path of a restart), which loads the module once more. The hotspot is down
 for a few seconds.
 
+A module the engine loaded is remembered (`run/radio_module`) and unloaded again when the
+hotspot stops, so the framework finds the radio as it left it and Wi-Fi can be switched on.
+It is left loaded if Wi-Fi was switched on in the meantime, since the framework uses it then.
+
 What it cannot do: load a driver module that is not on the phone (`ap0` fails with a
 message saying so), and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
 supplicant that takes the `COUNTRY` command is not running with Wi-Fi off; the plan falls back

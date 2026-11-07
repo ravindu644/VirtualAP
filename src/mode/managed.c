@@ -539,6 +539,7 @@ void managed_teardown(const char *container) {
   ap_daemons_stop();
   ttl_clear();
   ap_iface_del();
+  radio_release();
   struct nl nl;
   if (nl_open(&nl) == 0) {
     link_del(&nl, VAP_VETH_HOST);
