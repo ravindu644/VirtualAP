@@ -183,6 +183,48 @@ framework reports (`ensure_5g_ir`). It fires only when the phy reports the chann
 NO-IR, and if the channel is still NO-IR afterwards the AP falls back to 2.4 GHz.
 `hostapd.conf` keeps `country_code=US`.
 
+### Standalone mode (`-S 1`)
+
+Normally every radio question goes through `wlan0`: `ap0` is added with `NEW_INTERFACE` on
+`wlan0`'s ifindex, and the capabilities and the station's channel are read through it. With
+the phone's Wi-Fi switched off `wlan0` is down or gone, so there is nothing to ask and
+nothing to add `ap0` to. Standalone mode asks the wiphy instead: it finds it by index,
+the one behind `wlan0` when that exists, else the first wiphy that lists AP among its
+interface types, and adds `ap0` with `NL80211_ATTR_WIPHY`, which is what
+`iw phy phyN interface add` does. The capabilities (HT40, VHT, NO-IR channels) are read
+from the same wiphy, so `caps` reports the real chip with Wi-Fi off too.
+
+With no station the radio is free, so the channel plan is the usual default (6, or 36 on
+5 GHz) and any `-c` is kept. If the wiphy is registered but not ready, which Broadcom and
+MediaTek chips are until `wlan0` has been up once, `wlan0` is brought up and the add retried for
+about 2.5 seconds. `wlan0` is left up afterwards, as the framework resets it on its next
+Wi-Fi switch. The upstream needs nothing: Auto already picks `rmnet*` when it is the network
+with internet. The boot module skips its wait for `wlan0` when `STANDALONE=1`.
+
+Some drivers drop the wiphy altogether when Wi-Fi is switched off, and the kernel then
+has no radio to ask. Before the plan reads the chip, `radio_wake` loads the Wi-Fi module itself where the framework
+would `insmod` it (`pronto_wlan.ko` on msm8953 and kin), else writes the node the
+driver's own HAL or init script would: `ON` into `/dev/wlan` on Qualcomm (older builds:
+`boot_wlan` or the `fwpath` parameter), `1` into `/dev/wmtWifi` on MediaTek. A node the phone does not have is skipped. If none of them
+brings a wiphy up within a few seconds, the start fails with a message saying so: the
+driver then needs the phone's Wi-Fi switched on, which standalone mode does not do for
+the user. Wi-Fi in Settings is never touched.
+
+Switching Wi-Fi on and off by hand while the hotspot runs makes the framework unload the
+module, and `ap0` goes with it. The monitor sees `ap0` gone and starts a standalone AP again
+from scratch (the path of a restart), which loads the module once more. The hotspot is down
+for a few seconds.
+
+A module the engine loaded is remembered (`run/radio_module`) and unloaded again when the
+hotspot stops, so the framework finds the radio as it left it and Wi-Fi can be switched on.
+It is left loaded if Wi-Fi was switched on in the meantime, since the framework uses it then.
+
+What it cannot do: load a driver module that is not on the phone (`ap0` fails with a
+message saying so), and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
+supplicant that takes the `COUNTRY` command is not running with Wi-Fi off; the plan falls back
+to 2.4 GHz as before. Switching the phone's Wi-Fi on while the hotspot runs makes the chip
+share one channel with the station again, and some drivers reset the radio when it does.
+
 Width follows what the chip and channel can do, from the capabilities of that band: 40 MHz
 on 2.4 GHz only when asked for by name, up to 80 MHz on 5 GHz when the band lists VHT and
 the channel sits in an 80 MHz block. HT40 and VHT need `hostapd` to skip its 20/40 MHz
