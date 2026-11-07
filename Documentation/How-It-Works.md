@@ -201,8 +201,17 @@ about 2.5 seconds. `wlan0` is left up afterwards, as the framework resets it on 
 Wi-Fi switch. The upstream needs nothing: Auto already picks `rmnet*` when it is the network
 with internet. The boot module skips its wait for `wlan0` when `STANDALONE=1`.
 
-What it cannot do: load a Wi-Fi driver that is not loaded (`ap0` fails with a message saying so),
-and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
+Some drivers drop the wiphy altogether when Wi-Fi is switched off, and the kernel then
+has no radio to ask. Before the plan reads the chip, `radio_wake` writes the node the
+driver's own init script would: `/dev/wmtWifi` on MediaTek, `boot_wlan` or the `fwpath`
+parameter on Qualcomm. A node the phone does not have is skipped. If none of them
+brings a wiphy up within a few seconds, it asks the framework (`cmd wifi
+set-wifi-enabled`, else `svc wifi enable`), which also turns Wi-Fi on in Settings. The
+radio stays on afterwards, and a driver that unloads when Wi-Fi is switched off takes
+`ap0` with it when the user does that.
+
+What it cannot do: load a driver module that is not on the phone (`ap0` fails with a
+message saying so), and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
 supplicant that takes the `COUNTRY` command is not running with Wi-Fi off; the plan falls back
 to 2.4 GHz as before. Switching the phone's Wi-Fi on while the hotspot runs makes the chip
 share one channel with the station again, and some drivers reset the radio when it does.

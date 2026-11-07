@@ -332,6 +332,8 @@ static bool standalone(const struct vap_opts *o) {
 static int standalone_wiphy(const struct vap_opts *o) {
   if (!standalone(o))
     return -1;
+  /* Before anything reads the chip: with Wi-Fi off there may be no wiphy yet. */
+  radio_wake(o->phy_iface);
   int w = nl80211_find_wiphy(o->phy_iface);
   return w < 0 ? -1 : w;
 }
@@ -341,8 +343,9 @@ static int standalone_wiphy(const struct vap_opts *o) {
  * up) gets wlan0 brought up, which is all the Wi-Fi switch does short of the
  * supplicant, then another try. */
 static int create_standalone(const struct vap_opts *o) {
-  int w = nl80211_find_wiphy(o->phy_iface);
-  int ret = w < 0 ? w : nl80211_add_ap_phy(w, AP_IFACE);
+  int ret = radio_wake(o->phy_iface);
+  int w = ret < 0 ? ret : nl80211_find_wiphy(o->phy_iface);
+  ret = w < 0 ? w : nl80211_add_ap_phy(w, AP_IFACE);
   if (ret >= 0 || !if_nametoindex(o->phy_iface))
     return ret;
   vap_log("Radio not ready - bringing %s up to wake the Wi-Fi firmware...",
@@ -375,8 +378,8 @@ int ap_iface_create(const struct vap_opts *o) {
                           : nl80211_add_ap(phy_iface, AP_IFACE);
   if (ret < 0) {
     if (standalone(o) && ret == -ENODEV)
-      vap_error("No Wi-Fi radio is registered with the kernel - the driver is "
-                "not loaded, which standalone mode cannot fix.");
+      vap_error("No Wi-Fi radio is registered with the kernel, and waking it "
+                "failed - this driver is not loaded.");
     /* What iw printed, which the app's log showed. */
     vap_log("command failed: %s (%d)", strerror(-ret), ret);
     vap_error("Failed to create %s - chip/driver may not support AP mode.",

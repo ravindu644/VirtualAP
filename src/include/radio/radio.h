@@ -54,6 +54,11 @@ int nl80211_add_ap(const char *phy_iface, const char *name);
  * -ENODEV when the kernel has no Wi-Fi radio registered at all (driver not
  * loaded), -errno on a netlink error. */
 int nl80211_find_wiphy(const char *prefer_ifname);
+/* Standalone mode with the Wi-Fi switched off: write the driver's power node
+ * (MediaTek wmtWifi, Qualcomm boot_wlan or fwpath), else ask the framework
+ * to switch Wi-Fi on, until a wiphy is registered. 0 when one is, -ENODEV
+ * when nothing woke it. */
+int radio_wake(const char *phy_iface);
 /* nl80211_phy_info for a wiphy index. 0 or -errno, *out zeroed either way. */
 int nl80211_phy_info_idx(int wiphy, struct phy_info *out);
 /* `iw phy phyN interface add name type __ap`. 0 or -errno. */

@@ -92,6 +92,10 @@ static void test_wiphy(void) {
   CHECK(nl80211_add_ap_phy(-1, "ap0") == -ENODEV);
   CHECK(nl80211_find_wiphy("nonexistent0") < 0);
   CHECK(nl80211_find_wiphy(NULL) < 0 || nl80211_find_wiphy(NULL) >= 0);
+  /* Nothing here to wake: no power node, no framework, so it gives up at once
+   * instead of waiting on a radio that no write has touched. */
+  int woke = radio_wake("nonexistent0");
+  CHECK(woke == 0 || woke == -ENODEV);
 }
 
 void test_radio(void) {
