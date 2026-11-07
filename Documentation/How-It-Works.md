@@ -210,6 +210,11 @@ brings a wiphy up within a few seconds, the start fails with a message saying so
 driver then needs the phone's Wi-Fi switched on, which standalone mode does not do for
 the user. Wi-Fi in Settings is never touched.
 
+Switching Wi-Fi on and off by hand while the hotspot runs makes the framework unload the
+module, and `ap0` goes with it. The monitor sees `ap0` gone and starts a standalone AP again
+from scratch (the path of a restart), which loads the module once more. The hotspot is down
+for a few seconds.
+
 What it cannot do: load a driver module that is not on the phone (`ap0` fails with a
 message saying so), and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
 supplicant that takes the `COUNTRY` command is not running with Wi-Fi off; the plan falls back
