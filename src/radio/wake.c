@@ -1,7 +1,7 @@
 /* Standalone mode's way out of "No Wi-Fi radio is registered": with the
- * phone's Wi-Fi switched off, some drivers drop the wiphy altogether, and the
- * framework is what brings it back. Each lever below is what that framework
- * does on one kind of chip, tried without it first.
+ * phone's Wi-Fi switched off, some drivers drop the wiphy altogether. Each
+ * lever below is what the framework does on one kind of chip, written
+ * without it, so the phone's Wi-Fi setting stays off.
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include <errno.h>
 #include <time.h>
@@ -39,16 +39,6 @@ static const struct {
     {"/sys/module/wlan/parameters/fwpath", "sta"},
 };
 
-/* The framework's own switch, for the chips with no node above. It turns
- * Wi-Fi on in Settings too, which a driver that unloads on Wi-Fi off leaves
- * no way around: the wiphy is gone again the moment it is switched off. */
-static bool framework_wifi_on(void) {
-  static const char *const cmd[] = {"/system/bin/cmd", "wifi",
-                                    "set-wifi-enabled", "enabled", NULL};
-  static const char *const svc[] = {"/system/bin/svc", "wifi", "enable", NULL};
-  return run_quiet(cmd) == 0 || run_quiet(svc) == 0;
-}
-
 int radio_wake(const char *phy_iface) {
   if (nl80211_find_wiphy(phy_iface) >= 0)
     return 0;
@@ -58,11 +48,6 @@ int radio_wake(const char *phy_iface) {
     vap_log("Wi-Fi radio is off - wrote %s to %s...", nodes[i].value,
             nodes[i].path);
     if (wiphy_within(phy_iface, 4000))
-      return 0;
-  }
-  if (framework_wifi_on()) {
-    vap_log("Wi-Fi radio is off - asked Android to switch Wi-Fi on...");
-    if (wiphy_within(phy_iface, 8000))
       return 0;
   }
   return -ENODEV;

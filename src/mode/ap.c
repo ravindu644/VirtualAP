@@ -378,8 +378,9 @@ int ap_iface_create(const struct vap_opts *o) {
                           : nl80211_add_ap(phy_iface, AP_IFACE);
   if (ret < 0) {
     if (standalone(o) && ret == -ENODEV)
-      vap_error("No Wi-Fi radio is registered with the kernel, and waking it "
-                "failed - this driver is not loaded.");
+      vap_error("No Wi-Fi radio is registered with the kernel and no driver "
+                "node woke it. Switch the phone's Wi-Fi on once (it need not "
+                "connect) and start again.");
     /* What iw printed, which the app's log showed. */
     vap_log("command failed: %s (%d)", strerror(-ret), ret);
     vap_error("Failed to create %s - chip/driver may not support AP mode.",

@@ -205,10 +205,9 @@ Some drivers drop the wiphy altogether when Wi-Fi is switched off, and the kerne
 has no radio to ask. Before the plan reads the chip, `radio_wake` writes the node the
 driver's own init script would: `/dev/wmtWifi` on MediaTek, `boot_wlan` or the `fwpath`
 parameter on Qualcomm. A node the phone does not have is skipped. If none of them
-brings a wiphy up within a few seconds, it asks the framework (`cmd wifi
-set-wifi-enabled`, else `svc wifi enable`), which also turns Wi-Fi on in Settings. The
-radio stays on afterwards, and a driver that unloads when Wi-Fi is switched off takes
-`ap0` with it when the user does that.
+brings a wiphy up within a few seconds, the start fails with a message saying so: the
+driver then needs the phone's Wi-Fi switched on, which standalone mode does not do for
+the user. Wi-Fi in Settings is never touched.
 
 What it cannot do: load a driver module that is not on the phone (`ap0` fails with a
 message saying so), and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
