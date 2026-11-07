@@ -345,7 +345,17 @@ static int standalone_wiphy(const struct vap_opts *o) {
 static int create_standalone(const struct vap_opts *o) {
   int ret = radio_wake(o->phy_iface);
   int w = ret < 0 ? ret : nl80211_find_wiphy(o->phy_iface);
-  ret = w < 0 ? w : nl80211_add_ap_phy(w, AP_IFACE);
+  if (w < 0) {
+    vap_error("No Wi-Fi radio is registered with the kernel (GET_WIPHY: %s) "
+              "and no driver node woke it.",
+              strerror(-w));
+    return w;
+  }
+  vap_log("Wi-Fi radio found: phy index %d.", w);
+  ret = nl80211_add_ap_phy(w, AP_IFACE);
+  if (ret < 0)
+    vap_log("The driver refused to add %s on phy %d (NEW_INTERFACE: %s).",
+            AP_IFACE, w, strerror(-ret));
   if (ret >= 0 || !if_nametoindex(o->phy_iface))
     return ret;
   vap_log("Radio not ready - bringing %s up to wake the Wi-Fi firmware...",
@@ -377,10 +387,6 @@ int ap_iface_create(const struct vap_opts *o) {
   int ret = standalone(o) ? create_standalone(o)
                           : nl80211_add_ap(phy_iface, AP_IFACE);
   if (ret < 0) {
-    if (standalone(o) && ret == -ENODEV)
-      vap_error("No Wi-Fi radio is registered with the kernel and no driver "
-                "node woke it. Switch the phone's Wi-Fi on once (it need not "
-                "connect) and start again.");
     /* What iw printed, which the app's log showed. */
     vap_log("command failed: %s (%d)", strerror(-ret), ret);
     vap_error("Failed to create %s - chip/driver may not support AP mode.",
