@@ -183,6 +183,30 @@ framework reports (`ensure_5g_ir`). It fires only when the phy reports the chann
 NO-IR, and if the channel is still NO-IR afterwards the AP falls back to 2.4 GHz.
 `hostapd.conf` keeps `country_code=US`.
 
+### Standalone mode (`-S 1`)
+
+Normally every radio question goes through `wlan0`: `ap0` is added with `NEW_INTERFACE` on
+`wlan0`'s ifindex, and the capabilities and the station's channel are read through it. With
+the phone's Wi-Fi switched off `wlan0` is down or gone, so there is nothing to ask and
+nothing to add `ap0` to. Standalone mode asks the wiphy instead: it finds it by index,
+the one behind `wlan0` when that exists, else the first wiphy that lists AP among its
+interface types, and adds `ap0` with `NL80211_ATTR_WIPHY`, which is what
+`iw phy phyN interface add` does. The capabilities (HT40, VHT, NO-IR channels) are read
+from the same wiphy, so `caps` reports the real chip with Wi-Fi off too.
+
+With no station the radio is free, so the channel plan is the usual default (6, or 36 on
+5 GHz) and any `-c` is kept. If the wiphy is registered but not ready, which Broadcom and
+MediaTek chips are until `wlan0` has been up once, `wlan0` is brought up and the add retried for
+about 2.5 seconds. `wlan0` is left up afterwards, as the framework resets it on its next
+Wi-Fi switch. The upstream needs nothing: Auto already picks `rmnet*` when it is the network
+with internet. The boot module skips its wait for `wlan0` when `STANDALONE=1`.
+
+What it cannot do: load a Wi-Fi driver that is not loaded (`ap0` fails with a message saying so),
+and on a self-managed regdomain (Samsung's Broadcom) clear a NO-IR 5 GHz channel, since the
+supplicant that takes the `COUNTRY` command is not running with Wi-Fi off; the plan falls back
+to 2.4 GHz as before. Switching the phone's Wi-Fi on while the hotspot runs makes the chip
+share one channel with the station again, and some drivers reset the radio when it does.
+
 Width follows what the chip and channel can do, from the capabilities of that band: 40 MHz
 on 2.4 GHz only when asked for by name, up to 80 MHz on 5 GHz when the band lists VHT and
 the channel sits in an 80 MHz block. HT40 and VHT need `hostapd` to skip its 20/40 MHz

@@ -59,6 +59,11 @@ const struct vap_key vap_keys[] = {
      "clients' gateway (empty = a new random one on every\n"
      "start [default]).",
      0},
+    {'S', "STANDALONE", F(standalone), "0", "<0|1>",
+     "Standalone radio: create ap0 straight on the Wi-Fi chip\n"
+     "without needing wlan0 up or connected, so the hotspot\n"
+     "runs with the phone's Wi-Fi off (0=off [default], 1=on).",
+     0},
 };
 const size_t vap_nkeys = sizeof(vap_keys) / sizeof(vap_keys[0]);
 
@@ -153,7 +158,7 @@ void print_usage(const char *prog) {
          "\nstart options:\n",
          prog, prog, prog, prog, prog, prog, prog, prog);
   /* Start order, the one people read, not ap.conf's. */
-  static const char order[] = "spobcWgdwHAMKmT6";
+  static const char order[] = "spobcWgdwHAMKmT6S";
   for (const char *f = order; *f; f++) {
     const struct vap_key *k = by_flag(*f);
     if (!k)

@@ -88,7 +88,7 @@ void rules_del(struct nl *nl, int family) {
 static int config_network(struct nl *nl, const struct vap_opts *o,
                           const struct upstream *up, const struct plan *p,
                           const struct subnet *net, struct v6 *v6) {
-  if (ap_iface_create(o->phy_iface) < 0)
+  if (ap_iface_create(o) < 0)
     return -1;
   vap_log("Configuring gateway address %s...", net->gw);
   link_set_up(nl, AP_IFACE, false);

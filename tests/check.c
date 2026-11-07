@@ -130,6 +130,11 @@ static void test_opts(void) {
   CHECK(!strcmp(o.channel, ""));
   CHECK(!strcmp(o.ipv6, "0"));
 
+  /* Standalone is off until asked for, by flag or by ap.conf. */
+  CHECK(!strcmp(o.standalone, "0"));
+  char *sa[] = {"start", "-S", "1", NULL};
+  CHECK(opts_parse(&o, 3, sa) == 0 && !strcmp(o.standalone, "1"));
+
   char *bad[] = {"start", "-s", "two\nlines", NULL};
   CHECK(opts_parse(&o, 3, bad) < 0);
   char *unknown[] = {"start", "-z", "1", NULL};

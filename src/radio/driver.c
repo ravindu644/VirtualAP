@@ -156,6 +156,86 @@ int nl80211_phy_info(const char *ifname, struct phy_info *out) {
   return ret;
 }
 
+/* A request about a wiphy by index, with no netdev involved. */
+static void req_for_phy(struct session *s, struct nl_req *r, int cmd,
+                        int wiphy) {
+  genl_req(r, s->id, cmd, 0);
+  nl_attr_u32(r, NL80211_ATTR_WIPHY, (uint32_t)wiphy);
+}
+
+int nl80211_phy_info_idx(int wiphy, struct phy_info *out) {
+  struct session s;
+  memset(out, 0, sizeof(*out));
+  if (wiphy < 0)
+    return -ENODEV;
+  int ret = open_nl80211(&s);
+  if (ret < 0)
+    return ret;
+  struct nl_req r;
+  req_for_phy(&s, &r, NL80211_CMD_GET_WIPHY, wiphy);
+  nl_attr(&r, NL80211_ATTR_SPLIT_WIPHY_DUMP, NULL, 0);
+  ret = nl_dump(&s.nl, &r, wiphy_cb, out);
+  nl_close(&s.nl);
+  return ret;
+}
+
+/* The wiphy behind an interface, from GET_INTERFACE. */
+static void iface_wiphy_cb(const struct nlmsghdr *h, void *arg) {
+  struct rtattr *tb[NL80211_ATTR_MAX + 1];
+  genl_parse(tb, NL80211_ATTR_MAX, h);
+  if (tb[NL80211_ATTR_WIPHY])
+    *(int *)arg = (int)nl_u32(tb[NL80211_ATTR_WIPHY]);
+}
+
+/* What a dump of every wiphy teaches: the first one seen, and the first one
+ * that can run an AP. A split dump sends the interface types in the first
+ * message of each wiphy, so that is where they are looked for. */
+struct wiphy_pick {
+  int first, ap;
+};
+
+static void wiphy_pick_cb(const struct nlmsghdr *h, void *arg) {
+  struct wiphy_pick *w = arg;
+  struct rtattr *tb[NL80211_ATTR_MAX + 1];
+  genl_parse(tb, NL80211_ATTR_MAX, h);
+  if (!tb[NL80211_ATTR_WIPHY])
+    return;
+  int idx = (int)nl_u32(tb[NL80211_ATTR_WIPHY]);
+  if (w->first < 0)
+    w->first = idx;
+  if (w->ap >= 0 || !tb[NL80211_ATTR_SUPPORTED_IFTYPES])
+    return;
+  int rem = (int)RTA_PAYLOAD(tb[NL80211_ATTR_SUPPORTED_IFTYPES]);
+  for (struct rtattr *t = RTA_DATA(tb[NL80211_ATTR_SUPPORTED_IFTYPES]);
+       RTA_OK(t, rem); t = RTA_NEXT(t, rem))
+    if (t->rta_type == NL80211_IFTYPE_AP)
+      w->ap = idx;
+}
+
+int nl80211_find_wiphy(const char *prefer_ifname) {
+  struct session s;
+  int ret = open_nl80211(&s);
+  if (ret < 0)
+    return ret;
+  int idx = -1;
+  struct nl_req r;
+  if (prefer_ifname && *prefer_ifname &&
+      req_for(&s, &r, NL80211_CMD_GET_INTERFACE, prefer_ifname) == 0)
+    nl_get(&s.nl, &r, iface_wiphy_cb, &idx);
+  if (idx < 0) {
+    struct wiphy_pick w = {-1, -1};
+    genl_req(&r, s.id, NL80211_CMD_GET_WIPHY, 0);
+    nl_attr(&r, NL80211_ATTR_SPLIT_WIPHY_DUMP, NULL, 0);
+    ret = nl_dump(&s.nl, &r, wiphy_pick_cb, &w);
+    /* A wiphy with no interface types listed is still better than none. */
+    idx = w.ap >= 0 ? w.ap : w.first;
+    if (idx < 0)
+      ret = ret < 0 ? ret : -ENODEV;
+  }
+  nl_close(&s.nl);
+  return idx >= 0 ? idx : ret;
+}
+
 static void scan_cb(const struct nlmsghdr *h, void *arg) {
   int *freq = arg;
   struct rtattr *tb[NL80211_ATTR_MAX + 1];
@@ -235,6 +315,22 @@ int nl80211_add_ap(const char *phy_iface, const char *name) {
     nl_attr_u32(&r, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_AP);
     ret = nl_talk(&s.nl, &r);
   }
+  nl_close(&s.nl);
+  return ret;
+}
+
+int nl80211_add_ap_phy(int wiphy, const char *name) {
+  struct session s;
+  if (wiphy < 0)
+    return -ENODEV;
+  int ret = open_nl80211(&s);
+  if (ret < 0)
+    return ret;
+  struct nl_req r;
+  req_for_phy(&s, &r, NL80211_CMD_NEW_INTERFACE, wiphy);
+  nl_attr_str(&r, NL80211_ATTR_IFNAME, name);
+  nl_attr_u32(&r, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_AP);
+  ret = nl_talk(&s.nl, &r);
   nl_close(&s.nl);
   return ret;
 }

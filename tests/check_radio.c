@@ -82,8 +82,21 @@ static void test_wpa_ctrl(void) {
   rmdir(dir);
 }
 
+/* Standalone mode asks the wiphy, not a netdev: with no such radio (the
+ * throwaway namespace has none, a phone with its driver unloaded has none)
+ * every call fails cleanly instead of guessing. */
+static void test_wiphy(void) {
+  struct phy_info phy;
+  phy.nfreqs = 99;
+  CHECK(nl80211_phy_info_idx(-1, &phy) == -ENODEV && phy.nfreqs == 0);
+  CHECK(nl80211_add_ap_phy(-1, "ap0") == -ENODEV);
+  CHECK(nl80211_find_wiphy("nonexistent0") < 0);
+  CHECK(nl80211_find_wiphy(NULL) < 0 || nl80211_find_wiphy(NULL) >= 0);
+}
+
 void test_radio(void) {
   test_wpa_ctrl();
+  test_wiphy();
   struct sta s;
   sta_from_freq(2437, &s);
   CHECK(s.band == 2 && s.chan == 6);

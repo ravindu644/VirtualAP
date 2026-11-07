@@ -442,7 +442,7 @@ static int wire(const struct vap_opts *o, pid_t pid, const struct subnet *net,
                 const struct plan *p) {
   vap_log("Managed mode: wiring %s to container '%s' (PID %d) via %s.",
           AP_IFACE, o->container, (int)pid, VAP_BRIDGE);
-  if (ap_iface_create(o->phy_iface) < 0)
+  if (ap_iface_create(o) < 0)
     return -1;
   struct nl nl;
   if (nl_open(&nl) < 0)

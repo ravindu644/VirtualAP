@@ -43,6 +43,21 @@ int nl80211_sta_freq(const char *ifname);
 int nl80211_width(const char *ifname);
 /* `iw dev phy_iface interface add name type __ap`. 0 or -errno. */
 int nl80211_add_ap(const char *phy_iface, const char *name);
+
+/* The same questions asked of a wiphy by index instead of through a netdev,
+ * for standalone mode: with the phone's Wi-Fi off, wlan0 is down or gone
+ * while the wiphy is still registered, and `iw phy phyN interface add` works
+ * without it. */
+
+/* The wiphy index to use: the one behind prefer_ifname when that interface
+ * exists, else the first wiphy that lists AP among its interface types.
+ * -ENODEV when the kernel has no Wi-Fi radio registered at all (driver not
+ * loaded), -errno on a netlink error. */
+int nl80211_find_wiphy(const char *prefer_ifname);
+/* nl80211_phy_info for a wiphy index. 0 or -errno, *out zeroed either way. */
+int nl80211_phy_info_idx(int wiphy, struct phy_info *out);
+/* `iw phy phyN interface add name type __ap`. 0 or -errno. */
+int nl80211_add_ap_phy(int wiphy, const char *name);
 /* `iw dev name del`. 0 or -errno (-ENODEV when it is not there). */
 int nl80211_del(const char *name);
 
@@ -119,8 +134,10 @@ char ht40_dir(int ch, int seg0);
  * country_code are ignored; the one lever is the driver's private COUNTRY
  * command through the supplicant's control socket. When the channel is
  * still NO-IR after it, the plan falls back to 2.4 GHz (the station's
- * channel, else 6). phy is refreshed in place. */
-void ensure_5g_ir(struct plan *p, const char *phy_iface, const struct sta *s,
-                  struct phy_info *phy);
+ * channel, else 6). phy is refreshed in place. wiphy is the radio's index
+ * when phy_iface may not exist (standalone mode), -1 to go through
+ * phy_iface. */
+void ensure_5g_ir(struct plan *p, const char *phy_iface, int wiphy,
+                  const struct sta *s, struct phy_info *phy);
 
 #endif

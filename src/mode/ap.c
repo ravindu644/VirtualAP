@@ -4,6 +4,7 @@
 #include "mode/mode.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <net/if.h>
 #include <net/if_arp.h>
@@ -323,11 +324,59 @@ void ap_iface_del(void) {
   }
 }
 
-int ap_iface_create(const char *phy_iface) {
-  vap_log("Creating virtual AP interface '%s' on %s...", AP_IFACE, phy_iface);
+static bool standalone(const struct vap_opts *o) {
+  return !strcmp(o->standalone, "1");
+}
+
+/* Standalone mode's wiphy, -1 when the mode is off or there is no radio. */
+static int standalone_wiphy(const struct vap_opts *o) {
+  if (!standalone(o))
+    return -1;
+  int w = nl80211_find_wiphy(o->phy_iface);
+  return w < 0 ? -1 : w;
+}
+
+/* ap0 on the wiphy, with no wlan0 needed. A wiphy that is registered but
+ * not ready (Broadcom and MediaTek load their firmware only when wlan0 goes
+ * up) gets wlan0 brought up, which is all the Wi-Fi switch does short of the
+ * supplicant, then another try. */
+static int create_standalone(const struct vap_opts *o) {
+  int w = nl80211_find_wiphy(o->phy_iface);
+  int ret = w < 0 ? w : nl80211_add_ap_phy(w, AP_IFACE);
+  if (ret >= 0 || !if_nametoindex(o->phy_iface))
+    return ret;
+  vap_log("Radio not ready - bringing %s up to wake the Wi-Fi firmware...",
+          o->phy_iface);
+  struct nl nl;
+  if (nl_open(&nl) < 0)
+    return ret;
+  link_set_up(&nl, o->phy_iface, true);
+  nl_close(&nl);
+  for (int i = 0; i < 5 && ret < 0; i++) {
+    struct timespec half = {0, 500 * 1000 * 1000};
+    nanosleep(&half, NULL);
+    w = nl80211_find_wiphy(o->phy_iface);
+    ret = w < 0 ? w : nl80211_add_ap_phy(w, AP_IFACE);
+  }
+  return ret;
+}
+
+int ap_iface_create(const struct vap_opts *o) {
+  const char *phy_iface = o->phy_iface;
+  if (standalone(o))
+    vap_log("Creating virtual AP interface '%s' on the Wi-Fi chip "
+            "(standalone, %s not required)...",
+            AP_IFACE, phy_iface);
+  else
+    vap_log("Creating virtual AP interface '%s' on %s...", AP_IFACE,
+            phy_iface);
   ap_iface_del();
-  int ret = nl80211_add_ap(phy_iface, AP_IFACE);
+  int ret = standalone(o) ? create_standalone(o)
+                          : nl80211_add_ap(phy_iface, AP_IFACE);
   if (ret < 0) {
+    if (standalone(o) && ret == -ENODEV)
+      vap_error("No Wi-Fi radio is registered with the kernel - the driver is "
+                "not loaded, which standalone mode cannot fix.");
     /* What iw printed, which the app's log showed. */
     vap_log("command failed: %s (%d)", strerror(-ret), ret);
     vap_error("Failed to create %s - chip/driver may not support AP mode.",
@@ -361,14 +410,18 @@ int ap_prerequisites(void) {
 void ap_plan_radio(const struct vap_opts *o, struct plan *p) {
   struct phy_info phy;
   struct sta sta;
+  int wiphy = standalone_wiphy(o);
+  /* With Wi-Fi off there is no wlan0 and so no station: the radio is free,
+   * and the chip's capabilities come from the wiphy itself. */
   int freq = nl80211_sta_freq(o->phy_iface);
   sta_from_freq(freq > 0 ? freq : 0, &sta);
-  nl80211_phy_info(o->phy_iface, &phy);
+  if (nl80211_phy_info(o->phy_iface, &phy) < 0 && wiphy >= 0)
+    nl80211_phy_info_idx(wiphy, &phy);
   plan_init(p, o->band, o->channel);
   /* 5 GHz needs the regdomain to allow beaconing there, and ensure_5g_ir may
    * itself fall back to 2.4 GHz, so the band follows the final channel. */
   if (plan_channel(p, &sta))
-    ensure_5g_ir(p, o->phy_iface, &sta, &phy);
+    ensure_5g_ir(p, o->phy_iface, wiphy, &sta, &phy);
   plan_band(p);
   plan_width(p, o->width, &phy);
 }
