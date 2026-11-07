@@ -397,6 +397,8 @@ int ap_iface_create(const struct vap_opts *o) {
     vap_error("%s was not created successfully", AP_IFACE);
     return -1;
   }
+  if (standalone(o))
+    radio_hold();
   return 0;
 }
 
