@@ -123,10 +123,14 @@ namespace, already named `vaplan0` and with its MAC, in one request. A link crea
 host and renamed after the move shows up under its old name first on kernels before 5.x,
 and OpenWrt's netifd does not look at it again. When the container is OpenWrt, VirtualAP
 provisions it with one `uci` script run through `droidspaces run`: a static `vaplan`
-interface on the configured gateway, an IPv6 /64 from the router's ULA pinned to the IPv4
-subnet's number so netifd cannot renumber it, a DHCP pool with router advertisements, and a
-reload of the iptables firewall, or a MASQUERADE rule when the image has no firewall
-package. Any other container receives `vaplan0` and configures it itself.
+interface on the configured gateway; an IPv6 /64 at `::1` from the `ULA` setting, a /48
+the app picks at random once so no two hotspots share it, numbered after the IPv4 subnet
+(`fdxx:xxxx:xxxx:42::/64` for `192.168.42.1`), or with the setting empty a /64 from the
+router's own ULA pinned to that number so netifd cannot renumber it; a DHCP pool with
+router advertisements; and a reload of the iptables firewall, or a MASQUERADE rule when the
+image has no firewall package. The addresses are written on every start, so a changed
+gateway or prefix replaces the old one. Any other container receives `vaplan0` and
+configures it itself.
 
 The veth pair runs at MTU 1508 while `ap0` and the clients stay at 1500. Samsung's Broadcom
 firmware hands up about a quarter of received frames with the 8-byte CCMP MIC still on the
