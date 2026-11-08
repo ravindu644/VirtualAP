@@ -630,6 +630,38 @@ private fun AdvancedCard(vm: APViewModel) {
                 shape = fieldShape,
                 colors = DsTextFieldDefaults.colors()
             )
+
+            // The IPv6 side of the gateway field above: picked at random once, and
+            // written into the container's LAN on every start, so an edit here
+            // replaces the old prefix there.
+            var ulaText by remember(vm.config.ula) { mutableStateOf(vm.config.ula) }
+            val ulaError = !APConfig.isValidUla(ulaText.trim())
+            OutlinedTextField(
+                value = ulaText,
+                onValueChange = { v ->
+                    ulaText = v
+                    if (APConfig.isValidUla(v.trim())) vm.config = vm.config.copy(ula = v.trim())
+                },
+                label = { Text(stringResource(R.string.ula_label)) },
+                supportingText = {
+                    if (ulaError && editable)
+                        Text(stringResource(R.string.ula_error), color = MaterialTheme.colorScheme.error)
+                    else
+                        Text(stringResource(R.string.ula_desc, APConfig.ulaSubnet(vm.config.ula, vm.config.gateway)))
+                },
+                isError = ulaError && editable,
+                leadingIcon = { Icon(Icons.Default.Public, contentDescription = null) },
+                trailingIcon = {
+                    if (ulaError && editable)
+                        Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                singleLine = true,
+                enabled = editable,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth(),
+                shape = fieldShape,
+                colors = DsTextFieldDefaults.colors()
+            )
         }
 
         ToggleCard(
@@ -668,7 +700,7 @@ private fun AdvancedCard(vm: APViewModel) {
             icon = Icons.Default.SwapVert
         )
 
-        // Routed mode only: in managed mode the container owns the LAN, IPv6 included.
+        // Routed mode only: in managed mode the container serves IPv6 itself, on the prefix above.
         if (!vm.config.containerMode) {
             ToggleCard(
                 title = stringResource(R.string.ipv6_label),

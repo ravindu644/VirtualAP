@@ -21,7 +21,8 @@ data class APConfig(
     val containerMode: Boolean = false,
     val containerName: String = "",
     val macMode: String = "random",  // random | persistent | static, managed mode only
-    val gatewayMac: String = ""      // the MAC persistent and static send
+    val gatewayMac: String = "",     // the MAC persistent and static send
+    val ula: String = randomUla()    // managed mode: the /48 the LAN's IPv6 /64 comes from
 ) {
     /** Open needs no passphrase; WPA (WPA-PSK/SAE) passphrases are 8-63 bytes, as the engine counts. */
     fun passwordValid(): Boolean = security == "open" || password.toByteArray().size in 8..63
@@ -36,7 +37,7 @@ data class APConfig(
     fun isValid(): Boolean =
         ssid.isNotBlank() && ssidFits() && passwordValid() && (ssid + password).none { it == '\n' || it == '\r' } &&
             (gateway.isBlank() || isValidIpv4(gateway)) && isValidDnsList(dnsServers) &&
-            (!containerMode || (containerName.isNotBlank() && macValid()))
+            (!containerMode || (containerName.isNotBlank() && macValid() && isValidUla(ula)))
 
     /**
      * ap.conf, KEY='value' per line. The engine and the boot module read it; MAC_MODE is the
@@ -59,7 +60,8 @@ data class APConfig(
         "IPV6" to ipv6.flag(),
         "CONTAINER" to if (containerMode) containerName else "",
         "GW_MAC" to if (macMode == "random") "" else gatewayMac,
-        "MAC_MODE" to macMode
+        "MAC_MODE" to macMode,
+        "ULA" to ula
     ).joinToString("") { (key, value) -> "$key=${Backend.quote(value)}\n" }
 
     companion object {
@@ -96,7 +98,9 @@ data class APConfig(
                 containerName = container,
                 // A file from before MAC_MODE: a kept MAC is what persistent means.
                 macMode = str("MAC_MODE", if (mac.isEmpty()) "random" else "persistent"),
-                gatewayMac = mac
+                gatewayMac = mac,
+                // A file from before ULA gets a random one, kept from the next save on.
+                ula = str("ULA", "").ifEmpty { defaults.ula }
             )
         }
 
@@ -131,6 +135,26 @@ data class APConfig(
             b[0] = (b[0].toInt() and 0xfc or 0x02).toByte()
             return b.joinToString(":") { "%02x".format(it) }
         }
+
+        /** RFC 4193: fd, then 40 random bits, so no two hotspots share a prefix. */
+        fun randomUla(): String {
+            val b = Random.nextBytes(5)
+            return "fd%02x:%02x%02x:%02x%02x::/48".format(b[0], b[1], b[2], b[3], b[4])
+        }
+
+        private val ulaRegex = Regex("^fd[0-9a-f]{2}(:[0-9a-f]{1,4}){2}::/48$", RegexOption.IGNORE_CASE)
+
+        /**
+         * A /48 in fd00::/8 as the engine takes it, and never Droidspaces' fd64:7370::/48, which
+         * the container's own uplink already uses.
+         */
+        fun isValidUla(ula: String): Boolean =
+            ulaRegex.matches(ula) &&
+                ula.substringBefore("::").split(":").map { it.toInt(16) } != listOf(0xfd64, 0x7370, 0)
+
+        /** "fd12:3456:789a:42" for a gateway in x.x.42.x: the LAN's /64 as the engine numbers it. */
+        fun ulaSubnet(ula: String, gateway: String): String =
+            ula.substringBefore("::") + ":" + gateway.ifBlank { DEFAULT_GATEWAY }.split(".")[2]
 
         /** Widths the band can carry. 80 MHz only exists on 5 GHz. */
         fun widthsForBand(band: String): List<String> =

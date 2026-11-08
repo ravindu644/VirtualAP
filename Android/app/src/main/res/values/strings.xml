@@ -123,6 +123,9 @@
     <string name="mac_static_desc">Starts as this phone\'s own Wi-Fi MAC. You can type your own</string>
     <string name="mac_static_unknown">Could not read this phone\'s Wi-Fi MAC, enter one</string>
     <string name="mac_error">Enter a unicast MAC, e.g. 02:1a:2b:3c:4d:5e</string>
+    <string name="ula_label">IPv6 prefix</string>
+    <string name="ula_desc">Picked at random once. The hotspot gets %1$s::/64, with the gateway at %1$s::1</string>
+    <string name="ula_error">Enter a private /48, e.g. fd12:3456:789a::/48</string>
     <string name="gateway_ip_label">Gateway IP</string>
     <string name="gateway_ip_desc">Leave blank to use the default (192.168.42.1)</string>
     <string name="gateway_ip_placeholder" translatable="false">192.168.42.1</string>
