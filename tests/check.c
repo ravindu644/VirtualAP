@@ -1,6 +1,7 @@
 /* Host-side asserts for the engine's pure logic, run by `make check`.
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -171,6 +172,26 @@ static void test_rps(void) {
   CHECK(!strcmp(tiny, ""));
 }
 
+static void test_ula(void) {
+  char a[INET6_ADDRSTRLEN + 4], tiny[8];
+  CHECK(ula_lan("fd12:3456:789a::/48", 42, a, sizeof(a)) &&
+        !strcmp(a, "fd12:3456:789a:42::1/64"));
+  /* 255 is 0x255, as ip6hint reads it; leading zeros and capitals parse. */
+  CHECK(ula_lan("FD00:0bad:0001::/48", 255, a, sizeof(a)) &&
+        !strcmp(a, "fd00:bad:1:255::1/64"));
+  CHECK(ula_lan("fd12:3456:789a::/48", 0, a, sizeof(a)) &&
+        !strcmp(a, "fd12:3456:789a::1/64"));
+  CHECK(!ula_lan("fd12:3456:789a::", 42, a, sizeof(a)));
+  CHECK(!ula_lan("fd12:3456:789a::/64", 42, a, sizeof(a)));
+  CHECK(!ula_lan("fd12:3456:789a:1::/48", 42, a, sizeof(a)));
+  CHECK(!ula_lan("fc12:3456:789a::/48", 42, a, sizeof(a)));
+  CHECK(!ula_lan("2001:db8:1::/48", 42, a, sizeof(a)));
+  CHECK(!ula_lan("fd64:7370::/48", 42, a, sizeof(a)));
+  CHECK(!ula_lan("fd12:3456:789a::/48x", 42, a, sizeof(a)));
+  CHECK(!ula_lan("", 42, a, sizeof(a)));
+  CHECK(!ula_lan("fd12:3456:789a::/48", 42, tiny, sizeof(tiny)));
+}
+
 /* Android keeps sleep and echo in /system/bin, and has no /bin. */
 static void test_capture_limit(void) {
   const char *dir = access("/bin/sleep", X_OK) == 0 ? "/bin" : "/system/bin";
@@ -198,6 +219,7 @@ int main(void) {
   test_opts();
   test_state();
   test_rps();
+  test_ula();
   test_ipt();
   test_radio();
   test_services();

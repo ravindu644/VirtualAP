@@ -5,6 +5,7 @@
 #include "internal.h"
 #include "mode/mode.h"
 
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -116,22 +117,32 @@ static bool ds_is_openwrt(const char *name) {
 
 /* The OpenWrt LAN as one script run in the container: one droidspaces run
  * instead of thirty, the values as positional parameters. */
-/* $1 gateway, $2 subnet, $3 port, $4 the third octet. Lines starting WARN
- * become warnings in the app's log, the rest plain lines. */
+/* $1 gateway, $2 subnet, $3 port, $4 the third octet, $5 the LAN's IPv6
+ * address from -u or empty. Lines starting WARN become warnings in the app's
+ * log, the rest plain lines. */
 static const char script[] =
-    "GW=$1 NET=$2 PORT=$3 HINT=$4\n"
+    "GW=$1 NET=$2 PORT=$3 HINT=$4 LAN6=$5\n"
     "uci set network.vaplan=interface\n"
     "uci set network.vaplan.device=\"$PORT\"\n"
     "uci set network.vaplan.proto=static\n"
     "uci set network.vaplan.ipaddr=\"$GW\"\n"
     "uci set network.vaplan.netmask=255.255.255.0\n"
+    /* -u sets the IPv6 side the way ipaddr sets the IPv4 one, on every start,
+     * so a changed prefix replaces the old one. ip6assign would add a second
+     * /64 from the container's ULA beside it, so it goes. */
+    "if [ -n \"$LAN6\" ]; then\n"
+    "  uci -q delete network.vaplan.ip6assign\n"
+    "  uci set network.vaplan.ip6addr=\"$LAN6\"\n"
+    "else\n"
+    "  uci -q delete network.vaplan.ip6addr\n"
     /* A /64 from the router's ULA; inert without one or an IPv6 upstream. */
-    "uci set network.vaplan.ip6assign=64\n"
+    "  uci set network.vaplan.ip6assign=64\n"
     /* netifd numbers those /64s in interface-name order and renumbers them
      * all when an interface is added, moving every hotspot client to a new
      * subnet; pinned to the IPv4 subnet's number unless set by hand. */
-    "uci -q get network.vaplan.ip6hint >/dev/null 2>&1 ||"
+    "  uci -q get network.vaplan.ip6hint >/dev/null 2>&1 ||"
     " uci set network.vaplan.ip6hint=\"$HINT\"\n"
+    "fi\n"
     "uci commit network\n"
     "uci set dhcp.vaplan=dhcp\n"
     "uci set dhcp.vaplan.interface=vaplan\n"
@@ -190,13 +201,41 @@ static void line(const char *text, void *arg) {
 /* A LAN on the container's VAP_PORT at the gateway's address, its DHCP and
  * router advertisements, and NAT out of its WAN. Best effort: what fails is
  * logged as a warning. */
-static void openwrt_provision(const char *container, const struct subnet *net) {
-  vap_log("Provisioning OpenWrt LAN (%s) on %s...", net->gw, VAP_PORT);
+static void openwrt_provision(const struct vap_opts *o,
+                              const struct subnet *net) {
+  char lan6[INET6_ADDRSTRLEN + 4] = "";
+  if (*o->ula && !ula_lan(o->ula, net->third, lan6, sizeof(lan6)))
+    vap_warn("ULA %s is not a /48 in fd00::/8, or is Droidspaces' own - the "
+             "LAN takes a /64 from the container's ULA.",
+             o->ula);
+  vap_log("Provisioning OpenWrt LAN (%s%s%s) on %s...", net->gw,
+          *lan6 ? ", " : "", lan6, VAP_PORT);
   char hint[4];
   snprintf(hint, sizeof(hint), "%u", net->third);
-  const char *const args[] = {net->gw, net->net, VAP_PORT, hint, NULL};
-  if (ds_run_script(container, script, args, line, NULL) != 0)
+  const char *const args[] = {net->gw, net->net, VAP_PORT, hint, lan6, NULL};
+  if (ds_run_script(o->container, script, args, line, NULL) != 0)
     vap_warn("OpenWrt provisioning hit issues - check the container.");
+}
+
+bool ula_lan(const char *ula, unsigned char third, char *out, size_t size) {
+  unsigned char a[16], ds[16];
+  int len, dslen;
+  if (!prefix_parse(AF_INET6, ula, a, &len) || len != 48 || a[0] != 0xfd ||
+      !prefix_parse(AF_INET6, DS_NAT_NET6, ds, &dslen) || !memcmp(a, ds, 6))
+    return false;
+  for (int i = 6; i < 16; i++)
+    if (a[i])
+      return false;
+  /* 42 read as hex, the way ip6hint reads it: fdxx:xxxx:xxxx:42::/64. */
+  char hint[4];
+  snprintf(hint, sizeof(hint), "%u", third);
+  unsigned long id = strtoul(hint, NULL, 16);
+  a[6] = (unsigned char)(id >> 8);
+  a[7] = (unsigned char)id;
+  a[15] = 1;
+  char text[INET6_ADDRSTRLEN];
+  inet_ntop(AF_INET6, a, text, sizeof(text));
+  return snprintf(out, size, "%s/64", text) < (int)size;
 }
 
 /* The mask is Droidspaces' ds_net_steer_rx, built in 32-bit words for up to
@@ -467,7 +506,7 @@ static int wire(const struct vap_opts *o, pid_t pid, const struct subnet *net,
   /* The container owns L3: OpenWrt is provisioned, anything else gets the
    * port and does the rest itself. */
   if (ds_is_openwrt(o->container)) {
-    openwrt_provision(o->container, net);
+    openwrt_provision(o, net);
   } else {
     vap_log("Container is not OpenWrt - delivered %s. The container must",
             VAP_PORT);

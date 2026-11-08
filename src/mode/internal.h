@@ -113,4 +113,12 @@ void rules_del(struct nl *nl, int family);
 /* The same from the text of /sys/devices/system/cpu/present, for the tests. */
 void rps_mask_from(const char *present, char *out, size_t size);
 
+/* managed.c: The LAN's IPv6 address from -u. */
+
+/* "fdxx:xxxx:xxxx:42::1/64" for a gateway whose third octet is 42: the /48's
+ * /64 numbered the way ip6hint and the routed NAT66 /64 number it, and ::1 for
+ * the gateway as .1 is for IPv4. false for anything but a /48 in fd00::/8, or
+ * for Droidspaces' own, which the container's uplink already uses. */
+bool ula_lan(const char *ula, unsigned char third, char *out, size_t size);
+
 #endif
