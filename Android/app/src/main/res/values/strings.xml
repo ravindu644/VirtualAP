@@ -123,10 +123,18 @@
     <string name="mac_static_desc">Starts as this phone\'s own Wi-Fi MAC. You can type your own</string>
     <string name="mac_static_unknown">Could not read this phone\'s Wi-Fi MAC, enter one</string>
     <string name="mac_error">Enter a unicast MAC, e.g. 02:1a:2b:3c:4d:5e</string>
+    <string name="ula_label">IPv6 prefix</string>
+    <!-- %1$s is the first four groups of the hotspot's IPv6 /64, e.g. fd12:3456:789a:42 -->
+    <string name="ula_desc">Picked at random once. The hotspot gets %1$s::/64, with the gateway at %1$s::1</string>
+    <string name="ula_error">Enter a private /48, e.g. fd12:3456:789a::/48</string>
+    <string name="ula_unused">Not used while an IPv6 gateway is set</string>
     <string name="gateway_ip_label">Gateway IP</string>
     <string name="gateway_ip_desc">Leave blank to use the default (192.168.42.1)</string>
     <string name="gateway_ip_placeholder" translatable="false">192.168.42.1</string>
     <string name="gateway_ip_error">Enter a valid IPv4 address (e.g. 192.168.42.1)</string>
+    <string name="gateway_ip6_label">IPv6 gateway</string>
+    <string name="gateway_ip6_desc">Clients get addresses in its /64. Leave blank to take it from the IPv6 prefix below</string>
+    <string name="gateway_ip6_error">Enter a global or private IPv6 address, e.g. 2001:db8::1 or 2001:db8::1/64</string>
     <string name="dns_servers_label">DNS Servers</string>
     <string name="dns_servers_desc">Upstream DNS servers (comma-separated). Blank means 1.1.1.1 and 8.8.8.8.</string>
     <string name="dns_servers_placeholder">e.g. 1.1.1.1, 8.8.8.8</string>

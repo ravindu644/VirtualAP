@@ -123,10 +123,33 @@ namespace, already named `vaplan0` and with its MAC, in one request. A link crea
 host and renamed after the move shows up under its old name first on kernels before 5.x,
 and OpenWrt's netifd does not look at it again. When the container is OpenWrt, VirtualAP
 provisions it with one `uci` script run through `droidspaces run`: a static `vaplan`
-interface on the configured gateway, an IPv6 /64 from the router's ULA pinned to the IPv4
-subnet's number so netifd cannot renumber it, a DHCP pool with router advertisements, and a
-reload of the iptables firewall, or a MASQUERADE rule when the image has no firewall
-package. Any other container receives `vaplan0` and configures it itself.
+interface on the configured gateway and an IPv6 /64, below; a DHCP pool with router
+advertisements carrying the managed and other-config flags; and a reload of the iptables
+firewall, or a MASQUERADE rule when the image has no firewall package. The managed flag has
+clients that do DHCPv6, Windows and Linux among them, take an address from it beside the
+SLAAC ones, so a static lease's IPv6 suffix reaches them; Android does SLAAC alone. The
+addresses are written on every start, so a changed gateway or prefix replaces the old one.
+Any other container receives `vaplan0` and configures it
+itself.
+
+The LAN's IPv6 comes from the first of these that is set:
+
+- `IP6_GW`, the gateway's address, in 2000::/3 or fc00::/7, bare or with `/64`; the clients
+  get its /64, and a bare /64 such as `2001:db8::/64` gets `::1`. Clients rank a ULA below
+  IPv4 (RFC 6724), so on a ULA-only LAN they reach dual-stack sites over IPv4. A prefix
+  outside fc00::/7, the documentation ranges `2001:db8::/32` and `3fff::/20` included,
+  makes them prefer IPv6. That needs the container to masquerade the LAN's IPv6 out of its
+  WAN, which the script above does not set up: fw3 has no IPv6 masquerading of its own, so
+  it takes an ip6tables MASQUERADE rule from a firewall include, and fw4 has the wan zone's
+  `masq6`. Without it, clients try IPv6 first and fall back to IPv4.
+- `ULA`, a /48 the app picks at random once so no two hotspots share it: `::1` in its /64
+  numbered after the IPv4 subnet, `fdxx:xxxx:xxxx:42::/64` for `192.168.42.1`. The app
+  keeps it while `IP6_GW` is set, so clearing the gateway brings the same /64 back.
+- Neither: a /64 from the router's own ULA, pinned to that number so netifd cannot
+  renumber it.
+
+A setting the engine refuses is logged as a warning and the next one applies. Anything in
+Droidspaces' `fd64:7370::/48` is refused, since the container's uplink uses it.
 
 The veth pair runs at MTU 1508 while `ap0` and the clients stay at 1500. Samsung's Broadcom
 firmware hands up about a quarter of received frames with the 8-byte CCMP MIC still on the
