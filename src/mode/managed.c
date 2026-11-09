@@ -118,8 +118,8 @@ static bool ds_is_openwrt(const char *name) {
 /* The OpenWrt LAN as one script run in the container: one droidspaces run
  * instead of thirty, the values as positional parameters. */
 /* $1 gateway, $2 subnet, $3 port, $4 the third octet, $5 the LAN's IPv6
- * address from -u or empty. Lines starting WARN become warnings in the app's
- * log, the rest plain lines. */
+ * address from -G or -u, or empty. Lines starting WARN become warnings in the
+ * app's log, the rest plain lines. */
 static const char script[] =
     "GW=$1 NET=$2 PORT=$3 HINT=$4 LAN6=$5\n"
     "uci set network.vaplan=interface\n"
@@ -127,9 +127,9 @@ static const char script[] =
     "uci set network.vaplan.proto=static\n"
     "uci set network.vaplan.ipaddr=\"$GW\"\n"
     "uci set network.vaplan.netmask=255.255.255.0\n"
-    /* -u sets the IPv6 side the way ipaddr sets the IPv4 one, on every start,
-     * so a changed prefix replaces the old one. ip6assign would add a second
-     * /64 from the container's ULA beside it, so it goes. */
+    /* -G or -u sets the IPv6 side the way ipaddr sets the IPv4 one, on every
+     * start, so a changed address replaces the old one. ip6assign would add a
+     * second /64 from the container's ULA beside it, so it goes. */
     "if [ -n \"$LAN6\" ]; then\n"
     "  uci -q delete network.vaplan.ip6assign\n"
     "  uci set network.vaplan.ip6addr=\"$LAN6\"\n"
@@ -204,7 +204,13 @@ static void line(const char *text, void *arg) {
 static void openwrt_provision(const struct vap_opts *o,
                               const struct subnet *net) {
   char lan6[INET6_ADDRSTRLEN + 4] = "";
-  if (*o->ula && !ula_lan(o->ula, net->third, lan6, sizeof(lan6)))
+  /* The gateway as typed wins, then the /64 numbered from the ULA, then, with
+   * both empty or refused, the script's /64 from the container's own ULA. */
+  if (*o->ip6_gw && !gw6_lan(o->ip6_gw, lan6, sizeof(lan6)))
+    vap_warn("IPv6 gateway %s is not in 2000::/3 or fc00::/7 with a /64, or "
+             "is in Droidspaces' own prefix - ignored.",
+             o->ip6_gw);
+  if (!*lan6 && *o->ula && !ula_lan(o->ula, net->third, lan6, sizeof(lan6)))
     vap_warn("ULA %s is not a /48 in fd00::/8, or is Droidspaces' own - the "
              "LAN takes a /64 from the container's ULA.",
              o->ula);
@@ -217,11 +223,35 @@ static void openwrt_provision(const struct vap_opts *o,
     vap_warn("OpenWrt provisioning hit issues - check the container.");
 }
 
+/* The container's uplink already uses Droidspaces' fd64:7370::/48, so a LAN
+ * in it would shadow the route out. */
+static bool in_ds_prefix(const unsigned char a[16]) {
+  unsigned char ds[16];
+  int len;
+  return !prefix_parse(AF_INET6, DS_NAT_NET6, ds, &len) || !memcmp(a, ds, 6);
+}
+
+bool gw6_lan(const char *gw6, char *out, size_t size) {
+  static const unsigned char zero[8];
+  unsigned char a[16];
+  int len;
+  if (!prefix_parse(AF_INET6, gw6, a, &len) ||
+      (strchr(gw6, '/') && len != 64) ||
+      ((a[0] & 0xe0) != 0x20 && (a[0] & 0xfe) != 0xfc) || in_ds_prefix(a))
+    return false;
+  /* The all-zero host is the subnet's anycast address, not a gateway. */
+  if (!memcmp(a + 8, zero, sizeof(zero)))
+    a[15] = 1;
+  char text[INET6_ADDRSTRLEN];
+  inet_ntop(AF_INET6, a, text, sizeof(text));
+  return snprintf(out, size, "%s/64", text) < (int)size;
+}
+
 bool ula_lan(const char *ula, unsigned char third, char *out, size_t size) {
-  unsigned char a[16], ds[16];
-  int len, dslen;
+  unsigned char a[16];
+  int len;
   if (!prefix_parse(AF_INET6, ula, a, &len) || len != 48 || a[0] != 0xfd ||
-      !prefix_parse(AF_INET6, DS_NAT_NET6, ds, &dslen) || !memcmp(a, ds, 6))
+      in_ds_prefix(a))
     return false;
   for (int i = 6; i < 16; i++)
     if (a[i])

@@ -59,6 +59,11 @@ const struct vap_key vap_keys[] = {
      "clients' gateway (empty = a new random one on every\n"
      "start [default]).",
      0},
+    {'G', "IP6_GW", F(ip6_gw), "", "<address>",
+     "Managed mode: the LAN gateway's IPv6 address, in\n"
+     "2000::/3 or fc00::/7; the clients get its /64\n"
+     "(empty = from -u [default]).",
+     0},
     {'u', "ULA", F(ula), "", "<prefix>",
      "Managed mode: the /48 in fd00::/8 the container's LAN\n"
      "takes its IPv6 /64 from, numbered after the gateway's\n"
@@ -159,7 +164,7 @@ void print_usage(const char *prog) {
          "\nstart options:\n",
          prog, prog, prog, prog, prog, prog, prog, prog);
   /* Start order, the one people read, not ap.conf's. */
-  static const char order[] = "spobcWgdwHAMKmuT6";
+  static const char order[] = "spobcWgdwHAMKmGuT6";
   for (const char *f = order; *f; f++) {
     const struct vap_key *k = by_flag(*f);
     if (!k)

@@ -135,6 +135,8 @@ static void test_opts(void) {
   CHECK(opts_parse(&o, 3, bad) < 0);
   char *unknown[] = {"start", "-z", "1", NULL};
   CHECK(opts_parse(&o, 3, unknown) < 0);
+  char *gw6[] = {"start", "-G", "2001:db8::1", NULL};
+  CHECK(opts_parse(&o, 3, gw6) == 0 && !strcmp(o.ip6_gw, "2001:db8::1"));
 }
 
 static void test_state(void) {
@@ -192,6 +194,36 @@ static void test_ula(void) {
   CHECK(!ula_lan("fd12:3456:789a::/48", 42, tiny, sizeof(tiny)));
 }
 
+static void test_gw6(void) {
+  char a[INET6_ADDRSTRLEN + 4], tiny[8];
+  CHECK(gw6_lan("2001:db8::5", a, sizeof(a)) && !strcmp(a, "2001:db8::5/64"));
+  CHECK(gw6_lan("2001:DB8::5/64", a, sizeof(a)) &&
+        !strcmp(a, "2001:db8::5/64"));
+  /* A bare /64 gets ::1, the gateway -u gives too. */
+  CHECK(gw6_lan("3fff::", a, sizeof(a)) && !strcmp(a, "3fff::1/64"));
+  CHECK(gw6_lan("2001:db8:0:5::/64", a, sizeof(a)) &&
+        !strcmp(a, "2001:db8:0:5::1/64"));
+  CHECK(gw6_lan("fd9b:eb8c:afef:42::1", a, sizeof(a)) &&
+        !strcmp(a, "fd9b:eb8c:afef:42::1/64"));
+  CHECK(gw6_lan("fc00::1", a, sizeof(a)) && !strcmp(a, "fc00::1/64"));
+  /* Next to Droidspaces' /48, not in it. */
+  CHECK(gw6_lan("fd64:7370:1::1", a, sizeof(a)));
+  CHECK(!gw6_lan("fd64:7370::1", a, sizeof(a)));
+  CHECK(!gw6_lan("fd64:7370:0:42::1", a, sizeof(a)));
+  CHECK(!gw6_lan("2001:db8::1/48", a, sizeof(a)));
+  CHECK(!gw6_lan("2001:db8::1/128", a, sizeof(a)));
+  CHECK(!gw6_lan("2001:db8::1/64x", a, sizeof(a)));
+  CHECK(!gw6_lan("fe80::1", a, sizeof(a)));
+  CHECK(!gw6_lan("ff02::1", a, sizeof(a)));
+  CHECK(!gw6_lan("::1", a, sizeof(a)));
+  CHECK(!gw6_lan("::", a, sizeof(a)));
+  CHECK(!gw6_lan("::ffff:192.0.2.1", a, sizeof(a)));
+  CHECK(!gw6_lan("4000::1", a, sizeof(a)));
+  CHECK(!gw6_lan("192.168.42.1", a, sizeof(a)));
+  CHECK(!gw6_lan("", a, sizeof(a)));
+  CHECK(!gw6_lan("2001:db8::5", tiny, sizeof(tiny)));
+}
+
 /* Android keeps sleep and echo in /system/bin, and has no /bin. */
 static void test_capture_limit(void) {
   const char *dir = access("/bin/sleep", X_OK) == 0 ? "/bin" : "/system/bin";
@@ -220,6 +252,7 @@ int main(void) {
   test_state();
   test_rps();
   test_ula();
+  test_gw6();
   test_ipt();
   test_radio();
   test_services();
