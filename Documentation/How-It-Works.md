@@ -136,8 +136,9 @@ The LAN's IPv6 comes from the first of these that is set:
   IPv4 (RFC 6724), so on a ULA-only LAN they reach dual-stack sites over IPv4. A prefix
   outside fc00::/7, the documentation ranges `2001:db8::/32` and `3fff::/20` included,
   makes them prefer IPv6. That needs the container to masquerade the LAN's IPv6 out of its
-  WAN, `masq6` on fw3's wan zone, which the script above does not set: without it, clients
-  try IPv6 first and fall back to IPv4.
+  WAN, which the script above does not set up: fw3 has no IPv6 masquerading of its own, so
+  it takes an ip6tables MASQUERADE rule from a firewall include, and fw4 has the wan zone's
+  `masq6`. Without it, clients try IPv6 first and fall back to IPv4.
 - `ULA`, a /48 the app picks at random once so no two hotspots share it: `::1` in its /64
   numbered after the IPv4 subnet, `fdxx:xxxx:xxxx:42::/64` for `192.168.42.1`. The app
   keeps it while `IP6_GW` is set, so clearing the gateway brings the same /64 back.
