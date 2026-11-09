@@ -124,9 +124,12 @@ host and renamed after the move shows up under its old name first on kernels bef
 and OpenWrt's netifd does not look at it again. When the container is OpenWrt, VirtualAP
 provisions it with one `uci` script run through `droidspaces run`: a static `vaplan`
 interface on the configured gateway and an IPv6 /64, below; a DHCP pool with router
-advertisements; and a reload of the iptables firewall, or a MASQUERADE rule when the image
-has no firewall package. The addresses are written on every start, so a changed gateway or
-prefix replaces the old one. Any other container receives `vaplan0` and configures it
+advertisements carrying the managed and other-config flags; and a reload of the iptables
+firewall, or a MASQUERADE rule when the image has no firewall package. The managed flag has
+clients that do DHCPv6, Windows and Linux among them, take an address from it beside the
+SLAAC ones, so a static lease's IPv6 suffix reaches them; Android does SLAAC alone. The
+addresses are written on every start, so a changed gateway or prefix replaces the old one.
+Any other container receives `vaplan0` and configures it
 itself.
 
 The LAN's IPv6 comes from the first of these that is set:
