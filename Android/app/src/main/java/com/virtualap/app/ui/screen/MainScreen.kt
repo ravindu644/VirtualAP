@@ -534,6 +534,81 @@ private fun AdvancedCard(vm: APViewModel) {
             colors = DsTextFieldDefaults.colors()
         )
 
+        // The IPv6 side of the gateway above, managed mode only: in routed mode the
+        // engine numbers ap0's IPv6 itself. Blank takes it from the prefix below, and
+        // the hint shows the address that gives.
+        if (vm.config.containerMode) {
+            var gateway6Text by remember(vm.config.ip6Gateway) { mutableStateOf(vm.config.ip6Gateway) }
+            val gateway6Error = gateway6Text.isNotBlank() && !APConfig.isValidIp6Gateway(gateway6Text.trim())
+            OutlinedTextField(
+                value = gateway6Text,
+                onValueChange = { v ->
+                    gateway6Text = v
+                    when {
+                        v.isBlank() -> vm.config = vm.config.copy(ip6Gateway = "")
+                        APConfig.isValidIp6Gateway(v.trim()) -> vm.config = vm.config.copy(ip6Gateway = v.trim())
+                    }
+                },
+                label = { Text(stringResource(R.string.gateway_ip6_label)) },
+                placeholder = { Text(APConfig.ulaSubnet(vm.config.ula, vm.config.gateway) + "::1") },
+                supportingText = {
+                    if (gateway6Error)
+                        Text(stringResource(R.string.gateway_ip6_error), color = MaterialTheme.colorScheme.error)
+                    else
+                        Text(stringResource(R.string.gateway_ip6_desc))
+                },
+                isError = gateway6Error,
+                leadingIcon = { Icon(Icons.Default.Router, contentDescription = null) },
+                trailingIcon = {
+                    if (gateway6Error)
+                        Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                singleLine = true,
+                enabled = editable,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+                shape = fieldShape,
+                colors = DsTextFieldDefaults.colors()
+            )
+
+            // Where that gateway comes from while its box is blank: picked at random
+            // once, and written into the container's LAN on every start, so an edit
+            // here replaces the old prefix there. Greyed out, not cleared, while a
+            // gateway is set, so clearing it brings the same /64 back.
+            val ulaEditable = editable && vm.config.ip6Gateway.isBlank()
+            var ulaText by remember(vm.config.ula) { mutableStateOf(vm.config.ula) }
+            val ulaError = !APConfig.isValidUla(ulaText.trim())
+            OutlinedTextField(
+                value = ulaText,
+                onValueChange = { v ->
+                    ulaText = v
+                    if (APConfig.isValidUla(v.trim())) vm.config = vm.config.copy(ula = v.trim())
+                },
+                label = { Text(stringResource(R.string.ula_label)) },
+                supportingText = {
+                    when {
+                        vm.config.ip6Gateway.isNotBlank() -> Text(stringResource(R.string.ula_unused))
+                        ulaError && ulaEditable ->
+                            Text(stringResource(R.string.ula_error), color = MaterialTheme.colorScheme.error)
+                        else ->
+                            Text(stringResource(R.string.ula_desc, APConfig.ulaSubnet(vm.config.ula, vm.config.gateway)))
+                    }
+                },
+                isError = ulaError && ulaEditable,
+                leadingIcon = { Icon(Icons.Default.Public, contentDescription = null) },
+                trailingIcon = {
+                    if (ulaError && ulaEditable)
+                        Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                singleLine = true,
+                enabled = ulaEditable,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth(),
+                shape = fieldShape,
+                colors = DsTextFieldDefaults.colors()
+            )
+        }
+
         // DNS is VirtualAP's own L3, irrelevant when a container owns the LAN
         // (it runs its own resolver), so hide it in managed mode.
         if (!vm.config.containerMode) {
@@ -630,38 +705,6 @@ private fun AdvancedCard(vm: APViewModel) {
                 shape = fieldShape,
                 colors = DsTextFieldDefaults.colors()
             )
-
-            // The IPv6 side of the gateway field above: picked at random once, and
-            // written into the container's LAN on every start, so an edit here
-            // replaces the old prefix there.
-            var ulaText by remember(vm.config.ula) { mutableStateOf(vm.config.ula) }
-            val ulaError = !APConfig.isValidUla(ulaText.trim())
-            OutlinedTextField(
-                value = ulaText,
-                onValueChange = { v ->
-                    ulaText = v
-                    if (APConfig.isValidUla(v.trim())) vm.config = vm.config.copy(ula = v.trim())
-                },
-                label = { Text(stringResource(R.string.ula_label)) },
-                supportingText = {
-                    if (ulaError && editable)
-                        Text(stringResource(R.string.ula_error), color = MaterialTheme.colorScheme.error)
-                    else
-                        Text(stringResource(R.string.ula_desc, APConfig.ulaSubnet(vm.config.ula, vm.config.gateway)))
-                },
-                isError = ulaError && editable,
-                leadingIcon = { Icon(Icons.Default.Public, contentDescription = null) },
-                trailingIcon = {
-                    if (ulaError && editable)
-                        Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                },
-                singleLine = true,
-                enabled = editable,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth(),
-                shape = fieldShape,
-                colors = DsTextFieldDefaults.colors()
-            )
         }
 
         ToggleCard(
@@ -700,7 +743,7 @@ private fun AdvancedCard(vm: APViewModel) {
             icon = Icons.Default.SwapVert
         )
 
-        // Routed mode only: in managed mode the container serves IPv6 itself, on the prefix above.
+        // Routed mode only: in managed mode the container serves IPv6 itself, on the gateway above.
         if (!vm.config.containerMode) {
             ToggleCard(
                 title = stringResource(R.string.ipv6_label),
