@@ -154,6 +154,13 @@ static const char script[] =
     "uci set dhcp.vaplan.ra=server\n"
     "uci set dhcp.vaplan.dhcpv6=server\n"
     "uci set dhcp.vaplan.ra_default=1\n"
+    /* M as well as odhcpd's default O: clients that do DHCPv6, Windows and
+     * Linux among them, then take an address from it beside SLAAC's, so a
+     * static lease's IPv6 suffix reaches them. With O alone they ask it for
+     * DNS only. Android never asks and keeps SLAAC. */
+    "uci -q delete dhcp.vaplan.ra_flags\n"
+    "uci add_list dhcp.vaplan.ra_flags=managed-config\n"
+    "uci add_list dhcp.vaplan.ra_flags=other-config\n"
     /* odhcpd advertises the port's MTU, 1508, and clients would send it. */
     "uci set dhcp.vaplan.ra_mtu=1500\n"
     "uci commit dhcp\n"
