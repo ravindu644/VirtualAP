@@ -134,6 +134,12 @@ static void test_opts(void) {
   CHECK(opts_parse(&o, 3, bad) < 0);
   char *unknown[] = {"start", "-z", "1", NULL};
   CHECK(opts_parse(&o, 3, unknown) < 0);
+
+  /* On unless asked otherwise. */
+  opts_defaults(&o);
+  CHECK(!strcmp(o.wifi_awake, "1"));
+  char *asleep[] = {"start", "-a", "0", NULL};
+  CHECK(opts_parse(&o, 3, asleep) == 0 && !strcmp(o.wifi_awake, "0"));
 }
 
 static void test_state(void) {

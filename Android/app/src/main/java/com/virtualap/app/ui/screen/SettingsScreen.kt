@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -329,6 +330,18 @@ private fun HotspotAccessGroup(vm: APViewModel, raised: Boolean) {
             summary = stringResource(R.string.start_at_boot_desc),
             checked = vm.startAtBoot,
             onCheckedChange = { enabled -> act { vm.updateStartAtBoot(enabled) } }
+        )
+        GroupDivider()
+        // Saved to ap.conf like the main screen's settings, so a boot start honours it
+        // too; the engine reads it at the start, so it is locked while one runs.
+        val running = vm.status.running
+        SwitchItem(
+            icon = Icons.Default.ScreenLockPortrait,
+            title = stringResource(R.string.wifi_awake_label),
+            summary = stringResource(if (running) R.string.wifi_awake_running else R.string.wifi_awake_desc),
+            checked = vm.config.wifiAwake,
+            onCheckedChange = { vm.config = vm.config.copy(wifiAwake = it) },
+            enabled = !running
         )
     }
 

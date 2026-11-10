@@ -82,8 +82,35 @@ static void test_wpa_ctrl(void) {
   rmdir(dir);
 }
 
+static void test_driver_awake(void) {
+  char dir[96], sock[108], msg[64] = "";
+  tmp_path(dir, sizeof(dir));
+  if (!mkdtemp(dir)) {
+    CHECK(!"mkdtemp under TMPDIR");
+    return;
+  }
+  snprintf(sock, sizeof(sock), "%s/wlan0", dir);
+
+  /* The supplicant gets it as the DRIVER command a root shell was seen to
+   * take, the driver logging it on wlan0 and leaving suspend mode. */
+  struct sockaddr_un sa = {.sun_family = AF_UNIX};
+  snprintf(sa.sun_path, sizeof(sa.sun_path), "%s", sock);
+  int srv = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  CHECK(srv >= 0 && bind(srv, (struct sockaddr *)&sa, sizeof(sa)) == 0);
+  CHECK(driver_awake(sock) == 0);
+  ssize_t n = recv(srv, msg, sizeof(msg) - 1, MSG_DONTWAIT);
+  CHECK(n > 0 && !strcmp(msg, "DRIVER SETSUSPENDMODE 0"));
+  close(srv);
+  unlink(sock);
+
+  /* No supplicant, Wi-Fi off: nothing to ask, and nothing put it there. */
+  CHECK(driver_awake(sock) < 0);
+  rmdir(dir);
+}
+
 void test_radio(void) {
   test_wpa_ctrl();
+  test_driver_awake();
   struct sta s;
   sta_from_freq(2437, &s);
   CHECK(s.band == 2 && s.chan == 6);

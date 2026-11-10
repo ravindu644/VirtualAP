@@ -143,8 +143,6 @@ void plan_width(struct plan *p, const char *want, const struct phy_info *phy) {
              p->width);
 }
 
-#define WPA_CTRL_DIR "/data/vendor/wifi/wpa/sockets"
-
 bool chan_no_ir(const struct phy_info *phy, int ch) {
   /* By frequency: 6 GHz numbers its channels from 1 again, so a channel
    * number alone could name a 6 GHz one. */

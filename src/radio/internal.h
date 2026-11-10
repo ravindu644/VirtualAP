@@ -15,6 +15,13 @@
  * (SELinux). 0 or -errno. */
 int wpa_ctrl_send(const char *path, const char *cmd);
 
+/* Where Android's wpa_supplicant keeps its control sockets, one per
+ * interface. */
+#define WPA_CTRL_DIR "/data/vendor/wifi/wpa/sockets"
+
+/* driver.c: wifi_awake with the supplicant's control socket given. */
+int driver_awake(const char *wpa_sock);
+
 /* channel.c: Band, channel and width policy: the only place a channel number
  * is compared. Most phone chips beacon only on the channel their own Wi-Fi
  * is on (same-channel concurrency), so the station's channel leads. */
