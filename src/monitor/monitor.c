@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -20,6 +21,7 @@
 
 #include "core/core.h"
 #include "mode/mode.h"
+#include "radio/radio.h"
 
 /* Quiet for 200 ms after the last event before looking, so a burst (netd
  * swapping a network rewrites dozens of rules) costs one reprobe; a second
@@ -31,6 +33,17 @@
 #define BEAT_MS 3000
 /* Known IPv6 clients are re-installed and pruned every 20 beats. */
 #define REFRESH_BEATS 20
+/* -a: on every beat, not once, since Android puts the driver back into
+ * suspend mode at each screen off and Wi-Fi can come on after the start.
+ * Nothing is put back at the stop: Android asks again at the next screen
+ * off. Said once, at the first ask that got through. */
+static void keep_awake(const struct vap_opts *o) {
+  static bool said;
+  if (strcmp(o->wifi_awake, "1") || wifi_awake(o->phy_iface) < 0 || said)
+    return;
+  said = true;
+  vap_log("Keeping the WiFi driver out of suspend mode while the AP runs.");
+}
 
 static long long now_ms(void) {
   struct timespec ts;
@@ -121,6 +134,7 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
     _exit(1);
   int v6 = r ? discovery(&nl, o, r) : -1;
   vap_log("Monitor running (PID %d).", (int)getpid());
+  keep_awake(o);
   if (write(ready, "1", 1) < 0)
     _exit(1);
   close(ready);
@@ -168,6 +182,7 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
     }
     if (t >= beat + BEAT_MS) {
       beat = t;
+      keep_awake(o);
       if (v6 >= 0) {
         if (++beats % REFRESH_BEATS == 0)
           v6disc_refresh();

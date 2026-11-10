@@ -30,6 +30,7 @@ struct vap_opts {
   char pmf[OPT_LEN];
   char ttl_fix[OPT_LEN];
   char ipv6[OPT_LEN];
+  char wifi_awake[OPT_LEN];
   char container[OPT_LEN];
   char gw_mac[OPT_LEN];
   /* What follows the options, NULL terminated: block and unblock take a MAC. */

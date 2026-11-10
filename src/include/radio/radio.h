@@ -73,6 +73,16 @@ void wifi_mac(const char *ifname, char out[18]);
  * as aa:bb:.. in lower case. False for anything else, or all zeros. */
 bool mac_take(const char *s, char out[18]);
 
+/* driver.c: The suspend mode Android puts the Wi-Fi driver in at screen off,
+ * taken back while the AP runs. */
+
+/* SETSUSPENDMODE 0 for the driver behind phy_iface, as a DRIVER command
+ * through the supplicant on phy_iface, the way Android sends it. MediaTek's
+ * puts the AP's BSS into suspend mode with the phone's own, where the firmware
+ * drops what clients multicast: Router Solicitations, DHCPv6, mDNS. 0, or -1
+ * when the supplicant is not there. */
+int wifi_awake(const char *phy_iface);
+
 /* channel.c: Band, channel and width policy: the only place a channel number
  * is compared. Most phone chips beacon only on the channel their own Wi-Fi
  * is on (same-channel concurrency), so the station's channel leads. */

@@ -387,3 +387,21 @@ void wifi_mac(const char *ifname, char out[18]) {
       return;
   out[0] = '\0';
 }
+
+int driver_awake(const char *wpa_sock) {
+  /* Android sends SETSUSPENDMODE this way, so it reaches every driver Android
+   * can put into suspend mode. The supplicant hands DRIVER commands to the
+   * vendor's own library, which packs them the way that driver reads them:
+   * the text inline for MediaTek's, behind a pointer for AOSP's and
+   * Broadcom's. As with DRIVER COUNTRY the answer never makes it back on
+   * Samsung's firmware, so all this knows is that the supplicant took it. */
+  return wpa_ctrl_send(wpa_sock, "DRIVER SETSUSPENDMODE 0") < 0 ? -1 : 0;
+}
+
+int wifi_awake(const char *phy_iface) {
+  char sock[128];
+  if (snprintf(sock, sizeof(sock), "%s/%s", WPA_CTRL_DIR, phy_iface) >=
+      (int)sizeof(sock))
+    return -1;
+  return driver_awake(sock);
+}

@@ -50,6 +50,12 @@ const struct vap_key vap_keys[] = {
      "private prefix when the kernel can, else the upstream's\n"
      "own /64 with an NDP proxy. Routed mode only.",
      0},
+    {'a', "WIFI_AWAKE", F(wifi_awake), "1", "<0|1>",
+     "Keep the WiFi driver out of its screen-off suspend mode\n"
+     "while the AP runs (0=off, 1=on [default]): MediaTek's\n"
+     "drops what clients multicast there, Router Solicitations,\n"
+     "DHCPv6 and mDNS among it.",
+     0},
     {'K', "CONTAINER", F(container), "", "<container>",
      "Managed mode: hand the AP's LAN to a Droidspaces\n"
      "container (it owns DHCP/DNS/NAT). Disables -o/-g/-d.",
@@ -153,7 +159,7 @@ void print_usage(const char *prog) {
          "\nstart options:\n",
          prog, prog, prog, prog, prog, prog, prog, prog);
   /* Start order, the one people read, not ap.conf's. */
-  static const char order[] = "spobcWgdwHAMKmT6";
+  static const char order[] = "spobcWgdwHAMKmT6a";
   for (const char *f = order; *f; f++) {
     const struct vap_key *k = by_flag(*f);
     if (!k)
