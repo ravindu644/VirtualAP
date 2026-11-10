@@ -103,6 +103,18 @@ without an event. Each look:
 In managed mode it watches the veth instead and plugs a new one into the container when
 the container restarts. It exits when the AP is gone; `stop` kills it before anything else.
 
+In both modes it also keeps the Wi-Fi driver out of suspend mode while the AP runs
+(`WIFI_AWAKE`, on by default). Android puts the driver into suspend mode at screen off,
+and MediaTek's puts the AP's BSS in with the phone's own, where the firmware drops what
+clients multicast: Router Solicitations, DHCPv6, mDNS. Clients joining with the screen off
+then get no IPv6 until it comes back on. Every 3 seconds the monitor sends
+`DRIVER SETSUSPENDMODE 0` to the supplicant on the Wi-Fi interface, the way Android sets
+suspend mode, so it reaches every driver Android can put there. The supplicant hands it to
+the vendor's own library, which packs it the way that driver reads it: MediaTek's takes the
+text inline, AOSP's and Broadcom's behind a pointer. A repeat is a no-op, Wi-Fi coming on
+after the start is covered by the next beat, and nothing is put back at the stop: Android
+asks again at the next screen off.
+
 ## Managed mode (`-K <container>`)
 
 The hotspot's LAN is handed to a running Droidspaces container. VirtualAP gives `ap0` no
