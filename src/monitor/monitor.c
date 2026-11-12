@@ -135,9 +135,6 @@ static void revive(const struct vap_opts *o) {
   /* The framework is still in the middle of switching the radio off. */
   sleep(2);
   struct vap_opts again = *o;
-  /* start truncates the log, and with it the hours that led here. */
-  vap_log("ap0 is gone - the Wi-Fi driver was unloaded under the hotspot.");
-  rename(VAP_LOG, VAP_LOG ".prev");
   int rc = cmd_start(&again);
   if (rc == 0)
     vap_log("The Wi-Fi driver was unloaded - the hotspot started again.");

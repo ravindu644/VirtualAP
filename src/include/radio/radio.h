@@ -61,10 +61,6 @@ int radio_wake(const char *phy_iface);
 /* After ap0 is gone: take out the Wi-Fi module radio_wake loaded, unless
  * Wi-Fi has been switched on since. */
 void radio_release(void);
-/* Standalone mode, once ap0 exists: a kernel wake lock until radio_release.
- * With Wi-Fi off the framework holds none for a hotspot it does not know of,
- * and the phone suspending silences the beacons. */
-void radio_hold(void);
 /* nl80211_phy_info for a wiphy index. 0 or -errno, *out zeroed either way. */
 int nl80211_phy_info_idx(int wiphy, struct phy_info *out);
 /* `iw phy phyN interface add name type __ap`. 0 or -errno. */

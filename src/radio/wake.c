@@ -153,17 +153,7 @@ static bool wifi_in_use(void) {
   return up;
 }
 
-#define WAKE_LOCK "virtualap"
-
-void radio_hold(void) {
-  if (write_file("/sys/power/wake_lock", WAKE_LOCK) == 0)
-    vap_log("Holding a wake lock so the radio keeps beaconing with the "
-            "screen off.");
-}
-
 void radio_release(void) {
-  /* An unknown name is refused, which is all a stop without a hold gets. */
-  write_file("/sys/power/wake_unlock", WAKE_LOCK);
   char name[64];
   if (read_file(LOADED_MARK, name, sizeof(name)) <= 0)
     return;
