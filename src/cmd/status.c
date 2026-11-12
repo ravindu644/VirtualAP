@@ -196,7 +196,12 @@ int cmd_interfaces(struct vap_opts *o) {
 int cmd_caps(struct vap_opts *o) {
   struct phy_info phy;
   char mac[18];
-  nl80211_phy_info(o->phy_iface, &phy);
+  /* With Wi-Fi off wlan0 may be gone while the radio is not: ask the wiphy. */
+  if (nl80211_phy_info(o->phy_iface, &phy) < 0) {
+    int w = nl80211_find_wiphy(NULL);
+    if (w >= 0)
+      nl80211_phy_info_idx(w, &phy);
+  }
   wifi_mac(o->phy_iface, mac);
   printf("ht40=%d\n", phy.band[BAND_5].ht40);
   printf("vht=%d\n", phy.band[BAND_5].vht);

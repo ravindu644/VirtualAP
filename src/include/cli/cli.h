@@ -32,6 +32,7 @@ struct vap_opts {
   char ipv6[OPT_LEN];
   char container[OPT_LEN];
   char gw_mac[OPT_LEN];
+  char standalone[OPT_LEN];
   /* What follows the options, NULL terminated: block and unblock take a MAC. */
   char **args;
 };

@@ -18,6 +18,7 @@ data class APConfig(
     val pmf: Boolean = false,        // Protected Management Frames (wpa2 only)
     val ttlFix: Boolean = false,     // forwarded packets leave with TTL 64
     val ipv6: Boolean = true,        // IPv6 for clients: NAT66, or the upstream's /64
+    val standalone: Boolean = false, // ap0 straight on the Wi-Fi chip: works with the phone's Wi-Fi off
     val containerMode: Boolean = false,
     val containerName: String = "",
     val macMode: String = "random",  // random | persistent | static, managed mode only
@@ -57,6 +58,7 @@ data class APConfig(
         "PMF" to pmf.flag(),
         "TTL_FIX" to ttlFix.flag(),
         "IPV6" to ipv6.flag(),
+        "STANDALONE" to standalone.flag(),
         "CONTAINER" to if (containerMode) containerName else "",
         "GW_MAC" to if (macMode == "random") "" else gatewayMac,
         "MAC_MODE" to macMode
@@ -92,6 +94,7 @@ data class APConfig(
                 pmf = bool("PMF", defaults.pmf),
                 ttlFix = bool("TTL_FIX", defaults.ttlFix),
                 ipv6 = bool("IPV6", defaults.ipv6),
+                standalone = bool("STANDALONE", defaults.standalone),
                 containerMode = container.isNotEmpty(),
                 containerName = container,
                 // A file from before MAC_MODE: a kept MAC is what persistent means.

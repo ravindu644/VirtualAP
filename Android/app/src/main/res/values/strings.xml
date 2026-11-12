@@ -105,6 +105,8 @@
     <string name="pmf_label">Protected Management Frames</string>
     <string name="pmf_desc">Adds 802.11w protection to WPA2. Leave off if older devices fail to connect</string>
     <!-- TTL is the IP header field, keep the abbreviation -->
+    <string name="standalone_label">Standalone Wi-Fi</string>
+    <string name="standalone_desc">Create the hotspot straight on the Wi-Fi chip, so it works with the phone\'s own Wi-Fi turned off and shares mobile data (4G/5G)</string>
     <string name="ttl_fix_label">TTL fix</string>
     <string name="ttl_fix_desc">Send clients\' traffic with the same TTL as the phone\'s own, so the operator cannot tell it is tethered</string>
     <string name="ttl_fix_unsupported">Not supported by this kernel</string>

@@ -75,9 +75,10 @@ bool dns_any(const char *dns);
 
 /* ap.c: What both modes share: ap0 itself and the daemons on it. */
 
-/* Create ap0 on the physical Wi-Fi interface, after removing a stale one.
- * 0, or -1 after logging why. */
-int ap_iface_create(const char *phy_iface);
+/* Create ap0 after removing a stale one: on the physical Wi-Fi interface, or,
+ * in standalone mode (-S 1), on the Wi-Fi chip's wiphy itself, so wlan0 may
+ * be down or gone. 0, or -1 after logging why. */
+int ap_iface_create(const struct vap_opts *o);
 /* nl80211's delete, the link delete when the driver will not. */
 void ap_iface_del(void);
 /* Band, channel and width for -b/-c/-W, the station and the chip, the 5 GHz

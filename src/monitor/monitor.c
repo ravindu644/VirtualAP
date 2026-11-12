@@ -13,11 +13,13 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
+#include "cmd/cmd.h"
 #include "core/core.h"
 #include "mode/mode.h"
 
@@ -114,6 +116,31 @@ static void watch_container(const struct vap_opts *o) {
     misses = 0;
 }
 
+/* ap0 vanished under a standalone AP: the Wi-Fi driver was unloaded (Wi-Fi
+ * switched off by hand), which takes the interface and the radio with it.
+ * Start the hotspot again from scratch, as a restart does, in a process of
+ * its own: start stops this monitor, so it cannot run in it. */
+static void revive(const struct vap_opts *o) {
+  pid_t monitor = getpid();
+  if (fork() != 0)
+    return;
+  /* The monitor blocked SIGTERM for its signalfd and ignored SIGHUP; the
+   * daemons the new start forks must not inherit either. */
+  sigset_t none;
+  sigemptyset(&none);
+  sigprocmask(SIG_SETMASK, &none, NULL);
+  signal(SIGHUP, SIG_DFL);
+  while (getppid() == monitor)
+    usleep(100 * 1000);
+  /* The framework is still in the middle of switching the radio off. */
+  sleep(2);
+  struct vap_opts again = *o;
+  int rc = cmd_start(&again);
+  if (rc == 0)
+    vap_log("The Wi-Fi driver was unloaded - the hotspot started again.");
+  _exit(rc ? 1 : 0);
+}
+
 static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
                 int ready) {
   struct nl nl = {-1, 0};
@@ -127,6 +154,7 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
 
   long long beat = now_ms(), due = 0, first = 0;
   int beats = 0;
+  bool revived = false;
   for (;;) {
     long long t = now_ms(), until = beat + BEAT_MS;
     if (due && due < until)
@@ -155,8 +183,13 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
     due = 0;
     /* A stop whose signal it missed, or an AP gone under it: nothing left
      * to keep right, and putting rules back would only leak them. */
-    if (access(VAP_STATE, F_OK) < 0 || !if_nametoindex(AP_IFACE))
+    if (access(VAP_STATE, F_OK) < 0)
       break;
+    if (!if_nametoindex(AP_IFACE)) {
+      /* Standalone mode owns the radio, so its AP is worth bringing back. */
+      revived = !strcmp(o->standalone, "1");
+      break;
+    }
     if (!r) {
       watch_container(o);
     } else if (reprobe(&nl, o, r)) {
@@ -176,6 +209,8 @@ static void run(const struct vap_opts *o, struct routed *r, int ev, int sig,
     }
   }
   unlink(MONITOR_PID);
+  if (revived)
+    revive(o);
   _exit(0);
 }
 

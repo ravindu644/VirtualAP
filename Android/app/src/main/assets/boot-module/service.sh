@@ -63,7 +63,11 @@ fi
 [ -f "${VAP_DIR}/ap.conf" ] && . "${VAP_DIR}/ap.conf"
 PHY_IFACE=${PHY_IFACE:-wlan0}
 
-wait_for "${PHY_IFACE}" [ -e "/sys/class/net/${PHY_IFACE}" ]
+# Standalone mode runs without wlan0 (the phone's Wi-Fi may be off), so there is
+# nothing to wait for.
+if [ "${STANDALONE}" != "1" ]; then
+    wait_for "${PHY_IFACE}" [ -e "/sys/class/net/${PHY_IFACE}" ]
+fi
 # Managed mode refuses to start without its gateway container, which Droidspaces
 # starts on its own at boot. An upstream can come later, the hotspot follows it.
 if [ -n "${CONTAINER}" ]; then

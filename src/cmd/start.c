@@ -93,6 +93,8 @@ int cmd_start(struct vap_opts *o) {
   }
   if (strcmp(o->hidden, "1"))
     strcpy(o->hidden, "0");
+  if (strcmp(o->standalone, "1"))
+    strcpy(o->standalone, "0");
   /* WPA-PSK and SAE passphrases are 8-63 bytes; open networks carry none. */
   size_t plen = strlen(o->password);
   if (strcmp(o->security, "open") && (plen < 8 || plen > 63)) {

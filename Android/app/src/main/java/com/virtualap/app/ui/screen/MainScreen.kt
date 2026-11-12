@@ -655,7 +655,18 @@ private fun AdvancedCard(vm: APViewModel) {
             )
         }
 
-        // Last, because the two above are radio settings and this one is about
+        // A radio setting too: ap0 is made on the Wi-Fi chip itself, so the hotspot
+        // can run on mobile data with the phone's own Wi-Fi switched off.
+        ToggleCard(
+            title = stringResource(R.string.standalone_label),
+            description = stringResource(R.string.standalone_desc),
+            checked = vm.config.standalone,
+            onCheckedChange = { vm.config = vm.config.copy(standalone = it) },
+            enabled = editable,
+            icon = Icons.Default.WifiTethering
+        )
+
+        // Last, because the ones above are radio settings and this one is about
         // routing. It needs kernel support, so it is greyed out without it.
         ToggleCard(
             title = stringResource(R.string.ttl_fix_label),

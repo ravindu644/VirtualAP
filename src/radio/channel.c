@@ -177,8 +177,8 @@ static void country(char cc[3]) {
   }
 }
 
-void ensure_5g_ir(struct plan *p, const char *phy_iface, const struct sta *s,
-                  struct phy_info *phy) {
+void ensure_5g_ir(struct plan *p, const char *phy_iface, int wiphy,
+                  const struct sta *s, struct phy_info *phy) {
   if (!chan_no_ir(phy, p->channel))
     return;
   char cc[3], sock[128], cmd[32];
@@ -196,7 +196,8 @@ void ensure_5g_ir(struct plan *p, const char *phy_iface, const struct sta *s,
   /* A refresh that failed proves nothing: the channel stays NO-IR, and the
    * capabilities the width is planned from stay what they were. */
   struct phy_info fresh;
-  bool ok = nl80211_phy_info(phy_iface, &fresh) == 0;
+  bool ok = (wiphy >= 0 ? nl80211_phy_info_idx(wiphy, &fresh)
+                        : nl80211_phy_info(phy_iface, &fresh)) == 0;
   if (ok)
     *phy = fresh;
   if (!ok || chan_no_ir(phy, p->channel)) {

@@ -13,6 +13,9 @@ traffic goes: mobile data, Wi-Fi, or a VPN.
 - **Share a VPN.** Every device on the hotspot goes through your phone's VPN. Nothing to
   install on the TV, the console or the laptop.
 - **Repeat Wi-Fi.** Stay connected to a Wi-Fi network and rebroadcast it as your own.
+- **Share mobile data with the phone's Wi-Fi off.** Turn on *Standalone Wi-Fi* and the
+  hotspot is created on the Wi-Fi chip itself, without wlan0 up or connected. Choose
+  Auto or your mobile interface as the upstream and share 4G/5G.
 - **Keep a fixed gateway.** The gateway address never changes, so port forwards and saved
   SSH targets keep working.
 - **Tune the radio.** 2.4 or 5 GHz, channel and width, WPA2 or WPA3, hidden network name.
