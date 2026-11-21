@@ -2,6 +2,7 @@
  * Copyright (c) 2026 ravindu644
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include <errno.h>
+#include <linux/nl80211.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -10,8 +11,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../src/mode/internal.h"
 #include "../src/radio/internal.h"
 #include "check.h"
+#include "core/core.h"
 #include "radio/radio.h"
 
 static struct plan plan(const char *band, const char *ch, int sta_freq,
@@ -83,6 +86,16 @@ static void test_wpa_ctrl(void) {
 }
 
 void test_radio(void) {
+  char marker[96], marker_text[8];
+  tmp_path(marker, sizeof(marker));
+  CHECK(ap_iface_mark_borrowed(marker) == 0);
+  CHECK(read_file(marker, marker_text, sizeof(marker_text)) == 1 &&
+        !strcmp(marker_text, "1"));
+  unlink(marker);
+  CHECK(ap_iface_borrowable(NL80211_IFTYPE_AP, 0));
+  CHECK(!ap_iface_borrowable(NL80211_IFTYPE_AP, 1));
+  CHECK(!ap_iface_borrowable(NL80211_IFTYPE_STATION, 0));
+  CHECK(!ap_iface_borrowable(-ENODEV, 0));
   test_wpa_ctrl();
   struct sta s;
   sta_from_freq(2437, &s);

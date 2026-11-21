@@ -89,6 +89,8 @@ int in_netns(int fd, int (*fn)(void *arg), void *arg);
 
 /* Every call returns 0 or -errno, as the kernel answered. */
 int link_set_up(struct nl *nl, const char *ifname, bool up);
+/* 1 when IFF_UP, 0 when down, or -errno. */
+int link_is_up(const char *ifname);
 /* 0 also when it was already gone. */
 int link_del(struct nl *nl, const char *ifname);
 /* master NULL releases the link from its bridge. */

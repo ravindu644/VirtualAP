@@ -223,6 +223,27 @@ int nl80211_width(const char *ifname) {
   return width;
 }
 
+static void iftype_cb(const struct nlmsghdr *h, void *arg) {
+  struct rtattr *tb[NL80211_ATTR_MAX + 1];
+  genl_parse(tb, NL80211_ATTR_MAX, h);
+  if (tb[NL80211_ATTR_IFTYPE])
+    *(int *)arg = (int)nl_u32(tb[NL80211_ATTR_IFTYPE]);
+}
+
+int nl80211_iftype(const char *ifname) {
+  struct session s;
+  int ret = open_nl80211(&s);
+  if (ret < 0)
+    return ret;
+  struct nl_req r;
+  ret = req_for(&s, &r, NL80211_CMD_GET_INTERFACE, ifname);
+  int type = -EOPNOTSUPP;
+  if (ret == 0)
+    ret = nl_get(&s.nl, &r, iftype_cb, &type);
+  nl_close(&s.nl);
+  return ret < 0 ? ret : type;
+}
+
 int nl80211_add_ap(const char *phy_iface, const char *name) {
   struct session s;
   int ret = open_nl80211(&s);

@@ -13,6 +13,9 @@
 #include <net/if.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 /* RTM_NEWLINK on an existing link, by index. */
 static struct ifinfomsg *change(struct nl_req *r, const char *ifname,
@@ -38,6 +41,18 @@ int link_set_up(struct nl *nl, const char *ifname, bool up) {
   i->ifi_flags = up ? IFF_UP : 0;
   i->ifi_change = IFF_UP;
   return nl_talk(nl, &r);
+}
+
+int link_is_up(const char *ifname) {
+  int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  if (fd < 0)
+    return -errno;
+  struct ifreq ifr = {0};
+  snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+  int ret = ioctl(fd, SIOCGIFFLAGS, &ifr) < 0 ? -errno
+                                               : !!(ifr.ifr_flags & IFF_UP);
+  close(fd);
+  return ret;
 }
 
 int link_del(struct nl *nl, const char *ifname) {
