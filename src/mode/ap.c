@@ -4,7 +4,9 @@
 #include "mode/mode.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
+#include <linux/nl80211.h>
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <signal.h>
@@ -313,7 +315,40 @@ void arp_find(const char *arp, const char *mac, const char *gw, char ip[16]) {
     strcpy(ip, other);
 }
 
+bool ap_iface_borrowable(int iftype, int up) {
+  return iftype == NL80211_IFTYPE_AP && up == 0;
+}
+
+static void borrowed_marker(FILE *f, const void *arg) {
+  (void)arg;
+  fputs("1\n", f);
+}
+
+int ap_iface_mark_borrowed(const char *path) {
+  return write_atomic(path, 0600, borrowed_marker, NULL);
+}
+
+int ap_iface_release_borrowed(struct nl *nl, const char *ifname) {
+  int master = link_set_master(nl, ifname, NULL);
+  int flush = addr_flush(nl, ifname, AF_UNSPEC, false);
+  int down = link_set_up(nl, ifname, false);
+  return master < 0 ? master : flush < 0 ? flush : down;
+}
+
 void ap_iface_del(void) {
+  if (access(VAP_AP_BORROWED, F_OK) == 0) {
+    struct nl nl;
+    if (nl_open(&nl) == 0) {
+      int reset = ap_iface_release_borrowed(&nl, AP_IFACE);
+      nl_close(&nl);
+      if (reset < 0)
+        vap_warn("Could not fully reset borrowed %s; leaving it present.",
+                 AP_IFACE);
+    } else {
+      vap_warn("Could not reset borrowed %s; leaving it present.", AP_IFACE);
+    }
+    return;
+  }
   if (nl80211_del(AP_IFACE) == 0)
     return;
   struct nl nl;
@@ -325,7 +360,35 @@ void ap_iface_del(void) {
 
 int ap_iface_create(const char *phy_iface) {
   vap_log("Creating virtual AP interface '%s' on %s...", AP_IFACE, phy_iface);
-  ap_iface_del();
+  int type = nl80211_iftype(AP_IFACE);
+  if (type >= 0) {
+    int up = link_is_up(AP_IFACE);
+    if (up < 0) {
+      vap_error("Cannot inspect existing %s state: %s", AP_IFACE,
+                strerror(-up));
+      return -1;
+    }
+    if (!ap_iface_borrowable(type, up)) {
+      if (type != NL80211_IFTYPE_AP)
+        vap_error("Existing %s is not an AP interface; refusing to replace it.",
+                  AP_IFACE);
+      else
+        vap_error("Existing %s is active; stop Android's hotspot first.",
+                  AP_IFACE);
+      return -1;
+    }
+    if (ap_iface_mark_borrowed(VAP_AP_BORROWED) < 0) {
+      vap_error("Cannot record ownership of existing %s.", AP_IFACE);
+      return -1;
+    }
+    vap_log("Using existing idle AP interface '%s'.", AP_IFACE);
+    return 0;
+  }
+  if (type != -ENODEV) {
+    vap_error("Cannot inspect existing %s: %s", AP_IFACE, strerror(-type));
+    return -1;
+  }
+  unlink(VAP_AP_BORROWED);
   int ret = nl80211_add_ap(phy_iface, AP_IFACE);
   if (ret < 0) {
     /* What iw printed, which the app's log showed. */

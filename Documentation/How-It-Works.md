@@ -166,6 +166,14 @@ the `iptables` binary.
 
 ## The radio
 
+VirtualAP normally creates `ap0` itself. Some Android Wi-Fi frameworks leave an idle AP
+interface in place, while their driver refuses to create a replacement after it is deleted.
+When `ap0` already exists, the backend borrows it only if nl80211 reports AP type and the
+link is down. Stop removes VirtualAP's bridge and addresses and brings the link down, but
+leaves the framework-owned interface present. An active interface, another interface type
+or an inspection failure is refused rather than replaced. Phones without an existing
+`ap0` keep the normal create and delete path.
+
 Most phone chips can only beacon on the channel the station is connected to, so the
 backend follows the station's channel when it fits the band. The station's channel comes
 from the frequency of the BSS it is associated with in the scan results, which is what

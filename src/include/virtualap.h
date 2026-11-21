@@ -13,6 +13,7 @@
 #define VAP_RUN VAP_BASE "/run"
 #define VAP_CONF VAP_BASE "/ap.conf"
 #define VAP_STATE VAP_BASE "/run.state"
+#define VAP_AP_BORROWED VAP_RUN "/ap0.borrowed"
 #define VAP_LOG VAP_BASE "/logs/ap.log"
 /* Per-daemon logs, so a crash leaves a trace: both daemonize and would
  * otherwise drop their output into the void. */

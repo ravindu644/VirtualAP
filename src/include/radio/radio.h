@@ -41,6 +41,8 @@ int nl80211_sta_freq(const char *ifname);
 /* The width the radio actually runs ifname at, in MHz, 0 when the driver
  * does not say (Broadcom FullMAC often does not). */
 int nl80211_width(const char *ifname);
+/* The NL80211_IFTYPE_* of ifname, or -errno. */
+int nl80211_iftype(const char *ifname);
 /* `iw dev phy_iface interface add name type __ap`. 0 or -errno. */
 int nl80211_add_ap(const char *phy_iface, const char *name);
 /* `iw dev name del`. 0 or -errno (-ENODEV when it is not there). */

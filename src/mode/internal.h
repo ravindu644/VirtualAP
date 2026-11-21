@@ -75,10 +75,17 @@ bool dns_any(const char *dns);
 
 /* ap.c: What both modes share: ap0 itself and the daemons on it. */
 
-/* Create ap0 on the physical Wi-Fi interface, after removing a stale one.
- * 0, or -1 after logging why. */
+/* True only for an idle interface the framework already created as an AP. */
+bool ap_iface_borrowable(int iftype, int up);
+/* Create or replace the durable ownership marker. */
+int ap_iface_mark_borrowed(const char *path);
+/* Return a borrowed interface to an idle, unconfigured state without deleting
+ * it. 0 or the first -errno from the reset. */
+int ap_iface_release_borrowed(struct nl *nl, const char *ifname);
+/* Create ap0 on the physical Wi-Fi interface, or borrow an idle AP interface
+ * of that name. 0, or -1 after logging why. */
 int ap_iface_create(const char *phy_iface);
-/* nl80211's delete, the link delete when the driver will not. */
+/* Release a borrowed interface in place, otherwise delete the one we made. */
 void ap_iface_del(void);
 /* Band, channel and width for -b/-c/-W, the station and the chip, the 5 GHz
  * NO-IR fix included. */

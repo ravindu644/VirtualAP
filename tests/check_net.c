@@ -115,6 +115,8 @@ static void test_netlink(void) {
   struct nl nl;
   CHECK(nl_open(&nl) == 0);
   CHECK(link_set_up(&nl, "lo", true) == 0);
+  CHECK(link_is_up("lo") == 1);
+  CHECK(link_is_up("virtualap-no-such-interface") == -ENODEV);
 
   /* Links: a bridge, a veth at the managed-mode MTU, a MAC, a master. */
   static const uint8_t mac[6] = {0x02, 0x11, 0x22, 0x33, 0x44, 0x55};
@@ -128,6 +130,10 @@ static void test_netlink(void) {
   CHECK(link_set_master(&nl, "vt-h", "vt-br0") == 0);
   CHECK(link_set_up(&nl, "vt-h", true) == 0);
   CHECK(link_set_up(&nl, "vt-p", true) == 0);
+  CHECK(ap_iface_release_borrowed(&nl, "vt-h") == 0);
+  CHECK(if_nametoindex("vt-h") > 0 && link_is_up("vt-h") == 0);
+  CHECK(access("/sys/class/net/vt-h/master", F_OK) < 0);
+  CHECK(link_set_up(&nl, "vt-h", true) == 0);
   CHECK(ifreq_get("vt-h", SIOCGIFFLAGS, &ifr) == 0 && (ifr.ifr_flags & IFF_UP));
   CHECK(link_set_master(&nl, "vt-h", NULL) == 0);
 
